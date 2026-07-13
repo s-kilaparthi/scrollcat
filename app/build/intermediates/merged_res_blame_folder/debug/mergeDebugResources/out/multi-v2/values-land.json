@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.scrollcat.app-mergeDebugResources-2:/values-land/values-land.xml",
+            "outputFile": "com.example.scrollcat.app-mergeDebugResources-28:/values-land/values-land.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/ee2b460f03dbef74878497286c0c0ed6/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-land/values-land.xml",
+                    "source": "/home/skilaparthi/.gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-land/values-land.xml",
                     "from": {
                         "startLines": "2,3,4",
                         "startColumns": "4,4,4",
