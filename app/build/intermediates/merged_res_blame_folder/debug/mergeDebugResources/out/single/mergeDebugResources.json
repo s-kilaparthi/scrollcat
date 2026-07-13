@@ -1,0 +1,6 @@
+[
+    {
+        "merged": "com.example.scrollcat.app-debug-27:/xml_accessibility_service_config.xml.flat",
+        "source": "com.example.scrollcat.app-main-29:/xml/accessibility_service_config.xml"
+    }
+]
