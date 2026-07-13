@@ -28,12 +28,37 @@ class AiReplyGenerator(private val context: Context) {
         const val SUGGESTION_COUNT = 3
         private const val GENERATION_TIMEOUT_MS = 10_000L
 
+        // Free tier: 10 AI replies per day, reset at midnight
+        const val FREE_DAILY_LIMIT = 10
+        const val ENGINE_LIMIT_REACHED = "limit_reached"
+        const val UPGRADE_MESSAGE =
+            "You've used your 10 free AI replies today. Upgrade to Creator for unlimited! ⭐"
+        private const val USAGE_PREFS = "scrollcat_usage"
+
         /** Last-resort suggestions when every AI engine fails. */
         val HARDCODED_FALLBACK = listOf(
             "Sure!",
             "On my way!",
             "Let me check and get back to you"
         )
+
+        /** Remaining free generations today (Int.MAX_VALUE for Pro users). */
+        fun remainingFreeReplies(context: Context): Int {
+            if (BillingManager.getInstance(context).isPro()) return Int.MAX_VALUE
+            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
+            val today = todayKey()
+            val count = if (prefs.getString("date", "") == today) prefs.getInt("count", 0) else 0
+            return (FREE_DAILY_LIMIT - count).coerceAtLeast(0)
+        }
+
+        private fun todayKey(): String {
+            val cal = java.util.Calendar.getInstance()
+            return "%04d-%02d-%02d".format(
+                cal.get(java.util.Calendar.YEAR),
+                cal.get(java.util.Calendar.MONTH) + 1,
+                cal.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+        }
 
         /**
          * Persona instruction built from the onboarding profile.
@@ -78,6 +103,13 @@ class AiReplyGenerator(private val context: Context) {
         message: String,
         onResult: (suggestions: List<String>, engine: String) -> Unit
     ) {
+        // Free tier daily cap — Pro (Creator/Business) is unlimited
+        if (!consumeDailyQuota()) {
+            Log.i(TAG, "Free daily reply limit reached")
+            mainHandler.post { onResult(emptyList(), ENGINE_LIMIT_REACHED) }
+            return
+        }
+
         val cached = geminiNanoAvailable
         if (cached == false) {
             generateWithSmartReply(sender, message, onResult)
@@ -110,6 +142,21 @@ class AiReplyGenerator(private val context: Context) {
                 }
             }
         }, mainExecutor)
+    }
+
+    /**
+     * Counts one generation against today's free quota.
+     * Returns false when the free limit is exhausted (and the user isn't Pro).
+     */
+    private fun consumeDailyQuota(): Boolean {
+        if (BillingManager.getInstance(context).isPro()) return true
+        val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
+        val today = todayKey()
+        var count = if (prefs.getString("date", "") == today) prefs.getInt("count", 0) else 0
+        if (count >= FREE_DAILY_LIMIT) return false
+        count++
+        prefs.edit().putString("date", today).putInt("count", count).apply()
+        return true
     }
 
     private fun startModelDownload() {

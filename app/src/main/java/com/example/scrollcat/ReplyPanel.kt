@@ -175,6 +175,22 @@ class ReplyPanel(
             // User may have closed the panel or skipped to another message
             if (!isShowing || current != message) return@generateReplies
             suggestionsBox.removeAllViews()
+            if (engine == AiReplyGenerator.ENGINE_LIMIT_REACHED) {
+                suggestionsBox.addView(TextView(context).apply {
+                    text = AiReplyGenerator.UPGRADE_MESSAGE
+                    textSize = 13f
+                    setTextColor(0xFFFFD37A.toInt())
+                    gravity = Gravity.CENTER
+                    setPadding(8, 12, 8, 12)
+                    setOnClickListener {
+                        val intent = android.content.Intent(context, SubscriptionActivity::class.java)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        dismiss()
+                    }
+                })
+                return@generateReplies
+            }
             if (suggestions.isEmpty()) {
                 suggestionsBox.addView(TextView(context).apply {
                     text = "😿 Couldn't think of a reply"

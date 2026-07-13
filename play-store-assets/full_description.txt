@@ -1,0 +1,52 @@
+🐱 ScrollCat — Your AI Cat Companion for Smart Replies
+
+Meet ScrollCat: an adorable floating cat that lives on your screen, watches your notifications, and writes AI-powered replies to your DMs — across WhatsApp, Instagram, Telegram, Messenger, Discord and more. Reply without ever opening the app.
+
+━━━━━━━━━━━━━━━━━━━━━
+✨ SMART AI REPLIES
+━━━━━━━━━━━━━━━━━━━━━
+When a message arrives, a badge appears on your cat. Tap it and ScrollCat instantly suggests 3 replies written in YOUR voice — powered by Gemini Nano running entirely on your device. Pick one and it's sent straight through the app's own reply system. No app switching, no typing, no broken flow.
+
+━━━━━━━━━━━━━━━━━━━━━
+🤖 AUTO-REPLY RULES
+━━━━━━━━━━━━━━━━━━━━━
+Set up keyword triggers and let the cat handle the routine stuff:
+• "price, cost, how much" → your rate card, sent automatically
+• "booking, appointment" → your availability message
+• Up to 10 custom rules, each with its own reply
+
+━━━━━━━━━━━━━━━━━━━━━
+📱 MADE FOR CREATORS
+━━━━━━━━━━━━━━━━━━━━━
+Instagram influencers: stop drowning in DMs. ScrollCat learns your niche and tone during setup, so brand collab inquiries, fan messages and rate card requests get answered in seconds — sounding authentically like you.
+
+━━━━━━━━━━━━━━━━━━━━━
+🏢 BUILT FOR SMALL BUSINESS
+━━━━━━━━━━━━━━━━━━━━━
+Salon, restaurant, plumbing, coaching or retail — every missed message is a missed customer. ScrollCat answers customer questions professionally the moment they arrive, even while you're busy working.
+
+━━━━━━━━━━━━━━━━━━━━━
+🐾 A COMPANION, NOT JUST A TOOL
+━━━━━━━━━━━━━━━━━━━━━
+• Scroll feeds and reels with a tap or flick of the cat
+• The cat dances to your music, sleeps when you're idle, reacts to the apps you open
+• Gesture controls: swipe for back, recents, screenshots and more
+• Screen translation bubbles for foreign-language text
+• Break reminders when you've been scrolling too long
+
+━━━━━━━━━━━━━━━━━━━━━
+🔒 PRIVACY FIRST
+━━━━━━━━━━━━━━━━━━━━━
+• AI runs ON YOUR DEVICE — messages are never stored on our servers
+• No analytics, no ads, no tracking
+• Notification content is processed in memory and discarded
+• Optional: bring your own Claude API key for premium cloud replies (opt-in only)
+
+━━━━━━━━━━━━━━━━━━━━━
+⭐ SCROLLCAT PRO
+━━━━━━━━━━━━━━━━━━━━━
+Free: 10 AI replies per day, basic gestures
+Creator ($4.99/mo): unlimited AI replies, all gestures, custom tone, priority support
+Business ($9.99/mo): everything in Creator + auto-reply rules, business tone AI, analytics
+
+Download ScrollCat today — and let the cat answer your DMs. 🐱

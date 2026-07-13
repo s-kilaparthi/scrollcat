@@ -41,6 +41,7 @@ object ReplySender {
         return try {
             action.actionIntent.send(context, 0, intent)
             Log.i(TAG, "Reply sent to ${message.sender} via ${message.packageName}")
+            RateUsManager.recordReplySent(context)
             // Dismiss the notification we just replied to so it doesn't linger
             try {
                 CatNotificationListener.instance?.cancelNotification(message.notificationKey)

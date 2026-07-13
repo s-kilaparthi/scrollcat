@@ -1,0 +1,124 @@
+/* ScrollCat — injected styles (dark theme) */
+
+.scrollcat-button {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  background: #1a1a1a;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  transition: all 0.3s ease;
+  user-select: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.scrollcat-button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+
+.scrollcat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  background: #4a90d9;
+  border-radius: 50%;
+  font-size: 12px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+@keyframes scrollcat-bounce-anim {
+  0%   { transform: translateY(0); }
+  30%  { transform: translateY(-14px); }
+  55%  { transform: translateY(0); }
+  75%  { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+.scrollcat-bounce {
+  animation: scrollcat-bounce-anim 0.6s ease;
+}
+
+.scrollcat-panel {
+  position: fixed;
+  background: #1a1a1a;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 999998;
+  min-width: 280px;
+  max-width: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  animation: scrollcat-fade-in 0.2s ease;
+}
+
+@keyframes scrollcat-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.scrollcat-panel-title {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  padding-right: 24px;
+}
+
+.scrollcat-chip {
+  background: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.scrollcat-chip:hover {
+  background: #4a90d9;
+  border-color: #4a90d9;
+}
+
+.scrollcat-thinking {
+  color: #888888;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.scrollcat-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #888888;
+  cursor: pointer;
+  font-size: 18px;
+  background: none;
+  border: none;
+  line-height: 1;
+  padding: 2px;
+}
+
+.scrollcat-dismiss:hover {
+  color: #ffffff;
+}

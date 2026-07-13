@@ -12,7 +12,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1"
+        versionName = "1.0"
     }
 
     buildTypes {
@@ -47,4 +47,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.json:json:20231013")
+    // Subscriptions + Play Store review prompt
+    implementation("com.android.billingclient:billing:6.2.1")
+    implementation("com.google.android.play:review:2.0.1")
 }

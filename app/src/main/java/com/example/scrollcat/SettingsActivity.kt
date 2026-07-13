@@ -466,6 +466,17 @@ class SettingsActivity : Activity() {
             root.addView(divider())
         }
 
+        // Legal
+        root.addView(TextView(this).apply {
+            text = "🔒 Privacy Policy"
+            textSize = 14f
+            setTextColor(0xFF4A90D9.toInt())
+            setPadding(0, 24, 0, 24)
+            setOnClickListener {
+                startActivity(android.content.Intent(this@SettingsActivity, PrivacyPolicyActivity::class.java))
+            }
+        })
+
         val scrollView = ScrollView(this)
         scrollView.addView(root)
         setContentView(scrollView)

@@ -4,7 +4,7 @@
             "outputFile": "com.example.scrollcat.app-mergeDebugResources-2:/values-v18/values-v18.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v18/values-v18.xml",
+                    "source": "/tmp/cursor-sandbox-cache/ee2b460f03dbef74878497286c0c0ed6/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v18/values-v18.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

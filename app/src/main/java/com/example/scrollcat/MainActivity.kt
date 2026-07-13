@@ -19,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat
 class MainActivity : Activity() {
 
     private lateinit var status: TextView
+    private var btnUpgrade: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +30,11 @@ class MainActivity : Activity() {
             finish()
             return
         }
+
+        CrashReportingHelper.showCrashDialogIfNeeded(this)
+        RateUsManager.recordAppOpen(this)
+        // Refresh subscription entitlements from Play on launch
+        BillingManager.getInstance(this).startConnection()
 
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
@@ -116,7 +122,34 @@ class MainActivity : Activity() {
             }
         }
         layout.addView(btnSettings)
+
+        // Pro upgrade — hidden once subscribed (visibility updated in onResume)
+        btnUpgrade = Button(this).apply {
+            text = "⭐ Upgrade to Pro"
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, SubscriptionActivity::class.java))
+            }
+        }
+        layout.addView(btnUpgrade)
+
         layout.addView(status)
+
+        // Footer: privacy policy link + version
+        layout.addView(TextView(this).apply {
+            text = "Privacy Policy"
+            textSize = 13f
+            setTextColor(0xFF4A90D9.toInt())
+            setPadding(0, 32, 0, 4)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, PrivacyPolicyActivity::class.java))
+            }
+        })
+        layout.addView(TextView(this).apply {
+            text = "ScrollCat v1.0"
+            textSize = 12f
+            setTextColor(0xFF999999.toInt())
+        })
+
         setContentView(layout)
         ViewCompat.setOnApplyWindowInsetsListener(layout) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -127,13 +160,21 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // status is only initialized when onboarding is complete
+        if (!::status.isInitialized) return
+
         val overlayOk = Settings.canDrawOverlays(this)
         val a11yOk = CatAccessibilityService.instance != null
         val notifOk = CatNotificationListener.instance != null
+        val isPro = BillingManager.getInstance(this).isPro()
         status.text = buildString {
             append(if (overlayOk) "Overlay: granted\n" else "Overlay: NOT granted\n")
             append(if (a11yOk) "Accessibility: enabled\n" else "Accessibility: NOT enabled\n")
-            append(if (notifOk) "Notification access: enabled" else "Notification access: NOT enabled")
+            append(if (notifOk) "Notification access: enabled\n" else "Notification access: NOT enabled\n")
+            append(if (isPro) "Plan: Pro ⭐" else "Plan: Free (10 AI replies/day)")
         }
+        btnUpgrade?.visibility = if (isPro) android.view.View.GONE else android.view.View.VISIBLE
+
+        RateUsManager.maybeShowRatePrompt(this)
     }
 }

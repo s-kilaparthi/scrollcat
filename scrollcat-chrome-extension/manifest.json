@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "ScrollCat — AI Reply Assistant",
+  "version": "1.0.0",
+  "description": "Your AI cat that suggests smart replies on Gmail, WhatsApp Web, Slack, and Instagram",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://web.whatsapp.com/*",
+    "https://app.slack.com/*",
+    "https://www.instagram.com/*",
+    "https://twitter.com/*",
+    "https://x.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://web.whatsapp.com/*",
+        "https://app.slack.com/*",
+        "https://www.instagram.com/*",
+        "https://twitter.com/*",
+        "https://x.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "ScrollCat" },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    { "resources": ["icons/*"], "matches": ["<all_urls>"] }
+  ]
+}
