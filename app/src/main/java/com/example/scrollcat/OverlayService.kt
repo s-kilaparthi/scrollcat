@@ -78,6 +78,8 @@ class OverlayService : Service() {
     var screenTranslator: ScreenTranslator? = null
     private var translationBubble: android.widget.TextView? = null
     private val translationHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var catMessageBubble: android.widget.TextView? = null
+    private val catMessageHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val audioManager by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
     private var volumeUIShown = false
     private var isVolumeMode = false
@@ -912,6 +914,57 @@ class OverlayService : Service() {
         translationHandler.removeCallbacksAndMessages(null)
     }
 
+    /**
+     * Short status bubble above the cat, e.g. "Auto-replied to Sam ✓".
+     * Auto-hides after 3 seconds.
+     */
+    fun showCatMessage(text: String) {
+        hideCatMessage()
+
+        val catX = layoutParams?.x ?: 60
+        val catY = layoutParams?.y ?: 600
+
+        val bubble = android.widget.TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            setTextColor(android.graphics.Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            maxWidth = 600
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xE61A1A2E.toInt())
+                cornerRadius = 24f
+                setStroke(1, 0x44FFFFFF)
+            }
+            setPadding(28, 16, 28, 16)
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            x = catX
+            y = (catY - 120).coerceAtLeast(0)
+        }
+
+        windowManager.addView(bubble, params)
+        catMessageBubble = bubble
+        catMessageHandler.removeCallbacksAndMessages(null)
+        catMessageHandler.postDelayed({ hideCatMessage() }, 3000)
+    }
+
+    private fun hideCatMessage() {
+        catMessageBubble?.let {
+            try { windowManager.removeView(it) } catch (e: Exception) { }
+        }
+        catMessageBubble = null
+        catMessageHandler.removeCallbacksAndMessages(null)
+    }
+
     private fun showReactionEmoji(emoji: String) {
         // Remove existing emoji
         currentReactionEmoji?.let {
@@ -1069,6 +1122,7 @@ class OverlayService : Service() {
         hideVolumeControls()
         screenTranslator?.close()
         hideTranslationBubble()
+        hideCatMessage()
         replyPanel?.destroy()
         replyPanel = null
         super.onDestroy()

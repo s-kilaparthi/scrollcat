@@ -39,6 +39,19 @@ class CatNotificationListener : NotificationListenerService() {
         val replyable = ReplyStore.capture(sbn)
         if (replyable != null) {
             Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
+
+            // Auto-reply rules: if an enabled rule's keywords match, the cat
+            // answers immediately without user interaction.
+            val rule = AutoReplyManager.findMatch(this, replyable.message)
+            if (rule != null) {
+                Log.i(TAG, "Auto-reply rule matched for ${replyable.sender}: ${rule.triggers}")
+                val sent = ReplySender.send(this, replyable, rule.reply)
+                if (sent) {
+                    ReplyStore.remove(replyable.notificationKey)
+                    OverlayService.instance?.showCatMessage("Auto-replied to ${replyable.sender} ✓")
+                    return // handled — no badge needed
+                }
+            }
         }
 
         // Debounce — ignore if same app notified within 2 seconds
@@ -66,7 +79,7 @@ class CatNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         // If the user handled the conversation elsewhere, drop the stale entry
-        sbn?.key?.let { ReplyStore.removeByNotificationKey(it) }
+        sbn?.key?.let { ReplyStore.remove(it) }
         super.onNotificationRemoved(sbn)
     }
 

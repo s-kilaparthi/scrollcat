@@ -43,4 +43,8 @@ dependencies {
     // AI replies: Gemini Nano on-device (Prompt API) + Smart Reply fallback
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
     implementation("com.google.mlkit:smart-reply:17.0.4")
+    // Claude API (Pro tier) + encrypted key storage
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.json:json:20231013")
 }

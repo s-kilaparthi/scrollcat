@@ -56,4 +56,32 @@ object ReplySender {
             false
         }
     }
+
+    /**
+     * Fallback when RemoteInput isn't usable: open the conversation via the
+     * notification's content intent, or launch the app if that fails too.
+     * Returns true if something was opened.
+     */
+    fun openApp(context: Context, message: ReplyStore.ReplyableMessage): Boolean {
+        try {
+            message.contentIntent?.let {
+                it.send()
+                Log.i(TAG, "Opened conversation with ${message.sender} in ${message.packageName}")
+                return true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Content intent failed: ${e.message}")
+        }
+        return try {
+            val launch = context.packageManager.getLaunchIntentForPackage(message.packageName)
+                ?: return false
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launch)
+            Log.i(TAG, "Launched ${message.packageName}")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not open app: ${e.message}")
+            false
+        }
+    }
 }

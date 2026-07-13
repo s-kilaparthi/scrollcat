@@ -171,4 +171,60 @@ object SettingsManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("music_dance_enabled", enabled).apply()
     }
+
+    // ── Onboarding / user profile ──
+
+    fun isOnboardingComplete(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("onboarding_complete", false)
+    }
+
+    fun setOnboardingComplete(context: Context, complete: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("onboarding_complete", complete).apply()
+    }
+
+    // "creator", "business" or "personal"
+    fun getUserType(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("user_type", "personal") ?: "personal"
+    }
+
+    fun setUserType(context: Context, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("user_type", value).apply()
+    }
+
+    // Creator: display name. Business: business name.
+    fun getUserName(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("user_name", "") ?: ""
+    }
+
+    fun setUserName(context: Context, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("user_name", value).apply()
+    }
+
+    // Creator: niche (Fashion/Food/...). Business: service type (Plumbing/Salon/...).
+    fun getUserNiche(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("user_niche", "") ?: ""
+    }
+
+    fun setUserNiche(context: Context, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("user_niche", value).apply()
+    }
+
+    // Creator rate card / business default reply message
+    fun getRateCardMessage(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("rate_card_message", "") ?: ""
+    }
+
+    fun setRateCardMessage(context: Context, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("rate_card_message", value).apply()
+    }
 }

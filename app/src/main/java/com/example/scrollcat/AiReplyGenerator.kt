@@ -27,6 +27,36 @@ class AiReplyGenerator(private val context: Context) {
         private const val TAG = "ScrollCat"
         const val SUGGESTION_COUNT = 3
         private const val GENERATION_TIMEOUT_MS = 10_000L
+
+        /** Last-resort suggestions when every AI engine fails. */
+        val HARDCODED_FALLBACK = listOf(
+            "Sure!",
+            "On my way!",
+            "Let me check and get back to you"
+        )
+
+        /**
+         * Persona instruction built from the onboarding profile.
+         * Shared with ClaudeReplyGenerator as its system prompt.
+         */
+        fun buildProfilePrompt(context: Context): String {
+            val tone = SettingsManager.getReplyTone(context)
+            val name = SettingsManager.getUserName(context)
+            val niche = SettingsManager.getUserNiche(context)
+            return when (SettingsManager.getUserType(context)) {
+                "creator" -> {
+                    val who = if (name.isNotBlank()) name else "the user"
+                    val what = if (niche.isNotBlank()) "$niche content creator" else "content creator"
+                    "Reply as $who, a $what. Tone: $tone. Authentic and engaging."
+                }
+                "business" -> {
+                    val who = if (name.isNotBlank()) name else "the user's business"
+                    val what = if (niche.isNotBlank()) "$niche business" else "business"
+                    "Reply as $who, a $what. Professional and helpful."
+                }
+                else -> "Generate 3 natural short replies. Tone: $tone."
+            }
+        }
     }
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -107,8 +137,7 @@ class AiReplyGenerator(private val context: Context) {
         message: String,
         onResult: (List<String>, String) -> Unit
     ) {
-        val tone = SettingsManager.getReplyTone(context)
-        val prompt = buildPrompt(sender, message, tone)
+        val prompt = buildPrompt(sender, message)
         val request = GenerateContentRequest.Builder(TextPart(prompt)).apply {
             temperature = 0.7f
             maxOutputTokens = 120
@@ -146,16 +175,13 @@ class AiReplyGenerator(private val context: Context) {
         }, mainExecutor)
     }
 
-    private fun buildPrompt(sender: String, message: String, tone: String): String {
-        val toneInstruction = when (tone) {
-            "professional" -> "Keep the tone professional and polite, suitable for a business owner replying to a customer."
-            "friendly" -> "Keep the tone warm, friendly and personal, with light emoji use."
-            else -> "Keep the tone casual and natural, like texting a friend."
-        }
-        return """You suggest short chat replies. $sender sent this message:
+    private fun buildPrompt(sender: String, message: String): String {
+        return """You suggest short chat replies. ${buildProfilePrompt(context)}
+
+$sender sent this message:
 "$message"
 
-Write exactly 3 different short replies the user could send back. $toneInstruction
+Write exactly 3 different short replies the user could send back.
 Each reply must be under 15 words. Output only the 3 replies, one per line, numbered 1. 2. 3."""
     }
 
@@ -189,11 +215,17 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                         Log.w(TAG, "Smart Reply status: ${result.status}")
                         emptyList()
                     }
-                mainHandler.post { onResult(suggestions, "Smart Reply") }
+                mainHandler.post {
+                    if (suggestions.isNotEmpty()) {
+                        onResult(suggestions, "Smart Reply")
+                    } else {
+                        onResult(HARDCODED_FALLBACK, "Fallback")
+                    }
+                }
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Smart Reply failed: ${e.message}")
-                mainHandler.post { onResult(emptyList(), "Smart Reply") }
+                mainHandler.post { onResult(HARDCODED_FALLBACK, "Fallback") }
             }
     }
 

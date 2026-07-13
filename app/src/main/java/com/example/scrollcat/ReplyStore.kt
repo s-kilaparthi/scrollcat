@@ -1,14 +1,30 @@
 package com.example.scrollcat
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.service.notification.StatusBarNotification
 
 /**
- * In-memory store of messages the user can reply to.
+ * In-memory store of the last replyable messages (max 20).
  * One entry per conversation (package + sender), always holding the newest
  * message and its RemoteInput reply action from the notification.
+ * Only messages from known messaging apps are captured.
  */
 object ReplyStore {
+
+    private const val MAX_ENTRIES = 20
+
+    /** Apps whose DMs the cat offers smart replies for. */
+    val MESSAGING_APPS = setOf(
+        "com.whatsapp",                      // WhatsApp
+        "com.whatsapp.w4b",                  // WhatsApp Business
+        "com.instagram.android",             // Instagram
+        "org.telegram.messenger",            // Telegram
+        "com.discord",                       // Discord
+        "com.facebook.orca",                 // Messenger
+        "com.samsung.android.messaging",     // Samsung Messages
+        "com.google.android.apps.messaging"  // Google Messages
+    )
 
     data class ReplyableMessage(
         val notificationKey: String,
@@ -16,7 +32,8 @@ object ReplyStore {
         val sender: String,
         val message: String,
         val timestamp: Long,
-        val replyAction: Notification.Action
+        val replyAction: Notification.Action,
+        val contentIntent: PendingIntent?
     ) {
         val conversationKey: String get() = "$packageName|$sender"
     }
@@ -25,11 +42,13 @@ object ReplyStore {
     private val messages = LinkedHashMap<String, ReplyableMessage>()
 
     /**
-     * Extracts a replyable message from a posted notification.
-     * Returns null if the notification has no free-form reply action.
+     * Extracts a replyable message from a posted notification and stores it.
+     * Returns null if the app isn't a messaging app or the notification has
+     * no free-form reply action.
      */
     @Synchronized
     fun capture(sbn: StatusBarNotification): ReplyableMessage? {
+        if (sbn.packageName !in MESSAGING_APPS) return null
         val notification = sbn.notification ?: return null
         // Group summaries duplicate the child messages and often lack a usable reply
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
@@ -48,11 +67,18 @@ object ReplyStore {
             sender = sender,
             message = text,
             timestamp = sbn.postTime,
-            replyAction = action
+            replyAction = action,
+            contentIntent = notification.contentIntent
         )
         // Re-insert so this conversation moves to the newest position
         messages.remove(msg.conversationKey)
         messages[msg.conversationKey] = msg
+
+        // Evict oldest entries beyond the cap
+        while (messages.size > MAX_ENTRIES) {
+            val oldestKey = messages.keys.firstOrNull() ?: break
+            messages.remove(oldestKey)
+        }
         return msg
     }
 
@@ -67,23 +93,23 @@ object ReplyStore {
         return null
     }
 
+    /** Most recent replyable entry, or null when nothing is pending. */
+    @Synchronized
+    fun getLatest(): ReplyableMessage? = messages.values.lastOrNull()
+
     /** All pending messages, newest first. */
     @Synchronized
-    fun all(): List<ReplyableMessage> = messages.values.toList().asReversed()
+    fun getAll(): List<ReplyableMessage> = messages.values.toList().asReversed()
 
     @Synchronized
     fun count(): Int = messages.size
 
+    /** Remove after a reply was sent (or the notification went away). */
     @Synchronized
-    fun remove(message: ReplyableMessage) {
-        messages.remove(message.conversationKey)
-    }
-
-    @Synchronized
-    fun removeByNotificationKey(key: String) {
+    fun remove(notificationKey: String) {
         val iterator = messages.entries.iterator()
         while (iterator.hasNext()) {
-            if (iterator.next().value.notificationKey == key) iterator.remove()
+            if (iterator.next().value.notificationKey == notificationKey) iterator.remove()
         }
     }
 

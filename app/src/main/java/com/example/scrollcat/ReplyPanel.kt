@@ -25,7 +25,7 @@ class ReplyPanel(
 
     companion object {
         private const val PANEL_WIDTH = 680
-        private const val CONFIRMATION_MS = 1800L
+        private const val CONFIRMATION_MS = 3000L
         private const val ACCENT = 0xFF4A90D9.toInt()
         private const val PANEL_BG = 0xF21A1A2E.toInt()
         private const val CHIP_BG = 0xFF2A2A45.toInt()
@@ -36,13 +36,14 @@ class ReplyPanel(
 
     private var panelView: LinearLayout? = null
     private val handler = Handler(Looper.getMainLooper())
-    private val generator = AiReplyGenerator(context)
+    // Routes to Claude when an API key is set, on-device Gemini Nano otherwise
+    private val generator = ClaudeReplyGenerator(context)
     private var pending: MutableList<ReplyStore.ReplyableMessage> = mutableListOf()
     private var current: ReplyStore.ReplyableMessage? = null
     var onDismissed: (() -> Unit)? = null
 
     fun show(catX: Int, catY: Int, catSize: Int) {
-        pending = ReplyStore.all().toMutableList()
+        pending = ReplyStore.getAll().toMutableList()
         if (pending.isEmpty()) return
         dismiss()
         isShowing = true
@@ -135,6 +136,29 @@ class ReplyPanel(
         suggestionsBox.addView(loading)
         panel.addView(suggestionsBox)
 
+        // ── 4th option: reply manually in the app ──
+        panel.addView(TextView(context).apply {
+            text = "↗ Reply in app"
+            textSize = 13f
+            setTextColor(0xFFAACCFF.toInt())
+            gravity = Gravity.CENTER
+            setPadding(24, 14, 24, 14)
+            background = GradientDrawable().apply {
+                setColor(0x00000000)
+                cornerRadius = 28f
+                setStroke(1, ACCENT)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 6, 0, 0) }
+            setOnClickListener {
+                ReplySender.openApp(context, message)
+                ReplyStore.remove(message.notificationKey)
+                dismiss()
+            }
+        })
+
         // ── Footer: remaining conversations ──
         if (pending.size > 1) {
             panel.addView(TextView(context).apply {
@@ -189,12 +213,15 @@ class ReplyPanel(
 
     private fun sendReply(message: ReplyStore.ReplyableMessage, replyText: String) {
         val sent = ReplySender.send(context, message, replyText)
+        ReplyStore.remove(message.notificationKey)
+        pending.remove(message)
         if (sent) {
-            ReplyStore.remove(message)
-            pending.remove(message)
+            OverlayService.instance?.clearBadge()
             showConfirmation("Sent to ${message.sender} ✓")
         } else {
-            showConfirmation("😿 Couldn't send — open the app")
+            // RemoteInput unusable — fall back to opening the conversation
+            ReplySender.openApp(context, message)
+            dismiss()
         }
     }
 

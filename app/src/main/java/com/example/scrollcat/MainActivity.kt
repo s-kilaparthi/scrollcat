@@ -23,6 +23,13 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // First launch → run onboarding instead
+        if (!SettingsManager.isOnboardingComplete(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         }
@@ -95,6 +102,13 @@ class MainActivity : Activity() {
         layout.addView(btnStop)
         layout.addView(btnNotifSettings)
         layout.addView(btnNotifListener)
+        val btnAutoReply = Button(this).apply {
+            text = "📋 Auto-Reply Rules"
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, AutoReplyActivity::class.java))
+            }
+        }
+        layout.addView(btnAutoReply)
         val btnSettings = Button(this).apply {
             text = "⚙️ Settings"
             setOnClickListener {

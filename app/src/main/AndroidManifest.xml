@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Claude API (Pro tier) -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -30,6 +32,16 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="Settings" />
+
+        <activity
+            android:name=".AutoReplyActivity"
+            android:exported="false"
+            android:label="Auto-Reply Rules" />
+
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:label="Welcome to ScrollCat" />
 
         <!-- The floating cat overlay -->
         <service

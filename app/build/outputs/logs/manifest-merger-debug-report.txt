@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-70:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-70:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-70:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-70:12
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-82:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-82:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-82:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-82:12
 MERGED from [com.airbnb.android:lottie:6.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:2:1-9:12
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/5fbe2e67df5b0f3965ca281cdd6b541d/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:2:1-20:12
@@ -38,6 +38,7 @@ MERGED from [androidx.lifecycle:lifecycle-runtime:2.6.2] /tmp/cursor-sandbox-cac
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3caf9c3e89819dd55f6db5cbc0a76cc0/transformed/lifecycle-viewmodel-savedstate-2.6.2/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.core:core-ktx:1.13.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/86add49c6b525f12f2be69c29a9f071d/transformed/core-ktx-1.13.1/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.annotation:annotation-experimental:1.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/9127243e24d7b65b7334ba0d938124f6/transformed/annotation-experimental-1.4.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.security:security-crypto:1.1.0-alpha06] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/62ce510d058cd395e13b1c3c20f3a434/transformed/security-crypto-1.1.0-alpha06/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/720196f9f9c77deb363c4a5d37365fa2/transformed/cursoradapter-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/0a7da83f347462289ff54518cbdcd556/transformed/profileinstaller-1.3.1/AndroidManifest.xml:17:1-55:12
 MERGED from [com.google.android.datatransport:transport-backend-cct:2.3.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/6624bb03e4cf49c6378a265d325060e0/transformed/transport-backend-cct-2.3.3/AndroidManifest.xml:15:1-38:12
@@ -45,8 +46,8 @@ MERGED from [com.google.android.datatransport:transport-runtime:2.2.6] /tmp/curs
 MERGED from [com.google.android.datatransport:transport-api:2.2.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/1f1a7edaa3370ea0da3d208f29ddba0b/transformed/transport-api-2.2.1/AndroidManifest.xml:15:1-22:12
 MERGED from [com.google.firebase:firebase-components:16.1.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/8b37a6708ebbab5c7f6b53535b17aa72/transformed/firebase-components-16.1.0/AndroidManifest.xml:15:1-23:12
 MERGED from [com.google.firebase:firebase-encoders-json:17.1.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c01e45409196c2f5b7f8a3972a5c86c0/transformed/firebase-encoders-json-17.1.0/AndroidManifest.xml:15:1-23:12
-MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/5f025e39ed8459ffd19470c84b84acd5/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.startup:startup-runtime:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c5ee204e02480c9e04454868a6980b5a/transformed/startup-runtime-1.1.1/AndroidManifest.xml:17:1-33:12
 MERGED from [androidx.tracing:tracing:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/59b03523c9bc3070503e040842d7f36e/transformed/tracing-1.0.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.arch.core:core-runtime:2.2.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/d350002a82efb157c97874793d2d8508/transformed/core-runtime-2.2.0/AndroidManifest.xml:17:1-22:12
@@ -74,9 +75,17 @@ uses-permission#android.permission.POST_NOTIFICATIONS
 ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:7:5-77
 	android:name
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:7:22-74
+uses-permission#android.permission.INTERNET
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:9:5-67
+MERGED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:8:5-67
+MERGED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:8:5-67
+MERGED from [com.google.android.datatransport:transport-backend-cct:2.3.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/6624bb03e4cf49c6378a265d325060e0/transformed/transport-backend-cct-2.3.3/AndroidManifest.xml:26:5-67
+MERGED from [com.google.android.datatransport:transport-backend-cct:2.3.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/6624bb03e4cf49c6378a265d325060e0/transformed/transport-backend-cct-2.3.3/AndroidManifest.xml:26:5-67
+	android:name
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:9:22-64
 application
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:9:5-69:19
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:9:5-69:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:11:5-81:19
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:11:5-81:19
 MERGED from [com.airbnb.android:lottie:6.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:7:5-20
 MERGED from [com.airbnb.android:lottie:6.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:7:5-20
 MERGED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:10:5-18:19
@@ -118,97 +127,113 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /tmp/cursor-sandbox-cache/c
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/4d4069b52d8d4c652ae68ab007765640/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:12:9-41
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:14:9-41
 	android:icon
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:11:9-58
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:13:9-58
 	android:allowBackup
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:10:9-35
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:12:9-35
 	android:theme
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:13:9-60
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:15:9-60
 activity#com.example.scrollcat.MainActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:15:9-22:20
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:17:9-24:20
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:17:13-36
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:19:13-36
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:16:13-41
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:18:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:18:13-21:29
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:20:13-23:29
 action#android.intent.action.MAIN
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:19:17-69
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:21:17-69
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:19:25-66
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:21:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:20:17-77
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:22:17-77
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:20:27-74
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:22:27-74
 activity#com.example.scrollcat.NotificationSettingsActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:24:9-27:53
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:26:9-29:53
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:27:13-50
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:29:13-50
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:26:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:28:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:25:13-57
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:27:13-57
 activity#com.example.scrollcat.SettingsActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:29:9-32:40
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:31:9-34:40
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:32:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:34:13-37
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:31:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:33:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:30:13-45
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:32:13-45
+activity#com.example.scrollcat.AutoReplyActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:36:9-39:48
+	android:label
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:39:13-45
+	android:exported
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:38:13-37
+	android:name
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:37:13-46
+activity#com.example.scrollcat.OnboardingActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:9-44:52
+	android:label
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:44:13-49
+	android:exported
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:43:13-37
+	android:name
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:42:13-47
 service#com.example.scrollcat.OverlayService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:35:9-42:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:47:9-54:19
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:37:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:49:13-37
 	android:foregroundServiceType
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:38:13-55
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:50:13-55
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:36:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:48:13-43
 property#android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:39:13-41:91
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:51:13-53:91
 	android:value
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:17-88
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:53:17-88
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:40:17-76
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:52:17-76
 service#com.example.scrollcat.CatAccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:46:9-57:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:58:9-69:19
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:49:13-64
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:61:13-64
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:48:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:60:13-37
 	android:permission
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:50:13-79
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:62:13-79
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:47:13-52
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:59:13-52
 intent-filter#action:name:android.accessibilityservice.AccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:51:13-53:29
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:63:13-65:29
 action#android.accessibilityservice.AccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:52:17-92
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:64:17-92
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:52:25-89
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:64:25-89
 meta-data#android.accessibilityservice
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:54:13-56:72
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:66:13-68:72
 	android:resource
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:17-69
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:68:17-69
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:55:17-60
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:67:17-60
 service#com.example.scrollcat.CatNotificationListener
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:59:9-67:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:71:9-79:19
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:62:13-58
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:74:13-58
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:61:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:73:13-37
 	android:permission
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:63:13-87
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:75:13-87
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:60:13-52
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:72:13-52
 intent-filter#action:name:android.service.notification.NotificationListenerService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:64:13-66:29
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:76:13-78:29
 action#android.service.notification.NotificationListenerService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:65:17-99
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:77:17-99
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:65:25-96
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:77:25-96
 uses-sdk
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml
@@ -281,6 +306,8 @@ MERGED from [androidx.core:core-ktx:1.13.1] /tmp/cursor-sandbox-cache/ccc6cc9b11
 MERGED from [androidx.core:core-ktx:1.13.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/86add49c6b525f12f2be69c29a9f071d/transformed/core-ktx-1.13.1/AndroidManifest.xml:5:5-44
 MERGED from [androidx.annotation:annotation-experimental:1.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/9127243e24d7b65b7334ba0d938124f6/transformed/annotation-experimental-1.4.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.annotation:annotation-experimental:1.4.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/9127243e24d7b65b7334ba0d938124f6/transformed/annotation-experimental-1.4.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.security:security-crypto:1.1.0-alpha06] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/62ce510d058cd395e13b1c3c20f3a434/transformed/security-crypto-1.1.0-alpha06/AndroidManifest.xml:20:5-44
+MERGED from [androidx.security:security-crypto:1.1.0-alpha06] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/62ce510d058cd395e13b1c3c20f3a434/transformed/security-crypto-1.1.0-alpha06/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/720196f9f9c77deb363c4a5d37365fa2/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/720196f9f9c77deb363c4a5d37365fa2/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/0a7da83f347462289ff54518cbdcd556/transformed/profileinstaller-1.3.1/AndroidManifest.xml:21:5-44
@@ -295,10 +322,10 @@ MERGED from [com.google.firebase:firebase-components:16.1.0] /tmp/cursor-sandbox
 MERGED from [com.google.firebase:firebase-components:16.1.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/8b37a6708ebbab5c7f6b53535b17aa72/transformed/firebase-components-16.1.0/AndroidManifest.xml:19:5-21:41
 MERGED from [com.google.firebase:firebase-encoders-json:17.1.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c01e45409196c2f5b7f8a3972a5c86c0/transformed/firebase-encoders-json-17.1.0/AndroidManifest.xml:19:5-21:41
 MERGED from [com.google.firebase:firebase-encoders-json:17.1.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c01e45409196c2f5b7f8a3972a5c86c0/transformed/firebase-encoders-json-17.1.0/AndroidManifest.xml:19:5-21:41
-MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
-MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/5f025e39ed8459ffd19470c84b84acd5/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/5f025e39ed8459ffd19470c84b84acd5/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/2d86bd4207058bfd8891823a2dac5e0f/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.startup:startup-runtime:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c5ee204e02480c9e04454868a6980b5a/transformed/startup-runtime-1.1.1/AndroidManifest.xml:21:5-23:41
 MERGED from [androidx.startup:startup-runtime:1.1.1] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/c5ee204e02480c9e04454868a6980b5a/transformed/startup-runtime-1.1.1/AndroidManifest.xml:21:5-23:41
 MERGED from [androidx.tracing:tracing:1.0.0] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/59b03523c9bc3070503e040842d7f36e/transformed/tracing-1.0.0/AndroidManifest.xml:20:5-22:41
@@ -317,12 +344,6 @@ MERGED from [com.google.android.datatransport:transport-runtime:2.2.6] /tmp/curs
 MERGED from [com.google.android.datatransport:transport-runtime:2.2.6] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/e3e6fff418df74fb7dff692552dad4c1/transformed/transport-runtime-2.2.6/AndroidManifest.xml:22:5-79
 	android:name
 		ADDED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:7:22-76
-uses-permission#android.permission.INTERNET
-ADDED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:8:5-67
-MERGED from [com.google.android.datatransport:transport-backend-cct:2.3.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/6624bb03e4cf49c6378a265d325060e0/transformed/transport-backend-cct-2.3.3/AndroidManifest.xml:26:5-67
-MERGED from [com.google.android.datatransport:transport-backend-cct:2.3.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/6624bb03e4cf49c6378a265d325060e0/transformed/transport-backend-cct-2.3.3/AndroidManifest.xml:26:5-67
-	android:name
-		ADDED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:8:22-64
 service#com.google.mlkit.common.internal.MlKitComponentDiscoveryService
 ADDED from [com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:11:9-17:19
 MERGED from [com.google.mlkit:smart-reply:17.0.4] /tmp/cursor-sandbox-cache/ccc6cc9b1162fa4e521b17cca388e1ca/gradle/caches/transforms-4/78e6e5f18aebc06f2e93bfff95538db5/transformed/smart-reply-17.0.4/AndroidManifest.xml:23:9-29:19

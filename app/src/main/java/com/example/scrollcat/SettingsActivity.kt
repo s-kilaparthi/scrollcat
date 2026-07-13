@@ -236,6 +236,39 @@ class SettingsActivity : Activity() {
         root.addView(toneGroup)
         root.addView(divider())
 
+        root.addView(sectionTitle("🔑 Claude API Key"))
+        root.addView(sectionSubtitle("Pro: use Claude for smarter replies. Leave empty to use free on-device AI (Gemini Nano)."))
+
+        val apiKeyRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val apiKeyInput = EditText(this).apply {
+            hint = "sk-ant-..."
+            textSize = 14f
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            setText(ApiKeyStore.getClaudeApiKey(this@SettingsActivity))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        apiKeyRow.addView(apiKeyInput)
+        apiKeyRow.addView(Button(this).apply {
+            text = "Save"
+            textSize = 13f
+            setOnClickListener {
+                ApiKeyStore.setClaudeApiKey(this@SettingsActivity, apiKeyInput.text.toString())
+                val saved = ApiKeyStore.hasClaudeApiKey(this@SettingsActivity)
+                Toast.makeText(
+                    this@SettingsActivity,
+                    if (saved) "API key saved — Claude replies enabled ✓" else "API key cleared — using on-device AI",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        })
+        root.addView(apiKeyRow)
+        root.addView(divider())
+
         root.addView(sectionTitle("🎵 Music Dance"))
         val musicRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
