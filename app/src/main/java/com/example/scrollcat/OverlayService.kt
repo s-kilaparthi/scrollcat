@@ -92,18 +92,75 @@ class OverlayService : Service() {
         override fun onReceive(context: Context, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    catAnimator?.stop()
-                    catAnimator?.cancelIdleTimeout()
-                    android.util.Log.d("ScrollCat", "Screen off - animator paused")
+                    isScreenOn = false
+                    pauseBackgroundWork()
+                    android.util.Log.d("ScrollCat", "Screen off - background work paused")
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    catAnimator?.showStatic()
-                    android.util.Log.d("ScrollCat", "Screen on - animator resumed")
+                    isScreenOn = true
+                    resumeBackgroundWork()
+                    android.util.Log.d("ScrollCat", "Screen on - background work resumed")
                 }
             }
         }
     }
     private var layoutParams: WindowManager.LayoutParams? = null
+    private var isDestroyed = false
+    private var isScreenOn = true
+    private var batteryAnimator: android.animation.ValueAnimator? = null
+    private var catTouchListener: CatTouchListener? = null
+
+    private fun safeAddView(view: View, params: WindowManager.LayoutParams): Boolean {
+        if (isDestroyed) return false
+        if (view.parent != null) return true
+        return try {
+            windowManager.addView(view, params)
+            true
+        } catch (e: Exception) {
+            android.util.Log.w("ScrollCat", "addView failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun safeUpdateViewLayout(view: View?, params: WindowManager.LayoutParams): Boolean {
+        if (isDestroyed || view == null || view.parent == null) return false
+        return try {
+            windowManager.updateViewLayout(view, params)
+            true
+        } catch (e: Exception) {
+            android.util.Log.w("ScrollCat", "updateViewLayout failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun safeRemoveView(view: View?) {
+        if (view == null) return
+        try {
+            if (view.parent != null) windowManager.removeView(view)
+        } catch (e: Exception) {
+            android.util.Log.w("ScrollCat", "removeView failed: ${e.message}")
+        }
+    }
+
+    private fun cancelBatteryAnimation() {
+        batteryAnimator?.cancel()
+        batteryAnimator = null
+    }
+
+    private fun pauseBackgroundWork() {
+        catAnimator?.stop()
+        catAnimator?.cancelIdleTimeout()
+        moodHandler.removeCallbacksAndMessages(null)
+        musicDetector?.pause()
+        cancelBatteryAnimation()
+    }
+
+    private fun resumeBackgroundWork() {
+        if (isDestroyed) return
+        catAnimator?.showStatic()
+        musicDetector?.resume()
+        if (isScreenOn) startMoodTracking()
+    }
 
     private var badgeCount = 0
     private var badgeView: android.widget.TextView? = null
@@ -217,8 +274,8 @@ class OverlayService : Service() {
             y = 600
         }
 
-        container.setOnTouchListener(CatTouchListener(params))
-        windowManager.addView(container, params)
+        container.setOnTouchListener(CatTouchListener(params).also { catTouchListener = it })
+        safeAddView(container, params)
         cat.post {
             catAnimator?.showStatic()
         }
@@ -249,10 +306,15 @@ class OverlayService : Service() {
 
         private val handler = Handler(Looper.getMainLooper())
         private val longPressRunnable = Runnable {
+            if (layoutParams == null) return@Runnable
             val p = layoutParams ?: return@Runnable
             val catSize = SettingsManager.getCatSize(this@OverlayService)
             radialMenu?.show(p.x, p.y, catSize)
             android.util.Log.d("ScrollCat", "Radial menu shown")
+        }
+
+        fun cleanup() {
+            handler.removeCallbacksAndMessages(null)
         }
 
         private val gestureDetector = GestureDetector(
@@ -391,7 +453,7 @@ class OverlayService : Service() {
                         val dy = event.rawY - pressStartTouchY
                         params.x = homeX + dx.toInt()
                         params.y = homeY + dy.toInt()
-                        containerView?.let { windowManager.updateViewLayout(it, params) }
+                        safeUpdateViewLayout(containerView, params)
                         moveDragHandle(params)
                         return true
                     }
@@ -409,7 +471,7 @@ class OverlayService : Service() {
                     // Move cat visually with finger
                     params.x = homeX + slopDx.toInt()
                     params.y = homeY + slopDy.toInt()
-                    containerView?.let { windowManager.updateViewLayout(it, params) }
+                    safeUpdateViewLayout(containerView, params)
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -437,7 +499,7 @@ class OverlayService : Service() {
                         hideVolumeControls()
                         params.x = homeX
                         params.y = homeY
-                        containerView?.let { windowManager.updateViewLayout(it, params) }
+                        safeUpdateViewLayout(containerView, params)
                         return true
                     }
 
@@ -453,7 +515,7 @@ class OverlayService : Service() {
                     evaluatePush(event)
                     params.x = homeX
                     params.y = homeY
-                    containerView?.let { windowManager.updateViewLayout(it, params) }
+                    safeUpdateViewLayout(containerView, params)
                     return true
                 }
             }
@@ -545,7 +607,9 @@ class OverlayService : Service() {
     }
 
     private fun scheduleMoodCheck() {
+        if (!isScreenOn || isDestroyed) return
         moodHandler.postDelayed({
+            if (!isScreenOn || isDestroyed) return@postDelayed
             val elapsed = System.currentTimeMillis() - scrollingStartTime
             val minutes = elapsed / MOOD_INTERVAL_MS_LIVE
 
@@ -662,20 +726,23 @@ class OverlayService : Service() {
 
         // Animate sliding to edge
         val startX = params.x
-        val animator = android.animation.ValueAnimator.ofInt(startX, targetX).apply {
+        cancelBatteryAnimation()
+        batteryAnimator = android.animation.ValueAnimator.ofInt(startX, targetX).apply {
             duration = 1000
             addUpdateListener { anim ->
+                if (isDestroyed) return@addUpdateListener
                 params.x = anim.animatedValue as Int
-                view.post { windowManager.updateViewLayout(view, params) }
+                view.post { safeUpdateViewLayout(view, params) }
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    batteryAnimator = null
                     catAnimator?.showStatic()
                     android.util.Log.d("ScrollCat", "Cat hiding at edge - battery low")
                 }
             })
         }
-        animator.start()
+        batteryAnimator?.start()
     }
 
     fun onBatteryCritical() {
@@ -697,22 +764,25 @@ class OverlayService : Service() {
         // Slide back to original position
         catAnimator?.play("walk")
         val startX = params.x
-        val animator = android.animation.ValueAnimator.ofInt(startX, originalX).apply {
+        cancelBatteryAnimation()
+        batteryAnimator = android.animation.ValueAnimator.ofInt(startX, originalX).apply {
             duration = 1000
             addUpdateListener { anim ->
+                if (isDestroyed) return@addUpdateListener
                 params.x = anim.animatedValue as Int
-                view.post { windowManager.updateViewLayout(view, params) }
+                view.post { safeUpdateViewLayout(view, params) }
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    batteryAnimator = null
                     params.y = originalY
-                    view.post { windowManager.updateViewLayout(view, params) }
+                    view.post { safeUpdateViewLayout(view, params) }
                     catAnimator?.showStatic()
                     android.util.Log.d("ScrollCat", "Cat came back - charging")
                 }
             })
         }
-        animator.start()
+        batteryAnimator?.start()
     }
 
     fun onBatteryNormal() {
@@ -812,7 +882,7 @@ class OverlayService : Service() {
             y = catY - 160
         }
 
-        windowManager.addView(layout, params)
+        safeAddView(layout, params)
         volumeControlView = layout
 
         // Now wire the cat drag to volume
@@ -827,9 +897,7 @@ class OverlayService : Service() {
     }
 
     fun hideVolumeControls() {
-        volumeControlView?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) { }
-        }
+        safeRemoveView(volumeControlView)
         volumeControlView = null
         volumeHandler.removeCallbacksAndMessages(null)
         isVolumeMode = false
@@ -855,6 +923,7 @@ class OverlayService : Service() {
     }
 
     fun showTranslationBubble(original: String, translated: String, language: String) {
+        if (isDestroyed) return
         hideTranslationBubble()
 
         val catX = layoutParams?.x ?: 60
@@ -896,7 +965,7 @@ class OverlayService : Service() {
             y = catY - 160
         }
 
-        windowManager.addView(bubble, params)
+        safeAddView(bubble, params)
         translationBubble = bubble
 
         // Auto hide after 5 seconds
@@ -907,9 +976,7 @@ class OverlayService : Service() {
     }
 
     fun hideTranslationBubble() {
-        translationBubble?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) { }
-        }
+        safeRemoveView(translationBubble)
         translationBubble = null
         translationHandler.removeCallbacksAndMessages(null)
     }
@@ -919,6 +986,7 @@ class OverlayService : Service() {
      * Auto-hides after 3 seconds.
      */
     fun showCatMessage(text: String) {
+        if (isDestroyed) return
         hideCatMessage()
 
         val catX = layoutParams?.x ?: 60
@@ -951,25 +1019,22 @@ class OverlayService : Service() {
             y = (catY - 120).coerceAtLeast(0)
         }
 
-        windowManager.addView(bubble, params)
+        safeAddView(bubble, params)
         catMessageBubble = bubble
         catMessageHandler.removeCallbacksAndMessages(null)
         catMessageHandler.postDelayed({ hideCatMessage() }, 3000)
     }
 
     private fun hideCatMessage() {
-        catMessageBubble?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) { }
-        }
+        safeRemoveView(catMessageBubble)
         catMessageBubble = null
         catMessageHandler.removeCallbacksAndMessages(null)
     }
 
     private fun showReactionEmoji(emoji: String) {
-        // Remove existing emoji
-        currentReactionEmoji?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) { }
-        }
+        if (isDestroyed) return
+        safeRemoveView(currentReactionEmoji)
+        currentReactionEmoji = null
 
         val emojiView = android.widget.TextView(this).apply {
             text = emoji
@@ -989,14 +1054,14 @@ class OverlayService : Service() {
             y = (layoutParams?.y ?: 600) - 80
         }
 
-        windowManager.addView(emojiView, params)
+        if (!safeAddView(emojiView, params)) return
         currentReactionEmoji = emojiView
 
         // Auto remove after 2 seconds
         reactionHandler.removeCallbacksAndMessages(null)
         reactionHandler.postDelayed({
-            try { windowManager.removeView(emojiView) } catch (e: Exception) { }
-            currentReactionEmoji = null
+            safeRemoveView(emojiView)
+            if (currentReactionEmoji === emojiView) currentReactionEmoji = null
         }, 2000)
     }
 
@@ -1005,7 +1070,7 @@ class OverlayService : Service() {
         val view = containerView ?: return
         params.width = size
         params.height = size
-        view.post { windowManager.updateViewLayout(view, params) }
+        view.post { safeUpdateViewLayout(view, params) }
     }
 
     fun updateSensitivity(value: Int) {
@@ -1020,6 +1085,7 @@ class OverlayService : Service() {
     }
 
     fun incrementBadge() {
+        if (isDestroyed) return
         catView?.post { animateNotification() }
         badgeCount++
         updateBadge()
@@ -1074,7 +1140,7 @@ class OverlayService : Service() {
             y = catParams.y - 30
         }
 
-        windowManager.addView(circle, params)
+        safeAddView(circle, params)
         handleView = circle
         handleParams = params
     }
@@ -1084,11 +1150,11 @@ class OverlayService : Service() {
         val params = handleParams ?: return
         params.x = catParams.x - 30
         params.y = catParams.y - 30
-        windowManager.updateViewLayout(view, params)
+        safeUpdateViewLayout(view, params)
     }
 
     private fun hideDragHandle() {
-        handleView?.let { windowManager.removeView(it) }
+        safeRemoveView(handleView)
         handleView = null
         handleParams = null
     }
@@ -1103,28 +1169,44 @@ class OverlayService : Service() {
             params.flags = params.flags or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
-        containerView?.post { containerView?.let { windowManager.updateViewLayout(it, params) } }
+        containerView?.post { safeUpdateViewLayout(containerView, params) }
     }
 
     override fun onDestroy() {
+        isDestroyed = true
+        cancelBatteryAnimation()
+        catTouchListener?.cleanup()
+        catTouchListener = null
         hideDragHandle()
-        containerView?.let { windowManager.removeView(it) }
-        catView = null
-        lottieView = null
-        instance = null
-        moodHandler.removeCallbacksAndMessages(null)
-        catAnimator?.stopAll()
-        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
-        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) { }
-        reactionHandler.removeCallbacksAndMessages(null)
-        currentReactionEmoji?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
-        musicDetector?.stop()
-        hideVolumeControls()
-        screenTranslator?.close()
-        hideTranslationBubble()
-        hideCatMessage()
+        radialMenu?.destroy()
+        radialMenu = null
         replyPanel?.destroy()
         replyPanel = null
+        hideVolumeControls()
+        hideTranslationBubble()
+        hideCatMessage()
+        safeRemoveView(currentReactionEmoji)
+        currentReactionEmoji = null
+        safeRemoveView(containerView)
+        containerView = null
+        catView = null
+        lottieView = null
+        badgeView = null
+        layoutParams = null
+        moodHandler.removeCallbacksAndMessages(null)
+        reactionHandler.removeCallbacksAndMessages(null)
+        volumeHandler.removeCallbacksAndMessages(null)
+        translationHandler.removeCallbacksAndMessages(null)
+        catMessageHandler.removeCallbacksAndMessages(null)
+        catAnimator?.stopAll()
+        catAnimator = null
+        musicDetector?.stop()
+        musicDetector = null
+        screenTranslator?.close()
+        screenTranslator = null
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
+        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) { }
+        instance = null
         super.onDestroy()
     }
 

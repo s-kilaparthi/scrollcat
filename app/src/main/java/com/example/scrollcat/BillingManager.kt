@@ -94,7 +94,7 @@ class BillingManager private constructor(private val context: Context) : Purchas
             .build()
         client.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                productDetailsList.forEach { details ->
+                productDetailsList?.forEach { details ->
                     productDetailsCache[details.productId] = details
                 }
                 Log.i(TAG, "Products loaded: ${productDetailsCache.keys}")
@@ -178,7 +178,7 @@ class BillingManager private constructor(private val context: Context) : Purchas
             // Rebuild entitlement state from Play's source of truth
             var creator = false
             var business = false
-            purchases.forEach { purchase ->
+            purchases?.forEach { purchase ->
                 if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                     if (PRODUCT_CREATOR in purchase.products) creator = true
                     if (PRODUCT_BUSINESS in purchase.products) business = true

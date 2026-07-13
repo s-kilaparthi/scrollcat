@@ -63,8 +63,14 @@ class RadialMenu(
                 y = centerY - size / 2 + item.offsetY
             }
 
-            windowManager.addView(view, params)
-            menuViews.add(Pair(view, params))
+            try {
+                if (view.parent == null) {
+                    windowManager.addView(view, params)
+                }
+                menuViews.add(Pair(view, params))
+            } catch (e: Exception) {
+                android.util.Log.w("ScrollCat", "RadialMenu addView failed: ${e.message}")
+            }
         }
     }
 
@@ -125,10 +131,18 @@ class RadialMenu(
 
     fun dismiss() {
         menuViews.forEach { (view, _) ->
-            try { windowManager.removeView(view) } catch (e: Exception) { }
+            try {
+                if (view.parent != null) windowManager.removeView(view)
+            } catch (e: Exception) {
+                android.util.Log.w("ScrollCat", "RadialMenu removeView failed: ${e.message}")
+            }
         }
         menuViews.clear()
         isShowing = false
         highlightedAction = null
+    }
+
+    fun destroy() {
+        dismiss()
     }
 }

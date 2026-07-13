@@ -2,13 +2,17 @@ package com.example.scrollcat
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.RemoteInput
 import android.service.notification.StatusBarNotification
 
 /**
  * In-memory store of the last replyable messages (max 20).
  * One entry per conversation (package + sender), always holding the newest
- * message and its RemoteInput reply action from the notification.
- * Only messages from known messaging apps are captured.
+ * message and the data needed to send a RemoteInput reply.
+ *
+ * IMPORTANT: We store only PendingIntent + RemoteInput arrays extracted from
+ * the notification at capture time — never the full StatusBarNotification or
+ * Notification.Action, which would leak binder references.
  */
 object ReplyStore {
 
@@ -32,7 +36,8 @@ object ReplyStore {
         val sender: String,
         val message: String,
         val timestamp: Long,
-        val replyAction: Notification.Action,
+        val actionIntent: PendingIntent,
+        val remoteInputs: Array<RemoteInput>,
         val contentIntent: PendingIntent?
     ) {
         val conversationKey: String get() = "$packageName|$sender"
@@ -54,8 +59,11 @@ object ReplyStore {
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
 
         val action = findReplyAction(notification) ?: return null
+        val actionIntent = action.actionIntent ?: return null
+        val remoteInputs = action.remoteInputs
+        if (remoteInputs.isNullOrEmpty()) return null
 
-        val extras = notification.extras
+        val extras = notification.extras ?: return null
         val sender = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text = (extras.getCharSequence(Notification.EXTRA_TEXT)
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString()?.trim().orEmpty()
@@ -67,7 +75,8 @@ object ReplyStore {
             sender = sender,
             message = text,
             timestamp = sbn.postTime,
-            replyAction = action,
+            actionIntent = actionIntent,
+            remoteInputs = remoteInputs,
             contentIntent = notification.contentIntent
         )
         // Re-insert so this conversation moves to the newest position

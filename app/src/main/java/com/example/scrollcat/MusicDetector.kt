@@ -10,6 +10,7 @@ class MusicDetector(private val context: Context) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val handler = Handler(Looper.getMainLooper())
     private var isMusicPlaying = false
+    private var isPaused = false
     private val CHECK_INTERVAL_MS = 1000L
 
     // Only these apps trigger the dance
@@ -28,6 +29,8 @@ class MusicDetector(private val context: Context) {
 
     private val checkRunnable = object : Runnable {
         override fun run() {
+            if (isPaused) return
+
             val musicActive = audioManager.isMusicActive
 
             // Only dance if a music app is in foreground
@@ -54,12 +57,35 @@ class MusicDetector(private val context: Context) {
     }
 
     fun start() {
+        isPaused = false
+        handler.removeCallbacks(checkRunnable)
         handler.post(checkRunnable)
         android.util.Log.d("ScrollCat", "Music detector started")
     }
 
-    fun stop() {
+    /** Pause polling when the screen is off to save battery. */
+    fun pause() {
+        if (isPaused) return
+        isPaused = true
         handler.removeCallbacks(checkRunnable)
+        if (isMusicPlaying) {
+            isMusicPlaying = false
+            OverlayService.instance?.onMusicStopped()
+        }
+        android.util.Log.d("ScrollCat", "Music detector paused")
+    }
+
+    fun resume() {
+        if (!isPaused) return
+        isPaused = false
+        handler.post(checkRunnable)
+        android.util.Log.d("ScrollCat", "Music detector resumed")
+    }
+
+    fun stop() {
+        isPaused = true
+        handler.removeCallbacksAndMessages(null)
+        isMusicPlaying = false
         android.util.Log.d("ScrollCat", "Music detector stopped")
     }
 }

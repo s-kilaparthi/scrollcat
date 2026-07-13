@@ -76,7 +76,13 @@ class ReplyPanel(
             this.y = y
         }
 
-        windowManager.addView(panel, params)
+        try {
+            if (panel.parent == null) windowManager.addView(panel, params)
+        } catch (e: Exception) {
+            android.util.Log.w("ScrollCat", "ReplyPanel addView failed: ${e.message}")
+            isShowing = false
+            return
+        }
         panelView = panel
 
         showMessage(pending.first())

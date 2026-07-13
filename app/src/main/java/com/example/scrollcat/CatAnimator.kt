@@ -142,7 +142,9 @@ class CatAnimator(
 
     fun stopAll() {
         stop()
+        handler.removeCallbacksAndMessages(null)
         idleTimeoutHandler.removeCallbacksAndMessages(null)
+        bitmapCache.clear()
     }
 
     fun setFrame(spriteIndex: Int) {

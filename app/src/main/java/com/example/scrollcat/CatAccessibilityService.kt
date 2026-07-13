@@ -154,6 +154,7 @@ class CatAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         instance = null
         super.onDestroy()
     }

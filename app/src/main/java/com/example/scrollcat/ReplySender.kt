@@ -1,6 +1,5 @@
 package com.example.scrollcat
 
-import android.app.Notification
 import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.Context
@@ -22,9 +21,8 @@ object ReplySender {
      * Returns true if the PendingIntent was sent successfully.
      */
     fun send(context: Context, message: ReplyStore.ReplyableMessage, replyText: String): Boolean {
-        val action = message.replyAction
-        val remoteInputs = action.remoteInputs
-        if (remoteInputs.isNullOrEmpty()) {
+        val remoteInputs = message.remoteInputs
+        if (remoteInputs.isEmpty()) {
             Log.e(TAG, "Reply action has no RemoteInputs")
             return false
         }
@@ -39,7 +37,7 @@ object ReplySender {
         RemoteInput.addResultsToIntent(remoteInputs, intent, results)
 
         return try {
-            action.actionIntent.send(context, 0, intent)
+            message.actionIntent.send(context, 0, intent)
             Log.i(TAG, "Reply sent to ${message.sender} via ${message.packageName}")
             RateUsManager.recordReplySent(context)
             StatsTracker.recordReplySent(context)

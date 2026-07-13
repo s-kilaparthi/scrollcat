@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Lets the ScrollCat companion perform scroll gestures on your behalf when you flick the cat, reducing repeated thumb swipes.</string>
+    <string name="accessibility_service_label">ScrollCat Gesture Helper</string>
+    <string name="app_name">ScrollCat</string>
+</resources>

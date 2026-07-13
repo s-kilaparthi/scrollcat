@@ -10,10 +10,15 @@ class CatNotificationListener : NotificationListenerService() {
         var instance: CatNotificationListener? = null
             private set
         private const val TAG = "ScrollCat"
+        private val OWN_PACKAGES = setOf(
+            "com.example.scrollcat",
+            "com.example.scrollcat.debug"
+        )
     }
 
     private val lastNotificationTime = mutableMapOf<String, Long>()
-    private val DEBOUNCE_MS = 2000L // ignore same app within 2 seconds
+    private val processedKeys = mutableMapOf<String, Long>()
+    private val DEBOUNCE_MS = 2000L // ignore same app/key within 2 seconds
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -24,18 +29,26 @@ class CatNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
         val pkg = sbn.packageName ?: return
+        val notificationKey = sbn.key
 
         // Don't process notifications if cat overlay is not active
         if (OverlayService.instance == null) return
 
-        // Ignore our own app and system
-        if (pkg == "com.example.scrollcat") return
+        // Ignore our own app (release + debug) and system packages
+        if (pkg in OWN_PACKAGES) return
         if (pkg == "android") return
         if (pkg == "com.android.systemui") return
 
+        // Prevent duplicate processing of the same notification update
+        val now = System.currentTimeMillis()
+        val lastKeyTime = processedKeys[notificationKey] ?: 0L
+        if (now - lastKeyTime < DEBOUNCE_MS) return
+        processedKeys[notificationKey] = now
+        pruneProcessedKeys(now)
+
         // Capture replyable messages (DMs with a RemoteInput reply action)
-        // BEFORE debouncing, so a second message from a different person in
-        // the same app is never lost.
+        // BEFORE app-level debouncing, so a second message from a different
+        // person in the same app is never lost.
         val replyable = ReplyStore.capture(sbn)
         if (replyable != null) {
             Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
@@ -55,17 +68,17 @@ class CatNotificationListener : NotificationListenerService() {
             }
         }
 
-        // Debounce — ignore if same app notified within 2 seconds
-        val now = System.currentTimeMillis()
+        // Debounce badge/filter processing per app
         val lastTime = lastNotificationTime[pkg] ?: 0L
         if (now - lastTime < DEBOUNCE_MS) return
         lastNotificationTime[pkg] = now
 
         // Extract full notification text
-        val extras = sbn.notification?.extras ?: return
-        val title = extras.getCharSequence("android.title")?.toString() ?: ""
-        val text = extras.getCharSequence("android.text")?.toString() ?: ""
-        val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
+        val notification = sbn.notification ?: return
+        val extras = notification.extras ?: return
+        val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+        val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
 
         // Combine all text for matching
         val fullText = "$title $text $bigText".trim()
@@ -78,9 +91,15 @@ class CatNotificationListener : NotificationListenerService() {
         }
     }
 
+    private fun pruneProcessedKeys(now: Long) {
+        if (processedKeys.size <= 100) return
+        processedKeys.entries.removeAll { now - it.value > DEBOUNCE_MS * 5 }
+    }
+
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         // If the user handled the conversation elsewhere, drop the stale entry
         sbn?.key?.let { ReplyStore.remove(it) }
+        sbn?.key?.let { processedKeys.remove(it) }
         super.onNotificationRemoved(sbn)
     }
 
