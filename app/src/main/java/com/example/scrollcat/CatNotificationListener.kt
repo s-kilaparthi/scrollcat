@@ -28,16 +28,24 @@ class CatNotificationListener : NotificationListenerService() {
         // Don't process notifications if cat overlay is not active
         if (OverlayService.instance == null) return
 
+        // Ignore our own app and system
+        if (pkg == "com.example.scrollcat") return
+        if (pkg == "android") return
+        if (pkg == "com.android.systemui") return
+
+        // Capture replyable messages (DMs with a RemoteInput reply action)
+        // BEFORE debouncing, so a second message from a different person in
+        // the same app is never lost.
+        val replyable = ReplyStore.capture(sbn)
+        if (replyable != null) {
+            Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
+        }
+
         // Debounce — ignore if same app notified within 2 seconds
         val now = System.currentTimeMillis()
         val lastTime = lastNotificationTime[pkg] ?: 0L
         if (now - lastTime < DEBOUNCE_MS) return
         lastNotificationTime[pkg] = now
-
-        // Ignore our own app and system
-        if (pkg == "com.example.scrollcat") return
-        if (pkg == "android") return
-        if (pkg == "com.android.systemui") return
 
         // Extract full notification text
         val extras = sbn.notification?.extras ?: return
@@ -50,12 +58,15 @@ class CatNotificationListener : NotificationListenerService() {
 
         Log.d(TAG, "Full notification from $pkg: $fullText | keywords: ${SettingsManager.getWatchedKeywords(this)}")
 
-        if (SettingsManager.shouldNotify(this, pkg, fullText)) {
+        // Badge on filter match, or on any message the cat can reply to
+        if (replyable != null || SettingsManager.shouldNotify(this, pkg, fullText)) {
             OverlayService.instance?.incrementBadge()
         }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        // If the user handled the conversation elsewhere, drop the stale entry
+        sbn?.key?.let { ReplyStore.removeByNotificationKey(it) }
         super.onNotificationRemoved(sbn)
     }
 

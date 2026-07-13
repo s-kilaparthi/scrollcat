@@ -74,6 +74,7 @@ class OverlayService : Service() {
     private var volumeControlView: android.widget.LinearLayout? = null
     private var volumeHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var radialMenu: RadialMenu? = null
+    private var replyPanel: ReplyPanel? = null
     var screenTranslator: ScreenTranslator? = null
     private var translationBubble: android.widget.TextView? = null
     private val translationHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -125,6 +126,7 @@ class OverlayService : Service() {
         addCatView()
         startMoodTracking()
         radialMenu = RadialMenu(this, windowManager)
+        replyPanel = ReplyPanel(this, windowManager)
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
@@ -266,9 +268,18 @@ class OverlayService : Service() {
                         catAnimator?.stopMusic()
                         return true
                     }
-                    // If badge showing, clear it on tap
+                    // If reply panel is open, a cat tap closes it
+                    if (replyPanel?.isShowing == true) {
+                        replyPanel?.dismiss()
+                        return true
+                    }
+                    // If badge showing: open AI reply suggestions if we have
+                    // replyable messages, otherwise just clear the badge
                     if (badgeCount > 0) {
                         clearBadge()
+                        if (ReplyStore.count() > 0) {
+                            showReplyPanel()
+                        }
                         return true
                     }
                     // Normal tap scroll
@@ -966,6 +977,14 @@ class OverlayService : Service() {
         updateBadge()
     }
 
+    fun showReplyPanel() {
+        val params = layoutParams ?: return
+        val catSize = SettingsManager.getCatSize(this)
+        animateTap()
+        replyPanel?.show(params.x, params.y, catSize)
+        android.util.Log.d("ScrollCat", "Reply panel shown (${ReplyStore.count()} pending)")
+    }
+
     private fun updateBadge() {
         badgeView?.post {
             if (badgeCount > 0) {
@@ -1050,6 +1069,8 @@ class OverlayService : Service() {
         hideVolumeControls()
         screenTranslator?.close()
         hideTranslationBubble()
+        replyPanel?.destroy()
+        replyPanel = null
         super.onDestroy()
     }
 

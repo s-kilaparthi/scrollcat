@@ -151,6 +151,17 @@ object SettingsManager {
             .edit().putFloat("sleep_opacity", value).apply()
     }
 
+    // AI reply tone: "casual", "friendly" or "professional"
+    fun getReplyTone(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("reply_tone", "friendly") ?: "friendly"
+    }
+
+    fun setReplyTone(context: Context, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("reply_tone", value).apply()
+    }
+
     fun isMusicDanceEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("music_dance_enabled", true)

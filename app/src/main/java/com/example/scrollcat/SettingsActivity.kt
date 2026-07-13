@@ -204,6 +204,38 @@ class SettingsActivity : Activity() {
         root.addView(radioGroup)
         root.addView(divider())
 
+        root.addView(sectionTitle("🤖 AI Reply Tone"))
+        root.addView(sectionSubtitle("How the cat writes reply suggestions to your DMs"))
+
+        val toneOptions = listOf(
+            "friendly" to "😊 Friendly — warm and personal",
+            "casual" to "✌️ Casual — like texting a friend",
+            "professional" to "💼 Professional — for business DMs"
+        )
+        val currentTone = SettingsManager.getReplyTone(this)
+        val toneGroup = android.widget.RadioGroup(this).apply {
+            orientation = android.widget.RadioGroup.VERTICAL
+            setPadding(0, 8, 0, 8)
+        }
+        val toneMap = mutableMapOf<Int, String>()
+        toneOptions.forEach { (key, label) ->
+            val radio = android.widget.RadioButton(this).apply {
+                text = label
+                textSize = 15f
+                id = android.view.View.generateViewId()
+                isChecked = key == currentTone
+                setPadding(0, 16, 0, 16)
+            }
+            toneMap[radio.id] = key
+            toneGroup.addView(radio)
+        }
+        toneGroup.setOnCheckedChangeListener { _, checkedId ->
+            val value = toneMap[checkedId] ?: "friendly"
+            SettingsManager.setReplyTone(this, value)
+        }
+        root.addView(toneGroup)
+        root.addView(divider())
+
         root.addView(sectionTitle("🎵 Music Dance"))
         val musicRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

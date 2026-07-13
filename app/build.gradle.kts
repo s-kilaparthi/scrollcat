@@ -40,4 +40,7 @@ dependencies {
     implementation("com.airbnb.android:lottie:6.4.0")
     implementation("com.google.mlkit:translate:17.0.3")
     implementation("com.google.mlkit:language-id:17.0.6")
+    // AI replies: Gemini Nano on-device (Prompt API) + Smart Reply fallback
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
+    implementation("com.google.mlkit:smart-reply:17.0.4")
 }
