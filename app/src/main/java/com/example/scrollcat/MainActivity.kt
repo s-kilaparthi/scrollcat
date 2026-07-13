@@ -20,6 +20,7 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private var btnUpgrade: Button? = null
+    private var btnShare: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -132,6 +133,15 @@ class MainActivity : Activity() {
         }
         layout.addView(btnUpgrade)
 
+        // Share stats — appears once the cat has sent at least 5 replies
+        btnShare = Button(this).apply {
+            text = "📤 Share my stats"
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, ShareCardActivity::class.java))
+            }
+        }
+        layout.addView(btnShare)
+
         layout.addView(status)
 
         // Footer: privacy policy link + version
@@ -174,6 +184,9 @@ class MainActivity : Activity() {
             append(if (isPro) "Plan: Pro ⭐" else "Plan: Free (10 AI replies/day)")
         }
         btnUpgrade?.visibility = if (isPro) android.view.View.GONE else android.view.View.VISIBLE
+        btnShare?.visibility =
+            if (StatsTracker.getTotalRepliesSent(this) >= 5) android.view.View.VISIBLE
+            else android.view.View.GONE
 
         RateUsManager.maybeShowRatePrompt(this)
     }

@@ -9,10 +9,12 @@ const MAX_TOKENS = 150;
 const ANTHROPIC_VERSION = '2023-06-01';
 
 const SITE_DEFAULTS = {
-  gmail:     ['Thanks for reaching out!', "I'll get back to you shortly.", 'Sounds good!'],
-  whatsapp:  ['Sure!', 'On my way!', 'Let me check and get back to you'],
-  slack:     ['On it!', 'Got it, thanks!', "I'll take a look shortly"],
+  whatsapp:  ['Sure! 😊', 'On my way!', 'Let me check and get back to you'],
   instagram: ['Thank you so much! 🙏', 'This means everything! 💕', 'So glad you enjoy it! ❤️'],
+  messenger: ['Thanks for reaching out!', "I'll get back to you shortly!", 'Sounds good!'],
+  telegram:  ['Got it!', 'Sure thing!', 'Let me check'],
+  gmail:     ['Thanks for reaching out!', "I'll get back to you shortly.", 'Sounds good!'],
+  slack:     ['On it!', 'Got it, thanks!', "I'll take a look shortly"],
   twitter:   ['Thanks!', 'Great point!', 'Absolutely agree!']
 };
 
@@ -25,7 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'RECORD_USE') {
-    bumpStat('used');
+    bumpStat('used', message.site);
     return false;
   }
 
@@ -44,7 +46,7 @@ function defaultsFor(site) {
 }
 
 async function generateReplies(site, context) {
-  bumpStat('suggested');
+  bumpStat('suggested', site);
 
   const { claudeApiKey } = await chrome.storage.local.get('claudeApiKey');
   if (!claudeApiKey || !context) {
@@ -153,16 +155,22 @@ async function callClaudeWithKey(apiKey, context) {
   return parseSuggestions(text);
 }
 
-// ── Daily stats (suggested / used), reset each day ───────────────
+// ── Daily stats (suggested / used, per-platform), reset each day ─
 
-async function bumpStat(kind) {
+async function bumpStat(kind, site) {
   const today = new Date().toISOString().slice(0, 10);
   const { stats = {} } = await chrome.storage.sync.get('stats');
   if (stats.date !== today) {
     stats.date = today;
     stats.suggested = 0;
     stats.used = 0;
+    stats.perSite = {};
   }
   stats[kind] = (stats[kind] || 0) + 1;
+  if (site) {
+    stats.perSite = stats.perSite || {};
+    stats.perSite[site] = stats.perSite[site] || { suggested: 0, used: 0 };
+    stats.perSite[site][kind] = (stats.perSite[site][kind] || 0) + 1;
+  }
   await chrome.storage.sync.set({ stats });
 }

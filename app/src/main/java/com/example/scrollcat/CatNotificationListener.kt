@@ -48,6 +48,7 @@ class CatNotificationListener : NotificationListenerService() {
                 val sent = ReplySender.send(this, replyable, rule.reply)
                 if (sent) {
                     ReplyStore.remove(replyable.notificationKey)
+                    StatsTracker.recordAutoReply(this)
                     OverlayService.instance?.showCatMessage("Auto-replied to ${replyable.sender} ✓")
                     return // handled — no badge needed
                 }

@@ -1,6 +1,26 @@
 [
     {
-        "merged": "com.example.scrollcat.app-debug-4:/xml_accessibility_service_config.xml.flat",
-        "source": "com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
+        "merged": "/tmp/cursor-sandbox-cache/ee2b460f03dbef74878497286c0c0ed6/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_accessibility_service_config.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/ee2b460f03dbef74878497286c0c0ed6/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_splash_screen.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/splash_screen.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/xml_file_paths.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/xml/file_paths.xml"
     }
 ]

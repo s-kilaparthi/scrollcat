@@ -25,6 +25,27 @@
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
 }
 
+/* Platform-colored glow when on a messaging site */
+.scrollcat-whatsapp {
+  border-color: #25d366;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(37, 211, 102, 0.45);
+}
+
+.scrollcat-instagram {
+  border-color: #e1306c;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(225, 48, 108, 0.45);
+}
+
+.scrollcat-messenger {
+  border-color: #0084ff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(0, 132, 255, 0.45);
+}
+
+.scrollcat-telegram {
+  border-color: #2aabee;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(42, 171, 238, 0.45);
+}
+
 .scrollcat-badge {
   position: absolute;
   top: -4px;

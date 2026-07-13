@@ -9,6 +9,8 @@
     "https://web.whatsapp.com/*",
     "https://app.slack.com/*",
     "https://www.instagram.com/*",
+    "https://www.facebook.com/*",
+    "https://web.telegram.org/*",
     "https://twitter.com/*",
     "https://x.com/*"
   ],
@@ -20,6 +22,8 @@
         "https://web.whatsapp.com/*",
         "https://app.slack.com/*",
         "https://www.instagram.com/*",
+        "https://www.facebook.com/*",
+        "https://web.telegram.org/*",
         "https://twitter.com/*",
         "https://x.com/*"
       ],

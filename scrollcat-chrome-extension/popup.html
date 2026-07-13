@@ -98,6 +98,23 @@
       justify-content: space-between;
       padding: 6px 0;
     }
+    .site-group-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: #7777aa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 0 4px;
+    }
+    .site-group-header:first-child { padding-top: 0; }
+    .breakdown { margin-top: 10px; color: #777; font-size: 12px; }
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      color: #aaaacb;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
     .switch { position: relative; width: 36px; height: 20px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
@@ -175,6 +192,7 @@
         <div class="lbl">Replies used</div>
       </div>
     </div>
+    <div id="statBreakdown" class="breakdown"></div>
   </section>
 
   <section>

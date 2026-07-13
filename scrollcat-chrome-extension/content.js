@@ -1,19 +1,76 @@
 // ScrollCat content script — floating cat button + inline reply suggestions.
-// Runs on Gmail, WhatsApp Web, Slack, Instagram and Twitter/X.
+// Runs on WhatsApp Web, Instagram, Messenger, Telegram, Gmail, Slack, Twitter/X.
 
 (() => {
   'use strict';
 
   // ── Site detection ─────────────────────────────────────────────
+  // Each site config: mode id, badge emoji, colorClass for the platform
+  // glow, composer input selector, last-incoming-message selector, and
+  // how text should be inserted ('execCommand' for contenteditable
+  // composers, 'value' for plain inputs).
 
   const SITES = {
-    'mail.google.com':  { mode: 'gmail',     badge: '📧' },
-    'web.whatsapp.com': { mode: 'whatsapp',  badge: '💬' },
-    'app.slack.com':    { mode: 'slack',     badge: '💼' },
-    'www.instagram.com':{ mode: 'instagram', badge: '📱' },
-    'twitter.com':      { mode: 'twitter',   badge: '🐦' },
-    'x.com':            { mode: 'twitter',   badge: '🐦' }
+    'web.whatsapp.com': {
+      mode: 'whatsapp',
+      badge: '💬',
+      colorClass: 'scrollcat-whatsapp',
+      inputSelector: 'div[contenteditable="true"][data-tab="10"], footer div[contenteditable="true"]',
+      lastMessageSelector: '.message-in .selectable-text span, .message-in .selectable-text',
+      insertMethod: 'execCommand',
+      watchNewMessages: true
+    },
+    'www.instagram.com': {
+      mode: 'instagram',
+      badge: '📱',
+      colorClass: 'scrollcat-instagram',
+      // DM composer + comment boxes
+      inputSelector: 'div[contenteditable="true"][aria-label="Message..."], div[contenteditable="true"][aria-label*="Message"], textarea[aria-label*="comment" i]',
+      lastMessageSelector: 'div[role="row"]:last-child span, div[role="row"] div[dir="auto"]',
+      insertMethod: 'execCommand'
+    },
+    'www.facebook.com': {
+      mode: 'messenger',
+      badge: '💬',
+      colorClass: 'scrollcat-messenger',
+      inputSelector: 'div[contenteditable="true"][aria-label*="message" i]',
+      lastMessageSelector: 'div[data-scope="messages_table"] span:last-child, div[role="row"] div[dir="auto"]',
+      insertMethod: 'execCommand'
+    },
+    'web.telegram.org': {
+      mode: 'telegram',
+      badge: '✈️',
+      colorClass: 'scrollcat-telegram',
+      inputSelector: 'div.input-message-input[contenteditable="true"], div[contenteditable="true"].composer_rich_textarea',
+      lastMessageSelector: '.message.last-in .text-content, .message .text-content',
+      insertMethod: 'execCommand'
+    },
+    'mail.google.com': {
+      mode: 'gmail',
+      badge: '📧',
+      colorClass: '',
+      inputSelector: 'div[contenteditable="true"][aria-label*="Body" i], div[contenteditable="true"][role="textbox"]',
+      lastMessageSelector: 'div.a3s, h2.hP',
+      insertMethod: 'execCommand'
+    },
+    'app.slack.com': {
+      mode: 'slack',
+      badge: '💼',
+      colorClass: '',
+      inputSelector: 'div[contenteditable="true"].ql-editor, div[contenteditable="true"][role="textbox"]',
+      lastMessageSelector: '[data-qa="message_content"] .p-rich_text_section',
+      insertMethod: 'execCommand'
+    },
+    'twitter.com': {
+      mode: 'twitter',
+      badge: '🐦',
+      colorClass: '',
+      inputSelector: 'div[contenteditable="true"][data-testid^="tweetTextarea"], div[contenteditable="true"][data-testid="dmComposerTextInput"]',
+      lastMessageSelector: 'article [data-testid="tweetText"]',
+      insertMethod: 'execCommand'
+    }
   };
+  SITES['x.com'] = SITES['twitter.com'];
 
   const site = SITES[location.hostname];
   if (!site) return;
@@ -24,6 +81,7 @@
   let panel = null;
   let focusedInput = null;     // last focused editable element
   let generationSeq = 0;       // stale-response guard
+  let lastIncomingCount = -1;  // new-message detection
 
   chrome.storage.sync.get({ siteToggles: {} }, (data) => {
     if (data.siteToggles[site.mode] === false) enabled = false;
@@ -42,6 +100,7 @@
   function init() {
     createCatButton();
     watchInputs();
+    if (site.watchNewMessages) watchIncomingMessages();
     document.addEventListener('keydown', onKeydown, true);
   }
 
@@ -51,11 +110,11 @@
     document.removeEventListener('keydown', onKeydown, true);
   }
 
-  // ── Floating cat button (draggable) ────────────────────────────
+  // ── Floating cat button (draggable, platform glow) ─────────────
 
   function createCatButton() {
     catButton = document.createElement('div');
-    catButton.className = 'scrollcat-button';
+    catButton.className = 'scrollcat-button' + (site.colorClass ? ' ' + site.colorClass : '');
     catButton.textContent = '🐱';
     catButton.title = 'ScrollCat — Alt+R for reply suggestions';
 
@@ -127,7 +186,7 @@
       if (isEditable(e.target)) focusedInput = e.target;
     }, true);
 
-    // Some SPAs (WhatsApp/Instagram) swap the composer without focus events
+    // SPAs swap the composer without focus events
     const observer = new MutationObserver(() => {
       if (focusedInput && !document.contains(focusedInput)) {
         focusedInput = null;
@@ -135,6 +194,27 @@
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  /** Composer for this site — the focused element wins, else query selectors. */
+  function findComposer() {
+    if (focusedInput && document.contains(focusedInput)) return focusedInput;
+    return document.querySelector(site.inputSelector);
+  }
+
+  // WhatsApp: excited bounce when a new incoming message appears
+  function watchIncomingMessages() {
+    const check = () => {
+      const count = document.querySelectorAll('.message-in').length;
+      if (lastIncomingCount >= 0 && count > lastIncomingCount) {
+        bounceCat();
+        showBadge();
+      }
+      lastIncomingCount = count;
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    check();
   }
 
   function onKeydown(e) {
@@ -149,35 +229,8 @@
   function getContextText() {
     let text = '';
     try {
-      switch (site.mode) {
-        case 'gmail': {
-          // Open email body, else subject line
-          const body = document.querySelector('div.a3s');
-          const subject = document.querySelector('h2.hP');
-          text = (body?.innerText || subject?.innerText || '');
-          break;
-        }
-        case 'whatsapp': {
-          const msgs = document.querySelectorAll('.message-in .selectable-text, [data-pre-plain-text] .selectable-text');
-          text = msgs.length ? msgs[msgs.length - 1].innerText : '';
-          break;
-        }
-        case 'slack': {
-          const msgs = document.querySelectorAll('[data-qa="message_content"] .p-rich_text_section');
-          text = msgs.length ? msgs[msgs.length - 1].innerText : '';
-          break;
-        }
-        case 'instagram': {
-          const msgs = document.querySelectorAll('div[role="row"] div[dir="auto"]');
-          text = msgs.length ? msgs[msgs.length - 1].innerText : '';
-          break;
-        }
-        case 'twitter': {
-          const tweet = document.querySelector('article [data-testid="tweetText"]');
-          text = tweet?.innerText || '';
-          break;
-        }
-      }
+      const nodes = document.querySelectorAll(site.lastMessageSelector);
+      if (nodes.length) text = nodes[nodes.length - 1].innerText;
     } catch (err) {
       // selector drift on redesigns — degrade to defaults
     }
@@ -248,11 +301,12 @@
   }
 
   function positionPanel() {
-    // Above the focused input when we have one, else near the cat button
+    // Above the composer when we can find one, else near the cat button
     let left = window.innerWidth - 400;
     let top = window.innerHeight - 320;
-    if (focusedInput && document.contains(focusedInput)) {
-      const rect = focusedInput.getBoundingClientRect();
+    const composer = findComposer();
+    if (composer) {
+      const rect = composer.getBoundingClientRect();
       left = Math.max(12, Math.min(rect.left, window.innerWidth - 380));
       top = Math.max(12, rect.top - 220);
     }
@@ -268,19 +322,20 @@
   // ── Text insertion ─────────────────────────────────────────────
 
   function insertText(text) {
-    const input = (focusedInput && document.contains(focusedInput)) ? focusedInput : null;
+    const input = findComposer();
     if (!input) {
       navigator.clipboard?.writeText(text).catch(() => {});
       return;
     }
     input.focus();
     if (input.isContentEditable) {
-      // contenteditable composers (WhatsApp, Slack, Instagram, Twitter)
+      // contenteditable composers (WhatsApp, Instagram, Messenger, Telegram…)
       const inserted = document.execCommand('insertText', false, text);
       if (!inserted) {
         input.textContent += text;
-        input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
       }
+      // Instagram/Messenger React composers need an explicit input event
+      input.dispatchEvent(new Event('input', { bubbles: true }));
     } else {
       input.value = text;
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -291,6 +346,6 @@
   // ── Stats ──────────────────────────────────────────────────────
 
   function recordUse() {
-    chrome.runtime.sendMessage({ type: 'RECORD_USE' });
+    chrome.runtime.sendMessage({ type: 'RECORD_USE', site: site.mode });
   }
 })();
