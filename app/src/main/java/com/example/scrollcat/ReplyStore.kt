@@ -32,8 +32,13 @@ object ReplyStore {
         "com.microsoft.office.outlook"       // Outlook
     )
 
+    private fun normalizeSenderName(rawName: String): String {
+        return rawName.replace(Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE), "").trim()
+    }
+
     data class ReplyableMessage(
         val notificationKey: String,
+        val notificationId: Int,
         val packageName: String,
         val sender: String,
         val message: String,
@@ -44,6 +49,46 @@ object ReplyStore {
         val contentIntent: PendingIntent?
     ) {
         val conversationKey: String get() = "$packageName|$sender"
+    }
+
+    data class BufferedMessage(val text: String, val timestamp: Long)
+
+    private val screenOffBuffer = mutableMapOf<String, MutableList<BufferedMessage>>()
+    private val storedReplies = mutableMapOf<String, List<String>>()
+
+    @Synchronized
+    fun bufferMessage(senderKey: String, text: String) {
+        val list = screenOffBuffer.getOrPut(senderKey) { mutableListOf() }
+        list.add(BufferedMessage(text, System.currentTimeMillis()))
+        Logger.d("Buffered message for $senderKey (buffer size now ${list.size}): $text")
+    }
+
+    @Synchronized
+    fun getAndClearBuffer(senderKey: String): List<BufferedMessage> {
+        val list = screenOffBuffer[senderKey]?.toList() ?: emptyList()
+        screenOffBuffer.remove(senderKey)
+        return list
+    }
+
+    @Synchronized
+    fun allBufferedSenders(): Set<String> = screenOffBuffer.keys.toSet()
+
+    @Synchronized
+    fun storeReplies(senderKey: String, replies: List<String>) {
+        android.util.Log.d("ScrollCat", "storeReplies called for key: $senderKey")
+        storedReplies[senderKey] = replies
+    }
+
+    @Synchronized
+    fun getStoredReplies(senderKey: String): List<String>? {
+        val result = storedReplies[senderKey]
+        android.util.Log.d("ScrollCat", "getStoredReplies looking for key: $senderKey, found: ${result != null}")
+        return result
+    }
+
+    @Synchronized
+    fun clearStoredReplies(senderKey: String) {
+        storedReplies.remove(senderKey)
     }
 
     // conversationKey -> newest message, insertion order = oldest first
@@ -70,7 +115,9 @@ object ReplyStore {
 
         val remoteInputAction = findReplyAction(notification)
         val extras = notification.extras
-        val senderName = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        val senderName = normalizeSenderName(
+            extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        )
         val messageText = (extras?.getCharSequence(Notification.EXTRA_TEXT)
             ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString()?.trim().orEmpty()
 
@@ -89,10 +136,10 @@ object ReplyStore {
         // Ignore if message is empty
         if (messageText.isNullOrBlank()) return null
 
-        android.util.Log.d("ScrollCat", "Capturing notification from: $packageName sender: $senderName message: $messageText")
+        Logger.d("Capturing notification from: $packageName sender: $senderName message: $messageText")
         val hasRemoteInput = remoteInputAction != null
         // Store anyway — for no-RemoteInput notifications, "Reply in app" will be the only send option
-        android.util.Log.d("ScrollCat", "Has RemoteInput: $hasRemoteInput")
+        Logger.d("Has RemoteInput: $hasRemoteInput")
 
         val contentIntent = sbn.notification?.contentIntent
         val actionIntent = remoteInputAction?.actionIntent
@@ -100,6 +147,7 @@ object ReplyStore {
 
         val msg = ReplyableMessage(
             notificationKey = sbn.key,
+            notificationId = sbn.id,
             packageName = packageName,
             sender = senderName,
             message = messageText,

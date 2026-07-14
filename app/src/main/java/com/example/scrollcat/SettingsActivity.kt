@@ -197,7 +197,7 @@ class SettingsActivity : Activity() {
 
         radioGroup.setOnCheckedChangeListener { _, checkedId ->
             val value = radioMap[checkedId] ?: "recents"
-            android.util.Log.d("ScrollCat", "Saving left swipe: $value")
+            Logger.d("Saving left swipe: $value")
             SettingsManager.setLeftSwipeBehavior(this, value)
         }
 
@@ -487,7 +487,7 @@ class SettingsActivity : Activity() {
                             editor.putString("reaction_$pkg", reactionKey)
                         }
                         editor.apply()
-                        android.util.Log.d("ScrollCat", "Saved reaction $reactionKey for category $category")
+                        Logger.d("Saved reaction $reactionKey for category $category")
                     }
                     override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 }

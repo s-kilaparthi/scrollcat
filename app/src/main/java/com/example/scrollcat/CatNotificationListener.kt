@@ -1,9 +1,10 @@
 package com.example.scrollcat
 
+import android.content.Context
+import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import kotlinx.coroutines.*
 
 class CatNotificationListener : NotificationListenerService() {
 
@@ -17,13 +18,21 @@ class CatNotificationListener : NotificationListenerService() {
         )
     }
 
-    private val pregenScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val pregeneratedReplies = mutableMapOf<String, List<String>>()
-    private val pregenInProgress = mutableSetOf<String>()
-
     private val lastNotificationTime = mutableMapOf<String, Long>()
     private val processedKeys = mutableMapOf<String, Long>()
     private val DEBOUNCE_MS = 2000L // ignore same app/key within 2 seconds
+
+    private fun normalizeSenderName(rawName: String): String {
+        return rawName.replace(Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE), "").trim()
+    }
+
+    private fun buildSenderKey(packageName: String, notificationId: Int, senderName: String): String {
+        return if (packageName == "com.whatsapp") {
+            "$packageName:${normalizeSenderName(senderName)}"
+        } else {
+            "$packageName:$notificationId"
+        }
+    }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -33,7 +42,7 @@ class CatNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
-        android.util.Log.d("ScrollCat", "Notification received from: ${sbn.packageName}")
+        Logger.d("Notification received from: ${sbn.packageName}")
         val pkg = sbn.packageName ?: return
         val notificationKey = sbn.key
 
@@ -57,30 +66,13 @@ class CatNotificationListener : NotificationListenerService() {
         // person in the same app is never lost.
         val replyable = ReplyStore.capture(sbn)
         if (replyable != null) {
-            Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
-
-            // Pre-generate replies immediately in background
-            val entry = ReplyStore.getLatest() ?: replyable
-            val cacheKey = "${entry.packageName}_${entry.sender}_${entry.message.take(50)}"
-
-            if (cacheKey !in pregenInProgress && cacheKey !in pregeneratedReplies) {
-                pregenInProgress.add(cacheKey)
-                android.util.Log.d("ScrollCat", "Pre-generating replies for: ${entry.sender}")
-
-                pregenScope.launch {
-                    try {
-                        val generator = AiReplyGenerator(this@CatNotificationListener)
-                        generator.generateReplies(entry.sender, entry.message) { replies, _ ->
-                            pregeneratedReplies[cacheKey] = replies
-                            pregenInProgress.remove(cacheKey)
-                            android.util.Log.d("ScrollCat", "Pre-generated replies ready for: ${entry.sender}")
-                        }
-                    } catch (e: Exception) {
-                        pregenInProgress.remove(cacheKey)
-                        android.util.Log.e("ScrollCat", "Pre-generation failed: ${e.message}")
-                    }
-                }
+            val senderName = replyable.sender
+            if (!replyable.hasRemoteInput) {
+                Logger.d("Skipping non-replyable notification from $senderName via $pkg (no RemoteInput)")
+                return
             }
+
+            Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
 
             // Auto-reply rules: if an enabled rule's keywords match, the cat
             // answers immediately without user interaction.
@@ -94,6 +86,25 @@ class CatNotificationListener : NotificationListenerService() {
                     OverlayService.instance?.showCatMessage("Auto-replied to ${replyable.sender} ✓")
                     return // handled — no badge needed
                 }
+            }
+
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val senderKey = buildSenderKey(pkg, sbn.id, senderName)
+            Logger.d("senderKey=$senderKey (raw title was: $senderName)")
+            val messageText = replyable.message
+
+            if (powerManager.isInteractive) {
+                val pending = ReplyStore.getAndClearBuffer(senderKey)
+                val combinedText = if (pending.isNotEmpty()) {
+                    (pending.map { it.text } + messageText).joinToString("\n")
+                } else {
+                    messageText
+                }
+                AiReplyGenerator.generateReplies(this, pkg, senderName, combinedText) { replies ->
+                    ReplyStore.storeReplies(senderKey, replies)
+                }
+            } else {
+                ReplyStore.bufferMessage(senderKey, messageText)
             }
         }
 
@@ -120,15 +131,24 @@ class CatNotificationListener : NotificationListenerService() {
         }
     }
 
-    fun getPregeneratedReplies(packageName: String, senderName: String, messageText: String): List<String>? {
-        val cacheKey = "${packageName}_${senderName}_${messageText.take(50)}"
-        return pregeneratedReplies[cacheKey]
+    fun getPregeneratedReplies(
+        packageName: String,
+        notificationId: Int,
+        senderName: String,
+        messageText: String
+    ): List<String>? {
+        val senderKey = buildSenderKey(packageName, notificationId, senderName)
+        return ReplyStore.getStoredReplies(senderKey)
     }
 
-    fun clearPregeneratedReplies(packageName: String, senderName: String, messageText: String) {
-        val cacheKey = "${packageName}_${senderName}_${messageText.take(50)}"
-        pregeneratedReplies.remove(cacheKey)
-        pregenInProgress.remove(cacheKey)
+    fun clearPregeneratedReplies(
+        packageName: String,
+        notificationId: Int,
+        senderName: String,
+        messageText: String
+    ) {
+        val senderKey = buildSenderKey(packageName, notificationId, senderName)
+        ReplyStore.clearStoredReplies(senderKey)
     }
 
     private fun pruneProcessedKeys(now: Long) {
@@ -143,17 +163,11 @@ class CatNotificationListener : NotificationListenerService() {
         }
         val entry = ReplyStore.getByKey(sbn.key)
         if (entry != null) {
-            clearPregeneratedReplies(entry.packageName, entry.sender, entry.message)
+            clearPregeneratedReplies(entry.packageName, entry.notificationId, entry.sender, entry.message)
         }
         ReplyStore.remove(sbn.key)
         processedKeys.remove(sbn.key)
         super.onNotificationRemoved(sbn)
-    }
-
-    override fun onDestroy() {
-        pregenScope.cancel()
-        pregeneratedReplies.clear()
-        super.onDestroy()
     }
 
     override fun onListenerDisconnected() {

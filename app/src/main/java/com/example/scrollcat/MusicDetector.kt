@@ -41,10 +41,10 @@ class MusicDetector(private val context: Context) {
             if (shouldDance != isMusicPlaying) {
                 isMusicPlaying = shouldDance
                 if (shouldDance) {
-                    android.util.Log.d("ScrollCat", "Music started from: $currentForegroundApp")
+                    Logger.d("Music started from: $currentForegroundApp")
                     OverlayService.instance?.onMusicStarted()
                 } else {
-                    android.util.Log.d("ScrollCat", "Music stopped")
+                    Logger.d("Music stopped")
                     OverlayService.instance?.onMusicStopped()
                 }
             }
@@ -60,7 +60,7 @@ class MusicDetector(private val context: Context) {
         isPaused = false
         handler.removeCallbacks(checkRunnable)
         handler.post(checkRunnable)
-        android.util.Log.d("ScrollCat", "Music detector started")
+        Logger.d("Music detector started")
     }
 
     /** Pause polling when the screen is off to save battery. */
@@ -72,20 +72,20 @@ class MusicDetector(private val context: Context) {
             isMusicPlaying = false
             OverlayService.instance?.onMusicStopped()
         }
-        android.util.Log.d("ScrollCat", "Music detector paused")
+        Logger.d("Music detector paused")
     }
 
     fun resume() {
         if (!isPaused) return
         isPaused = false
         handler.post(checkRunnable)
-        android.util.Log.d("ScrollCat", "Music detector resumed")
+        Logger.d("Music detector resumed")
     }
 
     fun stop() {
         isPaused = true
         handler.removeCallbacksAndMessages(null)
         isMusicPlaying = false
-        android.util.Log.d("ScrollCat", "Music detector stopped")
+        Logger.d("Music detector stopped")
     }
 }

@@ -53,6 +53,13 @@ class AiReplyGenerator(private val context: Context) {
             "You've used your 10 free AI replies today. Upgrade to Creator for unlimited! ⭐"
         private const val USAGE_PREFS = "usage_prefs"
 
+        private val httpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build()
+        }
+
         /** Last-resort suggestions when every AI engine fails. */
         val HARDCODED_FALLBACK = listOf(
             "Sure!",
@@ -131,6 +138,38 @@ class AiReplyGenerator(private val context: Context) {
             val current = getDailyUsage(context)
             prefs.edit().putInt("daily_usage", current + 1).apply()
         }
+
+        fun generateReplies(
+            context: Context,
+            packageName: String,
+            senderName: String,
+            message: String,
+            onResult: (List<String>) -> Unit
+        ) {
+            AiReplyGenerator(context).generateReplies(senderName, message) { replies, _ ->
+                onResult(replies)
+            }
+        }
+
+        fun flushAllBuffers(context: Context) {
+            val senders = ReplyStore.allBufferedSenders()
+            Logger.d("flushAllBuffers triggered, ${senders.size} sender(s) to flush")
+            for (senderKey in senders) {
+                val messages = ReplyStore.getAndClearBuffer(senderKey)
+                if (messages.isEmpty()) continue
+
+                val mergedText = messages.joinToString(separator = "\n") { it.text }
+                Logger.d("Flushing $senderKey with ${messages.size} message(s): $mergedText")
+                val parts = senderKey.split(":", limit = 2)
+                val packageName = parts.getOrElse(0) { "" }
+                val senderName = parts.getOrElse(1) { "" }
+
+                generateReplies(context, packageName, senderName, mergedText) { replies ->
+                    Logger.d("Groq replies stored for $senderKey: $replies")
+                    ReplyStore.storeReplies(senderKey, replies)
+                }
+            }
+        }
     }
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -174,13 +213,13 @@ class AiReplyGenerator(private val context: Context) {
         val endpoint = if (activeEndpoint.isNotEmpty()) activeEndpoint else BUNDLED_ENDPOINT
         val model = if (activeModel.isNotEmpty()) activeModel else BUNDLED_MODEL
 
-        android.util.Log.d("ScrollCat", "Using ${if (activeKey.isNotEmpty()) "user" else "bundled"} API key")
+        Logger.d("Using ${if (activeKey.isNotEmpty()) "user" else "bundled"} API key")
 
         val usage = getDailyUsage(context)
         val limit = getDailyLimit(context)
 
         if (usage >= limit) {
-            android.util.Log.d("ScrollCat", "Daily limit reached: $usage/$limit")
+            Logger.d("Daily limit reached: $usage/$limit")
             mainHandler.post {
                 OverlayService.instance?.showCatMessage(
                     if (limit == 10)
@@ -394,8 +433,8 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         apiKey: String,
         callback: (List<String>) -> Unit
     ) {
-        android.util.Log.d("ScrollCat", "Final endpoint: $endpoint")
-        android.util.Log.d("ScrollCat", "Final model: $model")
+        Logger.d("Final endpoint: $endpoint")
+        Logger.d("Final model: $model")
 
         Log.d(TAG, "Using API key: ${if (apiKey.isEmpty()) "EMPTY - will fallback" else "SET (${apiKey.take(8)}...)"}")
 
@@ -415,15 +454,11 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
 
         Thread {
             try {
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(10, TimeUnit.SECONDS)
-                    .build()
-
                 val requestBody = if (isClaudeApi) {
                     JSONObject().apply {
                         put("model", model)
                         put("max_tokens", 150)
+                        put("temperature", 0.4)
                         put("system", systemPrompt)
                         put("messages", JSONArray().apply {
                             put(JSONObject().apply {
@@ -436,6 +471,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                     JSONObject().apply {
                         put("model", model)
                         put("max_tokens", 150)
+                        put("temperature", 0.4)
                         put("messages", JSONArray().apply {
                             put(JSONObject().apply {
                                 put("role", "system")
@@ -462,10 +498,10 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                     requestBuilder.addHeader("Authorization", "Bearer $apiKey")
                 }
 
-                val response = client.newCall(requestBuilder.build()).execute()
+                val response = httpClient.newCall(requestBuilder.build()).execute()
                 val responseBody = response.body?.string().orEmpty()
 
-                android.util.Log.d("ScrollCat", "AI provider response: $responseBody")
+                Logger.d("AI provider response: $responseBody")
 
                 if (!response.isSuccessful) {
                     throw Exception("HTTP ${response.code}: ${responseBody.take(200)}")
@@ -492,13 +528,13 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
 
                 val replies = parseReplies(content)
 
-                android.util.Log.d("ScrollCat", "Replies from AI provider: $replies")
+                Logger.d("Replies from AI provider: $replies")
 
                 mainHandler.post {
                     callback(replies.filter { it.isNotBlank() })
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ScrollCat", "AI provider error: ${e.message}")
+                Logger.e("AI provider error: ${e.message}")
                 mainHandler.post {
                     callback(emptyList())
                 }

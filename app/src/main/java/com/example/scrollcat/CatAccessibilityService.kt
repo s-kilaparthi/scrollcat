@@ -26,6 +26,9 @@ class CatAccessibilityService : AccessibilityService() {
     private var lastTranslatedText = ""
     private val translationCooldownMs = 5000L
     private var lastTranslationTime = 0L
+    private var lastReactedPackage = ""
+    private var lastReactedTime = 0L
+    private val REACTION_DEBOUNCE_MS = 2000L // 2 seconds
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -98,7 +101,7 @@ class CatAccessibilityService : AccessibilityService() {
 
     fun performRecentApps() {
         val behavior = SettingsManager.getLeftSwipeBehavior(this)
-        android.util.Log.d("ScrollCat", "Left swipe: $behavior")
+        Logger.d("Left swipe: $behavior")
         when (behavior) {
             "screenshot" -> performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
             "notifications" -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
@@ -112,12 +115,29 @@ class CatAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val packageName = event.packageName?.toString() ?: return
-                // Ignore system UI and our own app
-                if (packageName == "com.example.scrollcat") return
-                if (packageName == "com.android.systemui") return
-                if (packageName == "android") return
+                val ignoredPackages = setOf(
+                    "com.samsung.android.honeyboard",  // Samsung keyboard
+                    "com.google.android.inputmethod.latin", // Gboard
+                    "com.sec.android.inputmethod",     // Samsung IME
+                    "com.android.systemui",            // System UI
+                    "com.samsung.android.app.cocktailbarservice", // Edge panel
+                    "com.sec.android.app.launcher",    // Samsung launcher
+                    "android",                          // Android system
+                    "com.example.scrollcat",
+                    "com.example.scrollcat.debug"
+                )
+                if (packageName in ignoredPackages) return
 
-                android.util.Log.d("ScrollCat", "App opened: $packageName")
+                val now = System.currentTimeMillis()
+                if (packageName == lastReactedPackage &&
+                    now - lastReactedTime < REACTION_DEBOUNCE_MS
+                ) {
+                    return // Skip duplicate reaction
+                }
+                lastReactedPackage = packageName
+                lastReactedTime = now
+
+                Logger.d("App opened: $packageName")
                 OverlayService.instance?.reactToApp(packageName)
             }
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,

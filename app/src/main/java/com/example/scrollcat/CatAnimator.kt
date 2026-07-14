@@ -1,5 +1,6 @@
 package com.example.scrollcat
 
+import android.app.ActivityManager
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
@@ -15,6 +16,11 @@ class CatAnimator(
     companion object {
         const val TICK_MS = 16L
         const val IDLE_INTERVAL_MS = 6000L // play idle animation every 6 seconds
+
+        fun isLowEndDevice(context: Context): Boolean {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            return activityManager.isLowRamDevice
+        }
     }
 
     private val animations = mapOf(
@@ -42,7 +48,20 @@ class CatAnimator(
     private var tickCount = 0
     private var isRunning = false
     private var onAnimComplete: (() -> Unit)? = null
-    private val bitmapCache = mutableMapOf<Int, BitmapDrawable>()
+    private val MAX_CACHE_SIZE = 30 // max frames in memory at once
+    private val bitmapCache = object : LinkedHashMap<Int, BitmapDrawable>(
+        MAX_CACHE_SIZE, 0.75f, true
+    ) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<Int, BitmapDrawable>
+        ): Boolean {
+            if (size > MAX_CACHE_SIZE) {
+                Logger.d("Evicting frame ${eldest.key} from cache")
+                return true // Let GC handle bitmap cleanup - don't manually recycle
+            }
+            return false
+        }
+    }
     private val random = Random()
     private var idleTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isIdleSleeping = false
@@ -58,25 +77,25 @@ class CatAnimator(
     private fun resetIdleTimeout() {
         idleTimeoutHandler.removeCallbacksAndMessages(null)
         idleTimeoutHandler.postDelayed({
-            android.util.Log.d("ScrollCat", "Idle timeout fired - entering sleep")
+            Logger.d("Idle timeout fired - entering sleep")
             enterIdleSleep()
         }, IDLE_TIMEOUT_MS)
     }
 
     fun cancelIdleTimeout() {
         idleTimeoutHandler.removeCallbacksAndMessages(null)
-        android.util.Log.d("ScrollCat", "Idle timeout cancelled - screen off")
+        Logger.d("Idle timeout cancelled - screen off")
     }
 
     private fun enterIdleSleep() {
         isIdleSleeping = true
         handler.removeCallbacksAndMessages(null)
         stopAnim()
-        android.util.Log.d("ScrollCat", "Entering idle sleep mode")
+        Logger.d("Entering idle sleep mode")
         setFrame(68)
         val opacity = SettingsManager.getSleepOpacity(context)
         imageView.alpha = opacity
-        android.util.Log.d("ScrollCat", "Sleep opacity: $opacity")
+        Logger.d("Sleep opacity: $opacity")
     }
 
     fun wakeUp() {
@@ -104,12 +123,12 @@ class CatAnimator(
         isRunning = true
         setFrame(animations["music"]!!.frames[0])
         handler.postDelayed(tickRunnable, TICK_MS)
-        android.util.Log.d("ScrollCat", "Music mode started")
+        Logger.d("Music mode started")
     }
 
     fun stopMusic() {
         if (currentAnim != "music") return
-        android.util.Log.d("ScrollCat", "Music mode stopped")
+        Logger.d("Music mode stopped")
         showStatic()
     }
 
@@ -126,7 +145,7 @@ class CatAnimator(
 
         // Show first frame immediately
         setFrame(anim.frames[0])
-        android.util.Log.d("ScrollCat", "Started anim: $animKey")
+        Logger.d("Started anim: $animKey")
         handler.postDelayed(tickRunnable, TICK_MS)
     }
 
@@ -144,15 +163,35 @@ class CatAnimator(
         stop()
         handler.removeCallbacksAndMessages(null)
         idleTimeoutHandler.removeCallbacksAndMessages(null)
+        clearBitmapCache()
+    }
+
+    fun onLowMemory() {
+        android.util.Log.w("ScrollCat", "Low memory - clearing animation cache")
+        stopAnim()
+        bitmapCache.clear() // Let GC recycle bitmaps - don't manually recycle
+        Logger.d("Animation cache cleared")
+    }
+
+    private fun clearBitmapCache() {
+        stopAnim()
         bitmapCache.clear()
     }
 
-    fun setFrame(spriteIndex: Int) {
+    private fun setFrame(spriteIndex: Int) {
         try {
             val drawable = loadFrame(spriteIndex)
-            imageView.setImageDrawable(drawable)
+            // Safety check - don't draw recycled bitmap
+            if (drawable.bitmap?.isRecycled == true) {
+                android.util.Log.w("ScrollCat", "Bitmap recycled, reloading frame $spriteIndex")
+                bitmapCache.remove(spriteIndex)
+                val fresh = loadFrame(spriteIndex)
+                imageView.setImageDrawable(fresh)
+            } else {
+                imageView.setImageDrawable(drawable)
+            }
         } catch (e: Exception) {
-            android.util.Log.e("ScrollCat", "Frame load error: ${e.message}")
+            Logger.e("Frame load error: ${e.message}")
         }
     }
 
@@ -179,7 +218,7 @@ class CatAnimator(
                 }
 
                 setFrame(anim.frames[frameIndex])
-                android.util.Log.d("ScrollCat", "Frame: ${anim.frames[frameIndex]}")
+                Logger.d("Frame: ${anim.frames[frameIndex]}")
             }
 
             handler.postDelayed(this, TICK_MS)

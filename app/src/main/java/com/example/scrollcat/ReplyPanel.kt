@@ -175,7 +175,7 @@ class ReplyPanel(
 
         // Reply in app click
         replyInAppBtn.setOnClickListener {
-            android.util.Log.d("ScrollCat", "Reply in app button clicked - entry: ${currentEntry?.packageName} contentIntent: ${currentEntry?.contentIntent}")
+            Logger.d("Reply in app button clicked - entry: ${currentEntry?.packageName} contentIntent: ${currentEntry?.contentIntent}")
             val entry = currentEntry ?: return@setOnClickListener
             try {
                 if (entry.contentIntent != null) {
@@ -203,7 +203,7 @@ class ReplyPanel(
                         }
                     launchIntent?.let { context.startActivity(it) }
                 } catch (e2: Exception) {
-                    android.util.Log.e("ScrollCat", "Failed to open app: ${e2.message}")
+                    Logger.e("Failed to open app: ${e2.message}")
                 }
             }
             // Clear badge and remove from store after opening app
@@ -218,7 +218,7 @@ class ReplyPanel(
             ReplyStore.remove(entry.notificationKey)
             OverlayService.instance?.updateBadgeAfterReply()
             dismiss()
-            android.util.Log.d("ScrollCat", "Message ignored: ${entry.sender}")
+            Logger.d("Message ignored: ${entry.sender}")
         }
 
         bottomRow.addView(replyInAppBtn)
@@ -277,7 +277,7 @@ class ReplyPanel(
                 })
                 return
             }
-            android.util.Log.d("ScrollCat", "Replies from $engine: $suggestions")
+            Logger.d("Replies from $engine: $suggestions")
             if (currentEntry?.hasRemoteInput != true) {
                 chipsContainer.addView(TextView(context).apply {
                     text = "💡 Tap a suggestion to copy it, then paste in the app"
@@ -326,20 +326,22 @@ class ReplyPanel(
         // Check for pre-generated replies first
         val pregenerated = CatNotificationListener.instance?.getPregeneratedReplies(
             message.packageName,
+            message.notificationId,
             message.sender,
             message.message
         )
 
         if (pregenerated != null && pregenerated.isNotEmpty()) {
-            android.util.Log.d("ScrollCat", "Using pre-generated replies - INSTANT!")
+            Logger.d("Using pre-generated replies - INSTANT!")
             showReplies(pregenerated)
             CatNotificationListener.instance?.clearPregeneratedReplies(
                 message.packageName,
+                message.notificationId,
                 message.sender,
                 message.message
             )
         } else {
-            android.util.Log.d("ScrollCat", "No pre-generated replies - generating now")
+            Logger.d("No pre-generated replies - generating now")
             showThinkingState()
             val aiGenerator = AiReplyGenerator(context)
             aiGenerator.generateReplies(message.sender, message.message) { replies, engine ->

@@ -818,7 +818,7 @@ class AiProviderActivity : Activity() {
                 }
             } else active.model
 
-            android.util.Log.d("ScrollCat", "Saving active provider: ${active.name} endpoint: $endpoint model: $model")
+            Logger.d("Saving active provider: ${active.name} endpoint: $endpoint model: $model")
 
             SettingsManager.setActiveAiProvider(
                 this,
