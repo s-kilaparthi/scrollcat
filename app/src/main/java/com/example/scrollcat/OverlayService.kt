@@ -1121,9 +1121,17 @@ class OverlayService : Service() {
 
     fun incrementBadge() {
         if (isDestroyed) return
+        val panelOpen = replyPanel?.isShowing == true
+        android.util.Log.d(
+            "ScrollCat",
+            "Incrementing badge, panel currently open: $panelOpen, current count before: $badgeCount"
+        )
         catView?.post { animateNotification() }
         badgeCount++
         updateBadge()
+        if (panelOpen) {
+            replyPanel?.refreshPendingFromStore()
+        }
     }
 
     fun clearBadge() {

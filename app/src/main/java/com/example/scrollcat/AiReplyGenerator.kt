@@ -41,6 +41,8 @@ class AiReplyGenerator(private val context: Context) {
         private const val BUNDLED_KEY_ENCODED = "Z3NrX1lPVVJfQUNUVUFMX0dST1FfS0VZX0hFUkU="
         private const val BUNDLED_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
         private const val BUNDLED_MODEL = "llama-3.1-8b-instant"
+        private const val CLAUDE_ENDPOINT = "https://api.anthropic.com/v1/messages"
+        private const val CLAUDE_MODEL = "claude-haiku-4-5"
 
         private fun getBundledKey(): String {
             return String(android.util.Base64.decode(BUNDLED_KEY_ENCODED, android.util.Base64.DEFAULT))
@@ -151,6 +153,14 @@ class AiReplyGenerator(private val context: Context) {
             }
         }
 
+        fun mergeMessageTexts(
+            messages: List<ReplyStore.BufferedMessage>,
+            latestText: String? = null
+        ): String {
+            val texts = messages.map { it.text } + listOfNotNull(latestText)
+            return texts.joinToString(separator = "\n")
+        }
+
         fun flushAllBuffers(context: Context) {
             val senders = ReplyStore.allBufferedSenders()
             Logger.d("flushAllBuffers triggered, ${senders.size} sender(s) to flush")
@@ -158,7 +168,7 @@ class AiReplyGenerator(private val context: Context) {
                 val messages = ReplyStore.getAndClearBuffer(senderKey)
                 if (messages.isEmpty()) continue
 
-                val mergedText = messages.joinToString(separator = "\n") { it.text }
+                val mergedText = mergeMessageTexts(messages)
                 Logger.d("Flushing $senderKey with ${messages.size} message(s): $mergedText")
                 val parts = senderKey.split(":", limit = 2)
                 val packageName = parts.getOrElse(0) { "" }
@@ -183,8 +193,8 @@ class AiReplyGenerator(private val context: Context) {
 
     /**
      * Generates up to [SUGGESTION_COUNT] suggestions.
-     * [onResult] is always invoked on the main thread. The list is empty when
-     * both engines fail.
+     * [onResult] is always invoked on the main thread. Hardcoded suggestions
+     * are returned when every dynamic engine fails.
      */
     fun generateReplies(
         sender: String,
@@ -241,12 +251,50 @@ class AiReplyGenerator(private val context: Context) {
 "$message"
 
 Generate 3 short reply options."""
-        generateWithGroq(userMessage, endpoint, model, apiKey) { replies ->
+        val providerName = providerNameFor(endpoint)
+        generateWithGroq(userMessage, endpoint, model, apiKey) { replies, error ->
             if (replies.isNotEmpty()) {
                 onResult(replies.take(SUGGESTION_COUNT), "AI Provider")
             } else {
-                generateWithOnDeviceChain(sender, message, onResult)
+                if (providerName == "Groq") {
+                    Log.e(TAG, "Groq failed, falling back: ${error?.message ?: "empty response"}")
+                    fallbackAfterGroqFailure(userMessage, sender, message, onResult)
+                } else {
+                    Log.e(TAG, "$providerName failed, falling back: ${error?.message ?: "empty response"}")
+                    generateWithSmartReply(sender, message, onResult)
+                }
             }
+        }
+    }
+
+    private fun providerNameFor(endpoint: String): String {
+        return when {
+            endpoint.contains("groq.com", ignoreCase = true) -> "Groq"
+            endpoint.contains("anthropic.com", ignoreCase = true) -> "Claude"
+            else -> "AI provider"
+        }
+    }
+
+    private fun fallbackAfterGroqFailure(
+        userMessage: String,
+        sender: String,
+        message: String,
+        onResult: (suggestions: List<String>, engine: String) -> Unit
+    ) {
+        val claudeKey = ApiKeyStore.getClaudeApiKey(context)
+        if (claudeKey.isNotBlank()) {
+            Log.d(TAG, "Using Claude fallback after Groq failure")
+            generateWithGroq(userMessage, CLAUDE_ENDPOINT, CLAUDE_MODEL, claudeKey) { replies, error ->
+                if (replies.isNotEmpty()) {
+                    onResult(replies.take(SUGGESTION_COUNT), "Claude")
+                } else {
+                    Log.e(TAG, "Claude fallback failed, using Smart Reply: ${error?.message ?: "empty response"}")
+                    generateWithSmartReply(sender, message, onResult)
+                }
+            }
+        } else {
+            Log.d(TAG, "Using Smart Reply fallback after Groq failure")
+            generateWithSmartReply(sender, message, onResult)
         }
     }
 
@@ -431,7 +479,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         endpoint: String,
         model: String,
         apiKey: String,
-        callback: (List<String>) -> Unit
+        callback: (List<String>, Exception?) -> Unit
     ) {
         Logger.d("Final endpoint: $endpoint")
         Logger.d("Final model: $model")
@@ -439,8 +487,8 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         Log.d(TAG, "Using API key: ${if (apiKey.isEmpty()) "EMPTY - will fallback" else "SET (${apiKey.take(8)}...)"}")
 
         if (apiKey.isEmpty()) {
-            Log.d(TAG, "No API key found - falling back to Smart Reply")
-            mainHandler.post { callback(getFallbackReplies()) }
+            Log.d(TAG, "No API key found - falling back")
+            mainHandler.post { callback(emptyList(), IllegalStateException("No API key found")) }
             return
         }
 
@@ -528,15 +576,19 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
 
                 val replies = parseReplies(content)
 
+                if (replies.isEmpty()) {
+                    throw Exception("No replies parsed from provider response")
+                }
+
                 Logger.d("Replies from AI provider: $replies")
 
                 mainHandler.post {
-                    callback(replies.filter { it.isNotBlank() })
+                    callback(replies.filter { it.isNotBlank() }, null)
                 }
             } catch (e: Exception) {
                 Logger.e("AI provider error: ${e.message}")
                 mainHandler.post {
-                    callback(emptyList())
+                    callback(emptyList(), e)
                 }
             }
         }.start()
