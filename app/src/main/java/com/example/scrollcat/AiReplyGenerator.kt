@@ -12,14 +12,24 @@ import com.google.mlkit.genai.prompt.java.GenerativeModelFutures
 import com.google.mlkit.nl.smartreply.SmartReply
 import com.google.mlkit.nl.smartreply.SmartReplySuggestionResult
 import com.google.mlkit.nl.smartreply.TextMessage
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 
 /**
- * Generates 3 reply suggestions for an incoming message, fully on-device.
+ * Generates 3 reply suggestions for an incoming message.
  *
- * Primary engine: Gemini Nano via the ML Kit GenAI Prompt API (free, on-device).
- * Fallback engine: ML Kit Smart Reply for devices without AICore/Gemini Nano
- * support, so suggestions work on every phone.
+ * AI chain (via ClaudeReplyGenerator entry point):
+ * 1. Claude API (if user has key)
+ * 2. Groq/Llama3 (if user has Groq key)
+ * 3. Gemini Nano (on-device, if AICore available)
+ * 4. ML Kit Smart Reply
+ * 5. Hardcoded fallback
  */
 class AiReplyGenerator(private val context: Context) {
 
@@ -28,12 +38,20 @@ class AiReplyGenerator(private val context: Context) {
         const val SUGGESTION_COUNT = 3
         private const val GENERATION_TIMEOUT_MS = 10_000L
 
+        private const val BUNDLED_KEY_ENCODED = "Z3NrX1lPVVJfQUNUVUFMX0dST1FfS0VZX0hFUkU="
+        private const val BUNDLED_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+        private const val BUNDLED_MODEL = "llama-3.1-8b-instant"
+
+        private fun getBundledKey(): String {
+            return String(android.util.Base64.decode(BUNDLED_KEY_ENCODED, android.util.Base64.DEFAULT))
+        }
+
         // Free tier: 10 AI replies per day, reset at midnight
         const val FREE_DAILY_LIMIT = 10
         const val ENGINE_LIMIT_REACHED = "limit_reached"
         const val UPGRADE_MESSAGE =
             "You've used your 10 free AI replies today. Upgrade to Creator for unlimited! ⭐"
-        private const val USAGE_PREFS = "scrollcat_usage"
+        private const val USAGE_PREFS = "usage_prefs"
 
         /** Last-resort suggestions when every AI engine fails. */
         val HARDCODED_FALLBACK = listOf(
@@ -42,45 +60,76 @@ class AiReplyGenerator(private val context: Context) {
             "Let me check and get back to you"
         )
 
+        private val singleWordReplies = mapOf(
+            "hi" to listOf("Hey!", "Hi there!", "Hello!"),
+            "hii" to listOf("Hey!", "Hi there!", "Hello!"),
+            "hiii" to listOf("Hey!", "Hi there!", "Hello!"),
+            "hello" to listOf("Hey there!", "Hello!", "Hi!"),
+            "hey" to listOf("Hey!", "What's up!", "Hi there!"),
+            "ok" to listOf("Sounds good!", "Got it!", "Sure thing!"),
+            "okay" to listOf("Sounds good!", "Got it!", "Sure!"),
+            "sure" to listOf("Of course!", "Absolutely!", "Sure thing!"),
+            "done" to listOf("Great!", "Awesome!", "Perfect!"),
+            "bye" to listOf("Bye!", "Take care!", "See you soon!"),
+            "goodbye" to listOf("Bye!", "Take care!", "See you!"),
+            "thanks" to listOf("You're welcome!", "Anytime!", "Happy to help!"),
+            "thank" to listOf("You're welcome!", "Anytime!", "No problem!"),
+            "thankyou" to listOf("You're welcome!", "Anytime!", "Happy to help!"),
+            "yes" to listOf("Yes!", "Absolutely!", "Of course!"),
+            "no" to listOf("No worries!", "Maybe next time!", "That's okay!"),
+            "wow" to listOf("Right?!", "I know!", "Haha yes!"),
+            "lol" to listOf("Haha!", "Right?!", "Too funny!"),
+            "nice" to listOf("Thank you!", "Glad you think so!", "Appreciate it!"),
+            "cool" to listOf("Thanks!", "Glad you like it!", "Appreciate it!"),
+            "good" to listOf("Thank you!", "Glad to hear!", "That's great!"),
+            "great" to listOf("Thank you!", "Appreciate it!", "Glad you think so!"),
+            "k" to listOf("Got it!", "Sounds good!", "Sure!"),
+            "np" to listOf("Anytime!", "Of course!", "No problem!"),
+            "gm" to listOf("Good morning!", "Morning!", "Good morning to you!"),
+            "gn" to listOf("Good night!", "Sleep well!", "Night!"),
+            "morning" to listOf("Good morning!", "Morning!", "Hey, good morning!"),
+            "night" to listOf("Good night!", "Sleep well!", "Night!")
+        )
+
         /** Remaining free generations today (Int.MAX_VALUE for Pro users). */
         fun remainingFreeReplies(context: Context): Int {
-            if (BillingManager.getInstance(context).isPro()) return Int.MAX_VALUE
-            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
-            val today = todayKey()
-            val count = if (prefs.getString("date", "") == today) prefs.getInt("count", 0) else 0
-            return (FREE_DAILY_LIMIT - count).coerceAtLeast(0)
+            val limit = getDailyLimit(context)
+            if (limit == Int.MAX_VALUE) return Int.MAX_VALUE
+            return (limit - getDailyUsage(context)).coerceAtLeast(0)
         }
 
-        private fun todayKey(): String {
-            val cal = java.util.Calendar.getInstance()
-            return "%04d-%02d-%02d".format(
-                cal.get(java.util.Calendar.YEAR),
-                cal.get(java.util.Calendar.MONTH) + 1,
-                cal.get(java.util.Calendar.DAY_OF_MONTH)
-            )
-        }
+        fun getDailyLimit(context: Context): Int {
+            val hasOwnKey = SettingsManager.getActiveAiKey(context).isNotEmpty()
+            if (hasOwnKey) return Int.MAX_VALUE
 
-        /**
-         * Persona instruction built from the onboarding profile.
-         * Shared with ClaudeReplyGenerator as its system prompt.
-         */
-        fun buildProfilePrompt(context: Context): String {
-            val tone = SettingsManager.getReplyTone(context)
-            val name = SettingsManager.getUserName(context)
-            val niche = SettingsManager.getUserNiche(context)
-            return when (SettingsManager.getUserType(context)) {
-                "creator" -> {
-                    val who = if (name.isNotBlank()) name else "the user"
-                    val what = if (niche.isNotBlank()) "$niche content creator" else "content creator"
-                    "Reply as $who, a $what. Tone: $tone. Authentic and engaging."
-                }
-                "business" -> {
-                    val who = if (name.isNotBlank()) name else "the user's business"
-                    val what = if (niche.isNotBlank()) "$niche business" else "business"
-                    "Reply as $who, a $what. Professional and helpful."
-                }
-                else -> "Generate 3 natural short replies. Tone: $tone."
+            return when (BillingManager.getSubscriptionTier(context)) {
+                "business" -> Int.MAX_VALUE
+                "creator" -> 200
+                else -> 10
             }
+        }
+
+        fun getDailyUsage(context: Context): Int {
+            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            val savedDate = prefs.getString("usage_date", "")
+
+            return if (savedDate == today) {
+                prefs.getInt("daily_usage", 0)
+            } else {
+                prefs.edit()
+                    .putString("usage_date", today)
+                    .putInt("daily_usage", 0)
+                    .apply()
+                0
+            }
+        }
+
+        fun incrementDailyUsage(context: Context) {
+            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
+            val current = getDailyUsage(context)
+            prefs.edit().putInt("daily_usage", current + 1).apply()
         }
     }
 
@@ -103,13 +152,70 @@ class AiReplyGenerator(private val context: Context) {
         message: String,
         onResult: (suggestions: List<String>, engine: String) -> Unit
     ) {
-        // Free tier daily cap — Pro (Creator/Business) is unlimited
-        if (!consumeDailyQuota()) {
-            Log.i(TAG, "Free daily reply limit reached")
-            mainHandler.post { onResult(emptyList(), ENGINE_LIMIT_REACHED) }
+        Log.d(TAG, "=== generateReplies called ===")
+        Log.d(TAG, "Active endpoint: ${SettingsManager.getActiveAiEndpoint(context)}")
+        Log.d(TAG, "Active model: ${SettingsManager.getActiveAiModel(context)}")
+        Log.d(TAG, "Active key empty: ${SettingsManager.getActiveAiKey(context).isEmpty()}")
+
+        val normalizedMessage = message.trim().lowercase()
+            .removeSuffix("!")
+            .removeSuffix(".")
+            .removeSuffix("?")
+        singleWordReplies[normalizedMessage]?.let { quickReplies ->
+            mainHandler.post { onResult(quickReplies, "Quick Reply") }
             return
         }
 
+        val activeKey = SettingsManager.getActiveAiKey(context)
+        val activeEndpoint = SettingsManager.getActiveAiEndpoint(context)
+        val activeModel = SettingsManager.getActiveAiModel(context)
+
+        val apiKey = if (activeKey.isNotEmpty()) activeKey else getBundledKey()
+        val endpoint = if (activeEndpoint.isNotEmpty()) activeEndpoint else BUNDLED_ENDPOINT
+        val model = if (activeModel.isNotEmpty()) activeModel else BUNDLED_MODEL
+
+        android.util.Log.d("ScrollCat", "Using ${if (activeKey.isNotEmpty()) "user" else "bundled"} API key")
+
+        val usage = getDailyUsage(context)
+        val limit = getDailyLimit(context)
+
+        if (usage >= limit) {
+            android.util.Log.d("ScrollCat", "Daily limit reached: $usage/$limit")
+            mainHandler.post {
+                OverlayService.instance?.showCatMessage(
+                    if (limit == 10)
+                        "You've used your 10 free AI replies today. Upgrade to Pro for 200 replies!"
+                    else
+                        "Daily limit reached. Upgrade to Business for unlimited replies!"
+                )
+                onResult(
+                    listOf("Upgrade to Pro for more AI replies", "Sure!", "Let me check"),
+                    ENGINE_LIMIT_REACHED
+                )
+            }
+            return
+        }
+
+        incrementDailyUsage(context)
+
+        val userMessage = """Message to reply to:
+"$message"
+
+Generate 3 short reply options."""
+        generateWithGroq(userMessage, endpoint, model, apiKey) { replies ->
+            if (replies.isNotEmpty()) {
+                onResult(replies.take(SUGGESTION_COUNT), "AI Provider")
+            } else {
+                generateWithOnDeviceChain(sender, message, onResult)
+            }
+        }
+    }
+
+    private fun generateWithOnDeviceChain(
+        sender: String,
+        message: String,
+        onResult: (suggestions: List<String>, engine: String) -> Unit
+    ) {
         val cached = geminiNanoAvailable
         if (cached == false) {
             generateWithSmartReply(sender, message, onResult)
@@ -142,21 +248,6 @@ class AiReplyGenerator(private val context: Context) {
                 }
             }
         }, mainExecutor)
-    }
-
-    /**
-     * Counts one generation against today's free quota.
-     * Returns false when the free limit is exhausted (and the user isn't Pro).
-     */
-    private fun consumeDailyQuota(): Boolean {
-        if (BillingManager.getInstance(context).isPro()) return true
-        val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
-        val today = todayKey()
-        var count = if (prefs.getString("date", "") == today) prefs.getInt("count", 0) else 0
-        if (count >= FREE_DAILY_LIMIT) return false
-        count++
-        prefs.edit().putString("date", today).putInt("count", count).apply()
-        return true
     }
 
     private fun startModelDownload() {
@@ -223,7 +314,7 @@ class AiReplyGenerator(private val context: Context) {
     }
 
     private fun buildPrompt(sender: String, message: String): String {
-        return """You suggest short chat replies. ${buildProfilePrompt(context)}
+        return """${UserProfileBuilder.buildSystemPrompt(context, message.length)}
 
 $sender sent this message:
 "$message"
@@ -243,6 +334,176 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
             .filter { it.isNotEmpty() && it.length <= 120 }
             .distinct()
             .take(SUGGESTION_COUNT)
+    }
+
+    private fun parseReplies(content: String): List<String> {
+        val cleaned = content
+            .trim()
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+
+        return try {
+            val arr = JSONArray(cleaned)
+            val replies = mutableListOf<String>()
+            for (i in 0 until arr.length()) {
+                val item = arr.get(i)
+                when (item) {
+                    is String -> {
+                        if (item.isNotBlank() &&
+                            !item.startsWith("{") &&
+                            item.length > 2
+                        ) {
+                            replies.add(item.trim())
+                        }
+                    }
+                    is JSONObject -> {
+                        val text = when {
+                            item.has("message") -> item.getString("message")
+                            item.has("text") -> item.getString("text")
+                            item.has("reply") -> item.getString("reply")
+                            item.has("content") -> item.getString("content")
+                            else -> item.toString()
+                        }
+                        if (text.isNotBlank()) replies.add(text.trim())
+                    }
+                }
+            }
+            replies.filter { it.isNotEmpty() && it.length > 2 }.take(3)
+        } catch (e: Exception) {
+            cleaned.split("\n")
+                .map { it.trim()
+                    .removePrefix("-")
+                    .removePrefix("•")
+                    .removePrefix("1.").removePrefix("2.").removePrefix("3.")
+                    .removeSurrounding("\"")
+                    .trim()
+                }
+                .filter { it.isNotEmpty() && it.length > 3 && !it.startsWith("{") }
+                .take(3)
+        }
+    }
+
+    private fun getFallbackReplies(): List<String> = HARDCODED_FALLBACK
+
+    private fun generateWithGroq(
+        message: String,
+        endpoint: String,
+        model: String,
+        apiKey: String,
+        callback: (List<String>) -> Unit
+    ) {
+        android.util.Log.d("ScrollCat", "Final endpoint: $endpoint")
+        android.util.Log.d("ScrollCat", "Final model: $model")
+
+        Log.d(TAG, "Using API key: ${if (apiKey.isEmpty()) "EMPTY - will fallback" else "SET (${apiKey.take(8)}...)"}")
+
+        if (apiKey.isEmpty()) {
+            Log.d(TAG, "No API key found - falling back to Smart Reply")
+            mainHandler.post { callback(getFallbackReplies()) }
+            return
+        }
+
+        val systemPrompt = UserProfileBuilder.buildSystemPrompt(context, message.length)
+        android.util.Log.d(
+            "ScrollCat",
+            "System prompt tokens ~${systemPrompt.length / 4}, message tokens ~${message.length / 4}"
+        )
+
+        val isClaudeApi = endpoint.contains("anthropic.com")
+
+        Thread {
+            try {
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .build()
+
+                val requestBody = if (isClaudeApi) {
+                    JSONObject().apply {
+                        put("model", model)
+                        put("max_tokens", 150)
+                        put("system", systemPrompt)
+                        put("messages", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("role", "user")
+                                put("content", message)
+                            })
+                        })
+                    }
+                } else {
+                    JSONObject().apply {
+                        put("model", model)
+                        put("max_tokens", 150)
+                        put("messages", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("role", "system")
+                                put("content", systemPrompt)
+                            })
+                            put(JSONObject().apply {
+                                put("role", "user")
+                                put("content", message)
+                            })
+                        })
+                    }
+                }
+
+                val requestBuilder = Request.Builder()
+                    .url(endpoint)
+                    .addHeader("Content-Type", "application/json")
+                    .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+
+                if (isClaudeApi) {
+                    requestBuilder
+                        .addHeader("x-api-key", apiKey)
+                        .addHeader("anthropic-version", "2023-06-01")
+                } else {
+                    requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+                }
+
+                val response = client.newCall(requestBuilder.build()).execute()
+                val responseBody = response.body?.string().orEmpty()
+
+                android.util.Log.d("ScrollCat", "AI provider response: $responseBody")
+
+                if (!response.isSuccessful) {
+                    throw Exception("HTTP ${response.code}: ${responseBody.take(200)}")
+                }
+
+                val json = JSONObject(responseBody)
+                val content = if (isClaudeApi) {
+                    val blocks = json.optJSONArray("content") ?: JSONArray()
+                    buildString {
+                        for (i in 0 until blocks.length()) {
+                            val block = blocks.optJSONObject(i) ?: continue
+                            if (block.optString("type") == "text") {
+                                append(block.optString("text"))
+                            }
+                        }
+                    }
+                } else {
+                    json
+                        .getJSONArray("choices")
+                        .getJSONObject(0)
+                        .getJSONObject("message")
+                        .getString("content")
+                }
+
+                val replies = parseReplies(content)
+
+                android.util.Log.d("ScrollCat", "Replies from AI provider: $replies")
+
+                mainHandler.post {
+                    callback(replies.filter { it.isNotBlank() })
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ScrollCat", "AI provider error: ${e.message}")
+                mainHandler.post {
+                    callback(emptyList())
+                }
+            }
+        }.start()
     }
 
     private fun generateWithSmartReply(
@@ -274,6 +535,44 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                 Log.e(TAG, "Smart Reply failed: ${e.message}")
                 mainHandler.post { onResult(HARDCODED_FALLBACK, "Fallback") }
             }
+    }
+
+    fun checkAiStatus(callback: (String) -> Unit) {
+        val hasClaudeKey = ApiKeyStore.getClaudeApiKey(context).isNotEmpty()
+        val hasActiveProvider = SettingsManager.getActiveAiKey(context).isNotEmpty()
+        val hasGroqKey = ApiKeyStore.getGroqApiKey(context)?.isNotEmpty() == true
+
+        val nanoHelper = GeminiNanoHelper(context)
+        nanoHelper.checkStatus { nanoStatus ->
+            val status = buildString {
+                appendLine("🤖 ScrollCat AI Status")
+                appendLine("─────────────────────")
+                appendLine(
+                    if (hasClaudeKey) "✅ Claude API: Connected"
+                    else "⬜ Claude API: Not configured"
+                )
+                appendLine(
+                    if (hasGroqKey || hasActiveProvider) "✅ Groq API: Connected (free)"
+                    else "⬜ Groq API: Not configured"
+                )
+                appendLine()
+                appendLine("📱 On-Device AI:")
+                appendLine(nanoStatus)
+                appendLine()
+                appendLine("📡 Active engine:")
+                append(
+                    when {
+                        hasClaudeKey -> "→ Claude API (premium)"
+                        hasActiveProvider -> "→ ${SettingsManager.getActiveAiModel(context)} (configured)"
+                        hasGroqKey -> "→ Groq/Llama3 (free)"
+                        else -> "→ Fallback replies"
+                    }
+                )
+            }
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                callback(status)
+            }
+        }
     }
 
     fun close() {

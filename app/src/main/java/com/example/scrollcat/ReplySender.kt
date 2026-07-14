@@ -22,7 +22,8 @@ object ReplySender {
      */
     fun send(context: Context, message: ReplyStore.ReplyableMessage, replyText: String): Boolean {
         val remoteInputs = message.remoteInputs
-        if (remoteInputs.isEmpty()) {
+        val actionIntent = message.actionIntent
+        if (remoteInputs.isEmpty() || actionIntent == null) {
             Log.e(TAG, "Reply action has no RemoteInputs")
             return false
         }
@@ -37,8 +38,9 @@ object ReplySender {
         RemoteInput.addResultsToIntent(remoteInputs, intent, results)
 
         return try {
-            message.actionIntent.send(context, 0, intent)
+            actionIntent.send(context, 0, intent)
             Log.i(TAG, "Reply sent to ${message.sender} via ${message.packageName}")
+            ReplyStore.trackSentReply(replyText)
             RateUsManager.recordReplySent(context)
             StatsTracker.recordReplySent(context)
             // Dismiss the notification we just replied to so it doesn't linger

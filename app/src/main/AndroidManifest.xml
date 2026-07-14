@@ -43,6 +43,10 @@
             android:label="Settings" />
 
         <activity
+            android:name=".AiProviderActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".AutoReplyActivity"
             android:exported="false"
             android:label="Auto-Reply Rules" />

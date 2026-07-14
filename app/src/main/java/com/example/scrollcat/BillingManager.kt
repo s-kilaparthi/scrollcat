@@ -43,6 +43,15 @@ class BillingManager private constructor(private val context: Context) : Purchas
                 instance ?: BillingManager(context.applicationContext).also { instance = it }
             }
         }
+
+        fun getSubscriptionTier(context: Context): String {
+            val billing = getInstance(context)
+            return when {
+                billing.isBusinessTier() -> "business"
+                billing.isPro() -> "creator"
+                else -> "free"
+            }
+        }
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

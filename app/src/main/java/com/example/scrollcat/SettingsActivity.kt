@@ -236,37 +236,76 @@ class SettingsActivity : Activity() {
         root.addView(toneGroup)
         root.addView(divider())
 
-        root.addView(sectionTitle("🔑 Claude API Key"))
-        root.addView(sectionSubtitle("Pro: use Claude for smarter replies. Leave empty to use free on-device AI (Gemini Nano)."))
-
-        val apiKeyRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val apiKeyInput = EditText(this).apply {
-            hint = "sk-ant-..."
-            textSize = 14f
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setSingleLine(true)
-            setText(ApiKeyStore.getClaudeApiKey(this@SettingsActivity))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        apiKeyRow.addView(apiKeyInput)
-        apiKeyRow.addView(Button(this).apply {
-            text = "Save"
-            textSize = 13f
+        root.addView(sectionTitle("🎭 AI Personalization"))
+        root.addView(sectionSubtitle("Customize how AI replies on your behalf"))
+        Button(this).apply {
+            text = "Edit My Profile"
             setOnClickListener {
-                ApiKeyStore.setClaudeApiKey(this@SettingsActivity, apiKeyInput.text.toString())
-                val saved = ApiKeyStore.hasClaudeApiKey(this@SettingsActivity)
-                Toast.makeText(
-                    this@SettingsActivity,
-                    if (saved) "API key saved — Claude replies enabled ✓" else "API key cleared — using on-device AI",
-                    Toast.LENGTH_SHORT
-                ).show()
+                startActivity(android.content.Intent(this@SettingsActivity, OnboardingActivity::class.java).apply {
+                    putExtra("edit_mode", true)
+                })
+            }
+            root.addView(this, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 4, 0, 4) })
+        }
+        Button(this).apply {
+            text = "Preview AI Prompt"
+            setOnClickListener {
+                val prompt = UserProfileBuilder.buildSystemPrompt(this@SettingsActivity, 20)
+                val tokens = prompt.length / 4
+                android.app.AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("Your AI System Prompt (~$tokens tokens)")
+                    .setMessage(prompt)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+            root.addView(this, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 4, 0, 4) })
+        }
+        root.addView(divider())
+
+        root.addView(sectionTitle("🤖 AI Settings"))
+        root.addView(sectionSubtitle("Configure Claude, Groq, OpenAI, or custom AI providers."))
+        root.addView(Button(this).apply {
+            text = "AI Model Settings"
+            textSize = 15f
+            setOnClickListener {
+                startActivity(android.content.Intent(this@SettingsActivity, AiProviderActivity::class.java))
             }
         })
-        root.addView(apiKeyRow)
+        root.addView(divider())
+
+        root.addView(sectionTitle("🤖 AI Status"))
+
+        val nanoStatusText = TextView(this).apply {
+            text = "Tap to check which AI engine is active"
+            textSize = 14f
+            setTextColor(0xFF888888.toInt())
+            setPadding(0, 8, 0, 8)
+        }
+        root.addView(nanoStatusText)
+
+        Button(this).apply {
+            text = "Check AI Status"
+            setOnClickListener {
+                nanoStatusText.text = "Checking..."
+                val generator = AiReplyGenerator(this@SettingsActivity)
+                generator.checkAiStatus { status ->
+                    runOnUiThread {
+                        nanoStatusText.text = status
+                        Toast.makeText(this@SettingsActivity, status, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            root.addView(this, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 4, 0, 4) })
+        }
         root.addView(divider())
 
         root.addView(sectionTitle("🎵 Music Dance"))

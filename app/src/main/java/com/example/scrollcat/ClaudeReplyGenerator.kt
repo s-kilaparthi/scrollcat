@@ -57,7 +57,7 @@ class ClaudeReplyGenerator(private val context: Context) {
         val body = JSONObject().apply {
             put("model", MODEL)
             put("max_tokens", MAX_TOKENS)
-            put("system", buildSystemPrompt())
+            put("system", buildSystemPrompt(message))
             put("messages", JSONArray().put(JSONObject().apply {
                 put("role", "user")
                 put(
@@ -101,8 +101,8 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         })
     }
 
-    private fun buildSystemPrompt(): String {
-        return "You suggest short chat replies. ${AiReplyGenerator.buildProfilePrompt(context)}"
+    private fun buildSystemPrompt(message: String): String {
+        return UserProfileBuilder.buildSystemPrompt(context, message.length)
     }
 
     private fun parseResponse(response: Response): List<String> {

@@ -19,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat
 class MainActivity : Activity() {
 
     private lateinit var status: TextView
+    private lateinit var usageText: TextView
     private var btnUpgrade: Button? = null
     private var btnShare: Button? = null
 
@@ -45,8 +46,6 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 96, 48, 48)
         }
-
-        status = TextView(this).apply { textSize = 16f }
 
         val btnOverlay = Button(this).apply {
             text = "1. Grant overlay permission"
@@ -142,7 +141,16 @@ class MainActivity : Activity() {
         }
         layout.addView(btnShare)
 
+        status = TextView(this).apply { textSize = 16f }
         layout.addView(status)
+
+        usageText = TextView(this).apply {
+            textSize = 13f
+            setTextColor(0xFF888888.toInt())
+            setPadding(48, 0, 48, 8)
+        }
+        layout.addView(usageText)
+        updateUsage()
 
         // Footer: privacy policy link + version
         layout.addView(TextView(this).apply {
@@ -168,6 +176,18 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun updateUsage() {
+        val usage = AiReplyGenerator.getDailyUsage(this)
+        val limit = AiReplyGenerator.getDailyLimit(this)
+        val hasOwnKey = SettingsManager.getActiveAiKey(this).isNotEmpty()
+
+        usageText.text = when {
+            hasOwnKey -> "AI: Using your own API key (unlimited)"
+            limit == Int.MAX_VALUE -> "AI: Unlimited (Business plan)"
+            else -> "AI replies today: $usage/$limit"
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // status is only initialized when onboarding is complete
@@ -187,6 +207,8 @@ class MainActivity : Activity() {
         btnShare?.visibility =
             if (StatsTracker.getTotalRepliesSent(this) >= 5) android.view.View.VISIBLE
             else android.view.View.GONE
+
+        if (::usageText.isInitialized) updateUsage()
 
         RateUsManager.maybeShowRatePrompt(this)
     }

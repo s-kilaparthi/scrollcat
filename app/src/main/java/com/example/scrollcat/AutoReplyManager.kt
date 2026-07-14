@@ -68,7 +68,10 @@ object AutoReplyManager {
      * Returns the first enabled rule whose trigger keywords appear in
      * [messageText], or null if nothing matches.
      */
-    fun findMatch(context: Context, messageText: String): Rule? {
+    fun findMatch(context: Context, messageText: String, senderName: String? = null): Rule? {
+        // Never auto-reply to our own sent messages
+        if (senderName == "You" || senderName.isNullOrBlank()) return null
+
         val text = messageText.lowercase()
         return getRules(context).firstOrNull { rule ->
             rule.enabled &&

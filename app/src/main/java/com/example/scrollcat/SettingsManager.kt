@@ -227,4 +227,25 @@ object SettingsManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putString("rate_card_message", value).apply()
     }
+
+    fun setActiveAiProvider(context: Context, endpoint: String, model: String, apiKey: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString("active_ai_endpoint", endpoint)
+            .putString("active_ai_model", model)
+            .putString("active_ai_key", apiKey)
+            .apply()
+    }
+
+    fun getActiveAiEndpoint(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("active_ai_endpoint", "https://api.groq.com/openai/v1/chat/completions")
+            ?: "https://api.groq.com/openai/v1/chat/completions"
+
+    fun getActiveAiModel(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("active_ai_model", "llama-3.1-8b-instant") ?: "llama-3.1-8b-instant"
+
+    fun getActiveAiKey(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("active_ai_key", "") ?: ""
 }

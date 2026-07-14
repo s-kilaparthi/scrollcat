@@ -321,32 +321,34 @@ class OverlayService : Service() {
             this@OverlayService,
             object : SimpleOnGestureListener() {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                    // If sleeping, wake up AND clear badge
+                    // If cat is sleeping — wake up but DON'T clear badge or open reply panel
+                    // User needs to tap again after cat wakes up to see replies
                     if (catAnimator?.isAsleep() == true) {
                         wakeFromSleep()
-                        clearBadge()
+                        // Don't clear badge, don't open reply panel
+                        // Badge stays visible so user can tap again
                         return true
                     }
-                    // First tap while dancing = stop dance, not scroll
+
+                    // Cat is awake — handle badge tap normally
+                    if (badgeCount > 0) {
+                        // Show reply panel if there are replyable messages
+                        val pending = ReplyStore.getAll()
+                        if (pending.isNotEmpty()) {
+                            showReplyPanel()
+                        } else {
+                            android.util.Log.d("ScrollCat", "clearBadge called from: onSingleTapConfirmed - badge tap with no pending replies")
+                            clearBadge()
+                        }
+                        return true
+                    }
+
+                    // Normal tap = scroll
                     if (catAnimator?.currentAnim == "music") {
                         catAnimator?.stopMusic()
                         return true
                     }
-                    // If reply panel is open, a cat tap closes it
-                    if (replyPanel?.isShowing == true) {
-                        replyPanel?.dismiss()
-                        return true
-                    }
-                    // If badge showing: open AI reply suggestions if we have
-                    // replyable messages, otherwise just clear the badge
-                    if (badgeCount > 0) {
-                        clearBadge()
-                        if (ReplyStore.count() > 0) {
-                            showReplyPanel()
-                        }
-                        return true
-                    }
-                    // Normal tap scroll
+
                     CatAccessibilityService.instance?.performSwipe(up = true, long = isReelsMode)
                         ?: showNoAccessibilityToast()
                     animateTap()
@@ -370,9 +372,11 @@ class OverlayService : Service() {
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             if (catAnimator?.isAsleep() == true || isWakingUp) {
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                    isWakingUp = true
-                    wakeFromSleep()
-                    clearBadge()
+                    if (catAnimator?.isAsleep() == true) {
+                        android.util.Log.d("ScrollCat", "Cat sleeping - waking up, keeping badge: $badgeCount")
+                        wakeFromSleep()
+                        isWakingUp = true
+                    }
                 }
                 if (event.actionMasked == MotionEvent.ACTION_UP ||
                     event.actionMasked == MotionEvent.ACTION_CANCEL) {
@@ -699,7 +703,9 @@ class OverlayService : Service() {
     }
 
     fun wakeFromSleep() {
+        android.util.Log.d("ScrollCat", "wakeFromSleep called - badge count: $badgeCount")
         catAnimator?.wakeUp()
+        // DO NOT clear badge here
     }
 
     fun onBatteryLow() {
@@ -1094,6 +1100,17 @@ class OverlayService : Service() {
     fun clearBadge() {
         badgeCount = 0
         updateBadge()
+    }
+
+    fun updateBadgeAfterReply() {
+        val remaining = ReplyStore.getAll().size
+        if (remaining == 0) {
+            clearBadge()
+        } else {
+            badgeCount = remaining
+            updateBadge()
+        }
+        android.util.Log.d("ScrollCat", "Badge updated after reply - remaining: $remaining")
     }
 
     fun showReplyPanel() {

@@ -3,6 +3,7 @@ package com.example.scrollcat
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import kotlinx.coroutines.*
 
 class CatNotificationListener : NotificationListenerService() {
 
@@ -16,6 +17,10 @@ class CatNotificationListener : NotificationListenerService() {
         )
     }
 
+    private val pregenScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val pregeneratedReplies = mutableMapOf<String, List<String>>()
+    private val pregenInProgress = mutableSetOf<String>()
+
     private val lastNotificationTime = mutableMapOf<String, Long>()
     private val processedKeys = mutableMapOf<String, Long>()
     private val DEBOUNCE_MS = 2000L // ignore same app/key within 2 seconds
@@ -28,6 +33,7 @@ class CatNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
+        android.util.Log.d("ScrollCat", "Notification received from: ${sbn.packageName}")
         val pkg = sbn.packageName ?: return
         val notificationKey = sbn.key
 
@@ -53,9 +59,32 @@ class CatNotificationListener : NotificationListenerService() {
         if (replyable != null) {
             Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
 
+            // Pre-generate replies immediately in background
+            val entry = ReplyStore.getLatest() ?: replyable
+            val cacheKey = "${entry.packageName}_${entry.sender}_${entry.message.take(50)}"
+
+            if (cacheKey !in pregenInProgress && cacheKey !in pregeneratedReplies) {
+                pregenInProgress.add(cacheKey)
+                android.util.Log.d("ScrollCat", "Pre-generating replies for: ${entry.sender}")
+
+                pregenScope.launch {
+                    try {
+                        val generator = AiReplyGenerator(this@CatNotificationListener)
+                        generator.generateReplies(entry.sender, entry.message) { replies, _ ->
+                            pregeneratedReplies[cacheKey] = replies
+                            pregenInProgress.remove(cacheKey)
+                            android.util.Log.d("ScrollCat", "Pre-generated replies ready for: ${entry.sender}")
+                        }
+                    } catch (e: Exception) {
+                        pregenInProgress.remove(cacheKey)
+                        android.util.Log.e("ScrollCat", "Pre-generation failed: ${e.message}")
+                    }
+                }
+            }
+
             // Auto-reply rules: if an enabled rule's keywords match, the cat
             // answers immediately without user interaction.
-            val rule = AutoReplyManager.findMatch(this, replyable.message)
+            val rule = AutoReplyManager.findMatch(this, replyable.message, replyable.sender)
             if (rule != null) {
                 Log.i(TAG, "Auto-reply rule matched for ${replyable.sender}: ${rule.triggers}")
                 val sent = ReplySender.send(this, replyable, rule.reply)
@@ -91,16 +120,40 @@ class CatNotificationListener : NotificationListenerService() {
         }
     }
 
+    fun getPregeneratedReplies(packageName: String, senderName: String, messageText: String): List<String>? {
+        val cacheKey = "${packageName}_${senderName}_${messageText.take(50)}"
+        return pregeneratedReplies[cacheKey]
+    }
+
+    fun clearPregeneratedReplies(packageName: String, senderName: String, messageText: String) {
+        val cacheKey = "${packageName}_${senderName}_${messageText.take(50)}"
+        pregeneratedReplies.remove(cacheKey)
+        pregenInProgress.remove(cacheKey)
+    }
+
     private fun pruneProcessedKeys(now: Long) {
         if (processedKeys.size <= 100) return
         processedKeys.entries.removeAll { now - it.value > DEBOUNCE_MS * 5 }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // If the user handled the conversation elsewhere, drop the stale entry
-        sbn?.key?.let { ReplyStore.remove(it) }
-        sbn?.key?.let { processedKeys.remove(it) }
+        sbn ?: run {
+            super.onNotificationRemoved(sbn)
+            return
+        }
+        val entry = ReplyStore.getByKey(sbn.key)
+        if (entry != null) {
+            clearPregeneratedReplies(entry.packageName, entry.sender, entry.message)
+        }
+        ReplyStore.remove(sbn.key)
+        processedKeys.remove(sbn.key)
         super.onNotificationRemoved(sbn)
+    }
+
+    override fun onDestroy() {
+        pregenScope.cancel()
+        pregeneratedReplies.clear()
+        super.onDestroy()
     }
 
     override fun onListenerDisconnected() {

@@ -67,6 +67,9 @@
             android:exported="false"
             android:label="Settings" />
         <activity
+            android:name="com.example.scrollcat.AiProviderActivity"
+            android:exported="false" />
+        <activity
             android:name="com.example.scrollcat.AutoReplyActivity"
             android:exported="false"
             android:label="Auto-Reply Rules" />

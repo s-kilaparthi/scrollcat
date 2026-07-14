@@ -15,6 +15,7 @@ object ApiKeyStore {
     private const val TAG = "ScrollCat"
     private const val PREFS_NAME = "scrollcat_secure"
     private const val KEY_CLAUDE = "claude_api_key"
+    private const val KEY_GROQ = "groq_api_key"
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -55,4 +56,18 @@ object ApiKeyStore {
     }
 
     fun hasClaudeApiKey(context: Context): Boolean = getClaudeApiKey(context).isNotBlank()
+
+    fun getGroqApiKey(context: Context): String? {
+        return try {
+            getPrefs(context).getString(KEY_GROQ, null)?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun setGroqApiKey(context: Context, key: String) {
+        getPrefs(context).edit().putString(KEY_GROQ, key.trim()).apply()
+    }
+
+    fun hasGroqApiKey(context: Context): Boolean = getGroqApiKey(context) != null
 }

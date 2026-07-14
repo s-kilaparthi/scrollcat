@@ -39,7 +39,7 @@ class ReplyPanel(
     // Routes to Claude when an API key is set, on-device Gemini Nano otherwise
     private val generator = ClaudeReplyGenerator(context)
     private var pending: MutableList<ReplyStore.ReplyableMessage> = mutableListOf()
-    private var current: ReplyStore.ReplyableMessage? = null
+    private var currentEntry: ReplyStore.ReplyableMessage? = null
     var onDismissed: (() -> Unit)? = null
 
     fun show(catX: Int, catY: Int, catSize: Int) {
@@ -89,7 +89,7 @@ class ReplyPanel(
     }
 
     private fun showMessage(message: ReplyStore.ReplyableMessage) {
-        current = message
+        currentEntry = message
         val panel = panelView ?: return
         panel.removeAllViews()
 
@@ -128,42 +128,102 @@ class ReplyPanel(
             setPadding(0, 10, 0, 16)
         })
 
-        // ── Suggestions container (starts as loading state) ──
-        val suggestionsBox = LinearLayout(context).apply {
+        // ── Suggestions container ──
+        val chipsContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
         }
-        val loading = TextView(context).apply {
-            text = "🐾 Cat is thinking…"
-            textSize = 13f
-            setTextColor(0xFF9999BB.toInt())
-            gravity = Gravity.CENTER
-            setPadding(0, 12, 0, 12)
-        }
-        suggestionsBox.addView(loading)
-        panel.addView(suggestionsBox)
+        panel.addView(chipsContainer)
 
-        // ── 4th option: reply manually in the app ──
-        panel.addView(TextView(context).apply {
+        // ── Bottom row: Reply in app + Ignore ──
+        val bottomRow = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 12 }
+        }
+
+        val replyInAppBtn = android.widget.TextView(context).apply {
             text = "↗ Reply in app"
             textSize = 13f
-            setTextColor(0xFFAACCFF.toInt())
-            gravity = Gravity.CENTER
-            setPadding(24, 14, 24, 14)
-            background = GradientDrawable().apply {
-                setColor(0x00000000)
-                cornerRadius = 28f
-                setStroke(1, ACCENT)
+            setTextColor(0xFF4A90D9.toInt())
+            gravity = android.view.Gravity.CENTER
+            setPadding(16, 20, 16, 20)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF2a2a2a.toInt())
+                cornerRadius = 24f
             }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 6, 0, 0) }
-            setOnClickListener {
-                ReplySender.openApp(context, message)
-                ReplyStore.remove(message.notificationKey)
-                dismiss()
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            ).apply { marginEnd = 6 }
+        }
+
+        val ignoreBtn = android.widget.TextView(context).apply {
+            text = "✕ Ignore"
+            textSize = 13f
+            setTextColor(0xFF888888.toInt())
+            gravity = android.view.Gravity.CENTER
+            setPadding(16, 20, 16, 20)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF2a2a2a.toInt())
+                cornerRadius = 24f
             }
-        })
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            ).apply { marginStart = 6 }
+        }
+
+        // Reply in app click
+        replyInAppBtn.setOnClickListener {
+            android.util.Log.d("ScrollCat", "Reply in app button clicked - entry: ${currentEntry?.packageName} contentIntent: ${currentEntry?.contentIntent}")
+            val entry = currentEntry ?: return@setOnClickListener
+            try {
+                if (entry.contentIntent != null) {
+                    val options = android.app.ActivityOptions.makeBasic().apply {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            setPendingIntentBackgroundActivityStartMode(
+                                android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                            )
+                        }
+                    }
+                    entry.contentIntent.send(context, 0, null, null, null, null, options.toBundle())
+                } else {
+                    val launchIntent = context.packageManager
+                        .getLaunchIntentForPackage(entry.packageName)?.apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        }
+                    launchIntent?.let { context.startActivity(it) }
+                }
+            } catch (e: Exception) {
+                try {
+                    val launchIntent = context.packageManager
+                        .getLaunchIntentForPackage(entry.packageName)?.apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                    launchIntent?.let { context.startActivity(it) }
+                } catch (e2: Exception) {
+                    android.util.Log.e("ScrollCat", "Failed to open app: ${e2.message}")
+                }
+            }
+            // Clear badge and remove from store after opening app
+            ReplyStore.remove(entry.notificationKey)
+            OverlayService.instance?.updateBadgeAfterReply()
+            dismiss()
+        }
+
+        // Ignore click - just dismiss and remove from store
+        ignoreBtn.setOnClickListener {
+            val entry = currentEntry ?: return@setOnClickListener
+            ReplyStore.remove(entry.notificationKey)
+            OverlayService.instance?.updateBadgeAfterReply()
+            dismiss()
+            android.util.Log.d("ScrollCat", "Message ignored: ${entry.sender}")
+        }
+
+        bottomRow.addView(replyInAppBtn)
+        bottomRow.addView(ignoreBtn)
+        panel.addView(bottomRow)
 
         // ── Footer: remaining conversations ──
         if (pending.size > 1) {
@@ -177,12 +237,22 @@ class ReplyPanel(
             })
         }
 
-        generator.generateReplies(message.sender, message.message) { suggestions, engine ->
-            // User may have closed the panel or skipped to another message
-            if (!isShowing || current != message) return@generateReplies
-            suggestionsBox.removeAllViews()
+        fun showThinkingState() {
+            chipsContainer.removeAllViews()
+            chipsContainer.addView(TextView(context).apply {
+                text = "🐾 Cat is thinking…"
+                textSize = 13f
+                setTextColor(0xFF9999BB.toInt())
+                gravity = Gravity.CENTER
+                setPadding(0, 12, 0, 12)
+            })
+        }
+
+        fun showReplies(suggestions: List<String>, engine: String = "Pre-generated") {
+            if (!isShowing || currentEntry != message) return
+            chipsContainer.removeAllViews()
             if (engine == AiReplyGenerator.ENGINE_LIMIT_REACHED) {
-                suggestionsBox.addView(TextView(context).apply {
+                chipsContainer.addView(TextView(context).apply {
                     text = AiReplyGenerator.UPGRADE_MESSAGE
                     textSize = 13f
                     setTextColor(0xFFFFD37A.toInt())
@@ -195,21 +265,87 @@ class ReplyPanel(
                         dismiss()
                     }
                 })
-                return@generateReplies
+                return
             }
             if (suggestions.isEmpty()) {
-                suggestionsBox.addView(TextView(context).apply {
+                chipsContainer.addView(TextView(context).apply {
                     text = "😿 Couldn't think of a reply"
                     textSize = 13f
                     setTextColor(0xFF9999BB.toInt())
                     gravity = Gravity.CENTER
                     setPadding(0, 12, 0, 12)
                 })
-                return@generateReplies
+                return
             }
             android.util.Log.d("ScrollCat", "Replies from $engine: $suggestions")
-            suggestions.forEach { suggestion ->
-                suggestionsBox.addView(suggestionChip(suggestion, message))
+            if (currentEntry?.hasRemoteInput != true) {
+                chipsContainer.addView(TextView(context).apply {
+                    text = "💡 Tap a suggestion to copy it, then paste in the app"
+                    textSize = 12f
+                    setTextColor(0xFF888888.toInt())
+                    setPadding(16, 8, 16, 8)
+                })
+                suggestions.forEach { suggestion ->
+                    val chip = TextView(context).apply {
+                        text = suggestion
+                        textSize = 14f
+                        setTextColor(Color.WHITE)
+                        setPadding(24, 18, 24, 18)
+                        background = GradientDrawable().apply {
+                            setColor(CHIP_BG)
+                            cornerRadius = 28f
+                            setStroke(1, 0x44FFFFFF)
+                        }
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { setMargins(0, 6, 0, 6) }
+                        setOnClickListener {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText("reply", suggestion)
+                            )
+                            android.widget.Toast.makeText(
+                                context,
+                                "Copied! Opening app...",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            replyInAppBtn.performClick()
+                        }
+                    }
+                    chipsContainer.addView(chip)
+                }
+            } else {
+                suggestions.forEach { suggestion ->
+                    chipsContainer.addView(suggestionChip(suggestion, message))
+                }
+            }
+        }
+
+        // Check for pre-generated replies first
+        val pregenerated = CatNotificationListener.instance?.getPregeneratedReplies(
+            message.packageName,
+            message.sender,
+            message.message
+        )
+
+        if (pregenerated != null && pregenerated.isNotEmpty()) {
+            android.util.Log.d("ScrollCat", "Using pre-generated replies - INSTANT!")
+            showReplies(pregenerated)
+            CatNotificationListener.instance?.clearPregeneratedReplies(
+                message.packageName,
+                message.sender,
+                message.message
+            )
+        } else {
+            android.util.Log.d("ScrollCat", "No pre-generated replies - generating now")
+            showThinkingState()
+            val aiGenerator = AiReplyGenerator(context)
+            aiGenerator.generateReplies(message.sender, message.message) { replies, engine ->
+                handler.post {
+                    showReplies(replies, engine)
+                }
             }
         }
     }
@@ -291,7 +427,7 @@ class ReplyPanel(
             try { windowManager.removeView(it) } catch (e: Exception) { }
         }
         panelView = null
-        current = null
+        currentEntry = null
         if (isShowing) {
             isShowing = false
             onDismissed?.invoke()
