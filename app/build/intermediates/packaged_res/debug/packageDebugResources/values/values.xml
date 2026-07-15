@@ -1,6 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="scrollcat_on_primary">#FFFFFF</color>
+    <color name="scrollcat_on_primary_container">#3F2200</color>
+    <color name="scrollcat_on_secondary">#FFFFFF</color>
+    <color name="scrollcat_on_secondary_container">#042F2E</color>
+    <color name="scrollcat_on_surface">#241A12</color>
+    <color name="scrollcat_outline">#8C7A68</color>
+    <color name="scrollcat_primary">#D97706</color>
+    <color name="scrollcat_primary_container">#FFE0B2</color>
+    <color name="scrollcat_secondary">#0F766E</color>
+    <color name="scrollcat_secondary_container">#CCFBF1</color>
+    <color name="scrollcat_surface">#FFF8F0</color>
+    <color name="scrollcat_surface_variant">#F2E4D4</color>
     <string name="accessibility_service_description">Lets the ScrollCat companion perform scroll gestures on your behalf when you flick the cat, reducing repeated thumb swipes.</string>
     <string name="accessibility_service_label">ScrollCat Gesture Helper</string>
     <string name="app_name">ScrollCat</string>
+    <style name="Theme.ScrollCat" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/scrollcat_primary</item>
+        <item name="colorOnPrimary">@color/scrollcat_on_primary</item>
+        <item name="colorPrimaryContainer">@color/scrollcat_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/scrollcat_on_primary_container</item>
+        <item name="colorSecondary">@color/scrollcat_secondary</item>
+        <item name="colorOnSecondary">@color/scrollcat_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/scrollcat_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/scrollcat_on_secondary_container</item>
+        <item name="colorSurface">@color/scrollcat_surface</item>
+        <item name="colorOnSurface">@color/scrollcat_on_surface</item>
+        <item name="colorSurfaceVariant">@color/scrollcat_surface_variant</item>
+        <item name="colorOutline">@color/scrollcat_outline</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/scrollcat_surface</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
 </resources>

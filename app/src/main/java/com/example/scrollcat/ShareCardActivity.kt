@@ -13,12 +13,12 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.google.android.material.button.MaterialButton
 import java.io.File
 import java.io.FileOutputStream
 
@@ -68,20 +68,12 @@ class ShareCardActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ))
 
-        root.addView(Button(this).apply {
-            text = "📤 Share"
-            textSize = 16f
-            setOnClickListener { shareCard() }
-        }, LinearLayout.LayoutParams(
+        root.addView(UiKit.primaryButton(this, "📤 Share") { shareCard() }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, 32, 0, 0) })
 
-        root.addView(Button(this).apply {
-            text = "Close"
-            textSize = 14f
-            setOnClickListener { finish() }
-        })
+        root.addView(UiKit.tonalButton(this, "Close") { finish() })
 
         setContentView(root)
     }

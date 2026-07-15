@@ -12,17 +12,18 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 /**
  * First-launch onboarding: intro → user type → profile → extended AI profile → permissions → done.
@@ -31,14 +32,14 @@ class OnboardingActivity : Activity() {
 
     companion object {
         private const val PREFS = "scrollcat_prefs"
-        private const val ACCENT = 0xFF4A90D9.toInt()
-        private const val BG = 0xFF0a0a0a.toInt()
-        private const val CARD = 0xFF1a1a1a.toInt()
-        private const val STROKE = 0xFF333333.toInt()
-        private const val TEXT = Color.WHITE
-        private const val MUTED = 0xFF888888.toInt()
-        private const val INPUT_BG = 0xFF2a2a2a.toInt()
-        private const val HINT_COLOR = 0xFF666666.toInt()
+        private const val ACCENT = 0xFFD97706.toInt()
+        private const val BG = 0xFFFFF8F0.toInt()
+        private const val CARD = 0xFFFFFFFF.toInt()
+        private const val STROKE = 0x558C7A68
+        private const val TEXT = 0xFF241A12.toInt()
+        private const val MUTED = 0xFF6F5F50.toInt()
+        private const val INPUT_BG = 0xFFFFFFFF.toInt()
+        private const val HINT_COLOR = 0xFF8C7A68.toInt()
 
         private const val CREATOR_RATE_CARD =
             "Hey! Thanks for reaching out 💕 For collabs and pricing, send me your brief and I'll share my rate card within 24h!"
@@ -143,7 +144,7 @@ class OnboardingActivity : Activity() {
 
     private fun title(text: String) = TextView(this).apply {
         this.text = text
-        textSize = 26f
+        textSize = 24f
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(TEXT)
         setPadding(0, 0, 0, 16)
@@ -151,7 +152,7 @@ class OnboardingActivity : Activity() {
 
     private fun subtitle(text: String) = TextView(this).apply {
         this.text = text
-        textSize = 15f
+        textSize = 16f
         setTextColor(MUTED)
         setPadding(0, 0, 0, 32)
     }
@@ -192,27 +193,30 @@ class OnboardingActivity : Activity() {
         setPadding(pad, pad, pad, pad)
     }
 
-    private fun primaryButton(label: String, onClick: () -> Unit) = Button(this).apply {
+    private fun primaryButton(label: String, onClick: () -> Unit) = MaterialButton(this).apply {
         text = label
-        textSize = 16f
+        textSize = 14f
+        isAllCaps = false
         setTextColor(Color.WHITE)
-        background = GradientDrawable().apply {
-            setColor(ACCENT)
-            cornerRadius = 32f
-        }
+        backgroundTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+        cornerRadius = dp(24)
+        minHeight = dp(52)
+        insetTop = 0
+        insetBottom = 0
         setPadding(32, 28, 32, 28)
         setOnClickListener { onClick() }
     }
 
-    private fun secondaryButton(label: String, onClick: () -> Unit) = Button(this).apply {
+    private fun secondaryButton(label: String, onClick: () -> Unit) = MaterialButton(this).apply {
         text = label
-        textSize = 15f
-        setTextColor(MUTED)
-        background = GradientDrawable().apply {
-            setColor(CARD)
-            cornerRadius = 32f
-            setStroke(1, STROKE)
-        }
+        textSize = 14f
+        isAllCaps = false
+        setTextColor(TEXT)
+        backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFE0B2.toInt())
+        cornerRadius = dp(24)
+        minHeight = dp(52)
+        insetTop = 0
+        insetBottom = 0
         setPadding(24, 20, 24, 20)
         setOnClickListener { onClick() }
     }
@@ -267,45 +271,43 @@ class OnboardingActivity : Activity() {
     private fun addStyleCards(
         root: LinearLayout,
         selections: StyleSelections,
-        styleViews: MutableList<LinearLayout>
+        styleViews: MutableList<MaterialCardView>
     ) {
         root.addView(fieldLabel("Writing style"))
         styleViews.clear()
         STYLE_OPTIONS.forEach { (label, desc, key) ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(28, 24, 28, 24)
-                background = GradientDrawable().apply {
-                    setColor(CARD)
-                    cornerRadius = 16f
-                    setStroke(
-                        if (selections.writingStyle == key) 2 else 1,
-                        if (selections.writingStyle == key) ACCENT else STROKE
-                    )
-                }
+            val card = MaterialCardView(this).apply {
+                radius = dp(16).toFloat()
+                cardElevation = dp(2).toFloat()
+                strokeWidth = if (selections.writingStyle == key) dp(2) else dp(1)
+                strokeColor = if (selections.writingStyle == key) ACCENT else STROKE
+                setCardBackgroundColor(CARD)
                 setOnClickListener {
                     selections.writingStyle = key
                     styleViews.forEachIndexed { i, view ->
                         val k = STYLE_OPTIONS[i].third
-                        (view.background as GradientDrawable).setStroke(
-                            if (selections.writingStyle == k) 2 else 1,
-                            if (selections.writingStyle == k) ACCENT else STROKE
-                        )
+                        view.strokeWidth = if (selections.writingStyle == k) dp(2) else dp(1)
+                        view.strokeColor = if (selections.writingStyle == k) ACCENT else STROKE
                     }
                 }
             }
-            card.addView(TextView(this).apply {
+            val content = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(28, 24, 28, 24)
+            }
+            content.addView(TextView(this).apply {
                 text = label
                 textSize = 16f
                 setTextColor(TEXT)
                 typeface = Typeface.DEFAULT_BOLD
             })
-            card.addView(TextView(this).apply {
+            content.addView(TextView(this).apply {
                 text = desc
                 textSize = 13f
                 setTextColor(MUTED)
                 setPadding(0, 4, 0, 0)
             })
+            card.addView(content)
             styleViews.add(card)
             root.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -320,32 +322,30 @@ class OnboardingActivity : Activity() {
         options: List<Pair<String, String>>,
         selectedKey: String,
         onSelect: (String) -> Unit
-    ): MutableList<TextView> {
+    ): MutableList<MaterialButton> {
         root.addView(fieldLabel(label))
-        val chips = mutableListOf<TextView>()
+        val chips = mutableListOf<MaterialButton>()
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
         options.forEach { (text, key) ->
-            val chip = TextView(this).apply {
+            val chip = MaterialButton(this).apply {
                 this.text = text
                 textSize = 14f
-                setTextColor(if (key == selectedKey) Color.WHITE else MUTED)
+                isAllCaps = false
+                cornerRadius = dp(24)
+                strokeWidth = dp(1)
+                strokeColor = android.content.res.ColorStateList.valueOf(if (key == selectedKey) ACCENT else STROKE)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(if (key == selectedKey) 0xFFFFE0B2.toInt() else CARD)
+                setTextColor(if (key == selectedKey) TEXT else MUTED)
                 setPadding(24, 18, 24, 18)
-                background = GradientDrawable().apply {
-                    setColor(if (key == selectedKey) 0xFF0D1B2A.toInt() else CARD)
-                    cornerRadius = 24f
-                    setStroke(1, if (key == selectedKey) ACCENT else STROKE)
-                }
                 setOnClickListener {
                     onSelect(key)
                     chips.forEachIndexed { i, c ->
                         val k = options[i].second
-                        c.setTextColor(if (k == key) Color.WHITE else MUTED)
-                        (c.background as GradientDrawable).apply {
-                            setColor(if (k == key) 0xFF0D1B2A.toInt() else CARD)
-                            setStroke(1, if (k == key) ACCENT else STROKE)
-                        }
+                        c.setTextColor(if (k == key) TEXT else MUTED)
+                        c.backgroundTintList = android.content.res.ColorStateList.valueOf(if (k == key) 0xFFFFE0B2.toInt() else CARD)
+                        c.strokeColor = android.content.res.ColorStateList.valueOf(if (k == key) ACCENT else STROKE)
                     }
                 }
             }
@@ -408,7 +408,7 @@ class OnboardingActivity : Activity() {
             setTextColor(TEXT)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
-        toggleRow.addView(Switch(this).apply {
+        toggleRow.addView(SwitchMaterial(this).apply {
             isChecked = selections.matchLanguage
             setOnCheckedChangeListener { _: CompoundButton, checked ->
                 selections.matchLanguage = checked
@@ -440,7 +440,7 @@ class OnboardingActivity : Activity() {
         selections: StyleSelections,
         includeLanguage: Boolean
     ) {
-        val styleViews = mutableListOf<LinearLayout>()
+        val styleViews = mutableListOf<MaterialCardView>()
         addStyleCards(root, selections, styleViews)
         addChipGroup(root, "Emoji usage", EMOJI_OPTIONS, selections.emojiUsage) {
             selections.emojiUsage = it
@@ -492,15 +492,12 @@ class OnboardingActivity : Activity() {
             Triple("🏢", "Business Owner", "business"),
             Triple("👤", "Personal Use", "personal")
         ).forEach { (emoji, label, type) ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(36, 40, 36, 40)
-                background = GradientDrawable().apply {
-                    setColor(CARD)
-                    cornerRadius = 28f
-                    setStroke(2, STROKE)
-                }
+            val card = MaterialCardView(this).apply {
+                radius = dp(16).toFloat()
+                cardElevation = dp(2).toFloat()
+                strokeWidth = dp(1)
+                strokeColor = STROKE
+                setCardBackgroundColor(CARD)
                 setOnClickListener {
                     userType = type
                     SettingsManager.setUserType(this@OnboardingActivity, type)
@@ -511,17 +508,23 @@ class OnboardingActivity : Activity() {
                     }
                 }
             }
-            card.addView(TextView(this).apply {
+            val content = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(36, 40, 36, 40)
+            }
+            content.addView(TextView(this).apply {
                 text = emoji
                 textSize = 32f
                 setPadding(0, 0, 28, 0)
             })
-            card.addView(TextView(this).apply {
+            content.addView(TextView(this).apply {
                 text = label
                 textSize = 18f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(TEXT)
             })
+            card.addView(content)
             root.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -843,17 +846,19 @@ class OnboardingActivity : Activity() {
         val a11yOk = CatAccessibilityService.instance != null
         val notifOk = CatNotificationListener.instance != null
 
-        fun permissionRow(label: String, granted: Boolean, onClick: () -> Unit): LinearLayout {
+        fun permissionRow(label: String, granted: Boolean, onClick: () -> Unit): MaterialCardView {
+            val card = MaterialCardView(this).apply {
+                radius = dp(16).toFloat()
+                cardElevation = dp(2).toFloat()
+                strokeWidth = dp(1)
+                strokeColor = if (granted) ACCENT else STROKE
+                setCardBackgroundColor(if (granted) 0xFFFFE0B2.toInt() else CARD)
+                setOnClickListener { if (!granted) onClick() }
+            }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(28, 28, 28, 28)
-                background = GradientDrawable().apply {
-                    setColor(if (granted) 0xFF0D1B2A.toInt() else CARD)
-                    cornerRadius = 24f
-                    setStroke(2, if (granted) ACCENT else STROKE)
-                }
-                setOnClickListener { if (!granted) onClick() }
             }
             row.addView(TextView(this).apply {
                 text = label
@@ -867,7 +872,8 @@ class OnboardingActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(if (granted) 0xFF4ADE80.toInt() else ACCENT)
             })
-            return row
+            card.addView(row)
+            return card
         }
 
         listOf(

@@ -8,6 +8,7 @@ object SettingsManager {
     private const val KEY_WATCHED_APPS = "watched_apps"
     private const val KEY_WATCHED_PEOPLE = "watched_people"
     private const val KEY_WATCHED_KEYWORDS = "watched_keywords"
+    private const val KEY_IGNORED_CHATS = "ignored_chats"
 
     fun getWatchedApps(context: Context): Set<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -39,6 +40,16 @@ object SettingsManager {
             .edit().putStringSet(KEY_WATCHED_KEYWORDS, values).apply()
     }
 
+    fun getIgnoredChats(context: Context): Set<String> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getStringSet(KEY_IGNORED_CHATS, emptySet()) ?: emptySet()
+    }
+
+    fun setIgnoredChats(context: Context, values: Set<String>) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet(KEY_IGNORED_CHATS, values).apply()
+    }
+
     // Parse comma-separated input into a clean set
     fun parseInput(input: String): Set<String> {
         return input.split(",")
@@ -62,16 +73,8 @@ object SettingsManager {
         // App match
         val appMatch = apps.isEmpty() || apps.any { pkg.contains(it.lowercase()) }
 
-        // Person match
-        val personMatch = people.isNotEmpty() && people.any { 
-            text.contains(it.lowercase().trim()) 
-        }
-
-        // Keyword match — also check package name in case keyword is app name
-        val keywordMatch = keywords.isNotEmpty() && keywords.any { kw ->
-            val k = kw.lowercase().trim()
-            text.contains(k) || pkg.contains(k)
-        }
+        val personMatch = matchesPerson(context, text)
+        val keywordMatch = matchesKeyword(context, pkg, text)
 
         return when {
             // Only apps selected
@@ -86,6 +89,25 @@ object SettingsManager {
             people.isEmpty() -> appMatch && keywordMatch
             // All three
             else -> appMatch && (personMatch || keywordMatch)
+        }
+    }
+
+    fun matchesPersonOrKeyword(context: Context, packageName: String, notificationText: String): Boolean {
+        val text = notificationText.lowercase().trim()
+        val pkg = packageName.lowercase()
+        return matchesPerson(context, text) || matchesKeyword(context, pkg, text)
+    }
+
+    private fun matchesPerson(context: Context, normalizedText: String): Boolean {
+        return getWatchedPeople(context).isNotEmpty() && getWatchedPeople(context).any {
+            normalizedText.contains(it.lowercase().trim())
+        }
+    }
+
+    private fun matchesKeyword(context: Context, normalizedPackageName: String, normalizedText: String): Boolean {
+        return getWatchedKeywords(context).isNotEmpty() && getWatchedKeywords(context).any { kw ->
+            val k = kw.lowercase().trim()
+            normalizedText.contains(k) || normalizedPackageName.contains(k)
         }
     }
 
@@ -170,6 +192,16 @@ object SettingsManager {
     fun setMusicDanceEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("music_dance_enabled", enabled).apply()
+    }
+
+    fun isAppReactionsEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("app_reactions_enabled", false)
+    }
+
+    fun setAppReactionsEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("app_reactions_enabled", enabled).apply()
     }
 
     // ── Onboarding / user profile ──

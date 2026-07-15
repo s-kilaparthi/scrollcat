@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ScrollCat" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/scrollcat_primary</item>
+        <item name="colorOnPrimary">@color/scrollcat_on_primary</item>
+        <item name="colorPrimaryContainer">@color/scrollcat_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/scrollcat_on_primary_container</item>
+        <item name="colorSecondary">@color/scrollcat_secondary</item>
+        <item name="colorOnSecondary">@color/scrollcat_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/scrollcat_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/scrollcat_on_secondary_container</item>
+        <item name="colorSurface">@color/scrollcat_surface</item>
+        <item name="colorOnSurface">@color/scrollcat_on_surface</item>
+        <item name="colorSurfaceVariant">@color/scrollcat_surface_variant</item>
+        <item name="colorOutline">@color/scrollcat_outline</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/scrollcat_surface</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
+</resources>

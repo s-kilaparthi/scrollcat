@@ -6,15 +6,16 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 /**
  * Manage keyword-triggered auto-reply rules (max 10). Each rule has trigger
@@ -25,13 +26,13 @@ class AutoReplyActivity : Activity() {
 
     private val rules = mutableListOf<AutoReplyManager.Rule>()
     private lateinit var rulesContainer: LinearLayout
-    private lateinit var addButton: Button
+    private lateinit var addButton: MaterialButton
 
     // Views bound per rule so edits can be collected on save
     private data class RuleViews(
         val triggersInput: EditText,
         val replyInput: EditText,
-        val toggle: Switch
+        val toggle: SwitchMaterial
     )
     private val ruleViews = mutableListOf<RuleViews>()
 
@@ -75,31 +76,23 @@ class AutoReplyActivity : Activity() {
         }
         root.addView(rulesContainer)
 
-        addButton = Button(this).apply {
-            text = "+ Add Rule"
-            textSize = 15f
-            setOnClickListener {
+        addButton = UiKit.tonalButton(this, "+ Add Rule") {
                 collectEdits()
-                if (rules.size >= AutoReplyManager.MAX_RULES) return@setOnClickListener
+                if (rules.size >= AutoReplyManager.MAX_RULES) return@tonalButton
                 rules.add(AutoReplyManager.Rule(triggers = "", reply = "", enabled = true))
                 renderRules()
-            }
         }
         root.addView(addButton, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, 16, 0, 0) })
 
-        root.addView(Button(this).apply {
-            text = "Save"
-            textSize = 16f
-            setOnClickListener {
+        root.addView(UiKit.primaryButton(this, "Save") {
                 collectEdits()
                 val valid = rules.filter { it.triggers.isNotBlank() && it.reply.isNotBlank() }
                 AutoReplyManager.saveRules(this@AutoReplyActivity, valid)
                 Toast.makeText(this@AutoReplyActivity, "Saved ${valid.size} rules ✓", Toast.LENGTH_SHORT).show()
                 finish()
-            }
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -132,14 +125,16 @@ class AutoReplyActivity : Activity() {
         }
 
         rules.forEachIndexed { index, rule ->
-            val card = LinearLayout(this).apply {
+            val card = MaterialCardView(this).apply {
+                radius = UiKit.dp(this@AutoReplyActivity, 16).toFloat()
+                cardElevation = UiKit.dp(this@AutoReplyActivity, 2).toFloat()
+                strokeWidth = 1
+                strokeColor = 0x338C7A68
+                setCardBackgroundColor(0xFFF7F7FA.toInt())
+            }
+            val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(24, 20, 24, 20)
-                background = GradientDrawable().apply {
-                    setColor(0xFFF7F7FA.toInt())
-                    cornerRadius = 24f
-                    setStroke(2, 0xFFE0E0E8.toInt())
-                }
             }
 
             // Header row: rule number + toggle + delete
@@ -153,7 +148,7 @@ class AutoReplyActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
-            val toggle = Switch(this).apply {
+            val toggle = SwitchMaterial(this).apply {
                 isChecked = rule.enabled
             }
             headerRow.addView(toggle)
@@ -167,7 +162,7 @@ class AutoReplyActivity : Activity() {
                     renderRules()
                 }
             })
-            card.addView(headerRow)
+            content.addView(headerRow)
 
             val triggersInput = EditText(this).apply {
                 hint = "Trigger keywords (comma-separated) e.g. price, cost, rate, how much"
@@ -175,7 +170,7 @@ class AutoReplyActivity : Activity() {
                 setText(rule.triggers)
                 setSingleLine(true)
             }
-            card.addView(triggersInput)
+            content.addView(triggersInput)
 
             val replyInput = EditText(this).apply {
                 hint = "Auto-reply message"
@@ -183,9 +178,10 @@ class AutoReplyActivity : Activity() {
                 setText(rule.reply)
                 minLines = 2
             }
-            card.addView(replyInput)
+            content.addView(replyInput)
 
             ruleViews.add(RuleViews(triggersInput, replyInput, toggle))
+            card.addView(content)
 
             rulesContainer.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,

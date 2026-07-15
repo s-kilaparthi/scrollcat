@@ -1,8 +1,6 @@
 package com.example.scrollcat
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -14,7 +12,6 @@ class CatNotificationListener : NotificationListenerService() {
         var instance: CatNotificationListener? = null
             private set
         private const val TAG = "ScrollCat"
-        private const val INTERACTIVE_MERGE_WINDOW_MS = 1500L
         private val OWN_PACKAGES = setOf(
             "com.example.scrollcat",
             "com.example.scrollcat.debug"
@@ -24,11 +21,9 @@ class CatNotificationListener : NotificationListenerService() {
     private val lastNotificationTime = mutableMapOf<String, Long>()
     private val processedKeys = mutableMapOf<String, Long>()
     private val DEBOUNCE_MS = 2000L // ignore same app/key within 2 seconds
-    private val interactiveDebounceHandler = Handler(Looper.getMainLooper())
     private val interactiveMessageBuffers = mutableMapOf<String, MutableList<ReplyStore.BufferedMessage>>()
-    private val interactiveMergeJobs = mutableMapOf<String, Runnable>()
-    private val lastInteractiveMessageTime = mutableMapOf<String, Long>()
     private val replyPanelOpenedAt = mutableMapOf<String, Long>()
+    private val pendingBadgeSenderKeys = mutableSetOf<String>()
     private val activeInteractiveGenerationTokens = mutableMapOf<String, MutableSet<Long>>()
     private val cancelledInteractiveGenerationTokens = mutableSetOf<Long>()
     private var nextInteractiveGenerationToken = 0L
@@ -42,6 +37,17 @@ class CatNotificationListener : NotificationListenerService() {
             "$packageName:${normalizeSenderName(senderName)}"
         } else {
             "$packageName:$notificationId"
+        }
+    }
+
+    private fun isIgnoredChat(senderName: String): Boolean {
+        val normalizedSender = normalizeSenderName(senderName).lowercase()
+        return SettingsManager.getIgnoredChats(this).any { ignored ->
+            val normalizedIgnored = normalizeSenderName(ignored).lowercase()
+            normalizedIgnored.isNotBlank() &&
+                (normalizedSender == normalizedIgnored ||
+                    normalizedSender.contains(normalizedIgnored) ||
+                    normalizedIgnored.contains(normalizedSender))
         }
     }
 
@@ -80,14 +86,23 @@ class CatNotificationListener : NotificationListenerService() {
             val senderName = replyable.sender
             if (!replyable.hasRemoteInput) {
                 Logger.d("Skipping non-replyable notification from $senderName via $pkg (no RemoteInput)")
+                ReplyStore.remove(replyable.notificationKey)
+                return
+            }
+            if (isIgnoredChat(senderName)) {
+                Log.d(TAG, "Skipping ignored chat: $senderName")
+                ReplyStore.remove(replyable.notificationKey)
                 return
             }
 
             Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
+            val messageText = replyable.message
+            val priority = SettingsManager.matchesPersonOrKeyword(this, pkg, "$senderName $messageText")
+            ReplyStore.markPriority(replyable.notificationKey, priority)
 
             // Auto-reply rules: if an enabled rule's keywords match, the cat
             // answers immediately without user interaction.
-            val rule = AutoReplyManager.findMatch(this, replyable.message, replyable.sender)
+            val rule = AutoReplyManager.findMatch(this, messageText, replyable.sender)
             if (rule != null) {
                 Log.i(TAG, "Auto-reply rule matched for ${replyable.sender}: ${rule.triggers}")
                 val sent = ReplySender.send(this, replyable, rule.reply)
@@ -102,8 +117,8 @@ class CatNotificationListener : NotificationListenerService() {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             val senderKey = buildSenderKey(pkg, sbn.id, senderName)
             Logger.d("senderKey=$senderKey (raw title was: $senderName)")
-            val messageText = replyable.message
 
+            updateReplyableBadge(senderKey)
             if (powerManager.isInteractive) {
                 val pending = ReplyStore.getAndClearBuffer(senderKey)
                 val combinedText = AiReplyGenerator.mergeMessageTexts(pending, messageText)
@@ -111,12 +126,6 @@ class CatNotificationListener : NotificationListenerService() {
             } else {
                 ReplyStore.bufferMessage(senderKey, messageText)
             }
-        }
-
-        // Replyable messages always count as pending, even if the panel is open
-        // or another notification from the same app arrived moments ago.
-        if (replyable != null) {
-            OverlayService.instance?.incrementBadge()
             return
         }
 
@@ -162,6 +171,18 @@ class CatNotificationListener : NotificationListenerService() {
     ) {
         val senderKey = buildSenderKey(packageName, notificationId, senderName)
         ReplyStore.clearStoredReplies(senderKey)
+        clearInteractiveState(senderKey)
+    }
+
+    private fun updateReplyableBadge(senderKey: String) {
+        val isNewPendingSender = pendingBadgeSenderKeys.add(senderKey)
+        if (isNewPendingSender) {
+            OverlayService.instance?.incrementBadge()
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "Badge count after update for $senderKey: ${pendingBadgeSenderKeys.size}, total pending senders: ${pendingBadgeSenderKeys.size}"
+        )
     }
 
     private fun pruneProcessedKeys(now: Long) {
@@ -176,60 +197,30 @@ class CatNotificationListener : NotificationListenerService() {
         messageText: String,
         now: Long
     ) {
-        val lastMessageTime = lastInteractiveMessageTime[senderKey] ?: 0L
-        val messageAgeMs = now - lastMessageTime
-        val recentMessage = lastMessageTime > 0L && messageAgeMs <= INTERACTIVE_MERGE_WINDOW_MS
         val panelAlreadyOpened = replyPanelOpenedAt.containsKey(senderKey)
         android.util.Log.d(
             "ScrollCat",
-            "Debounce check for $senderKey - recentMessage: $recentMessage, panelSeen: $panelAlreadyOpened, ageMs: $messageAgeMs"
+            "Interactive merge check for $senderKey - panelSeen: $panelAlreadyOpened"
         )
-        val shouldMerge = recentMessage && !panelAlreadyOpened
 
-        if (shouldMerge) {
-            android.util.Log.d("ScrollCat", "Debounce: merging messages for $senderKey")
+        if (!panelAlreadyOpened) {
+            android.util.Log.d("ScrollCat", "Interactive merge: accumulating messages for $senderKey")
             val messages = interactiveMessageBuffers.getOrPut(senderKey) { mutableListOf() }
             messages.add(ReplyStore.BufferedMessage(messageText, now))
-            lastInteractiveMessageTime[senderKey] = now
             cancelActiveInteractiveGenerations(senderKey)
             ReplyStore.clearStoredReplies(senderKey)
-            interactiveMergeJobs.remove(senderKey)?.let { interactiveDebounceHandler.removeCallbacks(it) }
 
-            val job = Runnable {
-                interactiveMergeJobs.remove(senderKey)
-                val mergedMessages = interactiveMessageBuffers.remove(senderKey)?.toList().orEmpty()
-                if (mergedMessages.isEmpty()) {
-                    android.util.Log.d(
-                        "ScrollCat",
-                        "Debounce: message for $senderKey dropped/exited without generating - reason: merge job found no buffered messages"
-                    )
-                    return@Runnable
-                }
-                val mergedText = AiReplyGenerator.mergeMessageTexts(mergedMessages)
-                Logger.d("Debounced interactive generation for $senderKey with ${mergedMessages.size} message(s): $mergedText")
-                startInteractiveGeneration(packageName, senderName, senderKey, mergedText)
-            }
-            interactiveMergeJobs[senderKey] = job
-            interactiveDebounceHandler.postDelayed(job, INTERACTIVE_MERGE_WINDOW_MS)
-            Logger.d("Queued interactive debounce merge for $senderKey")
-            android.util.Log.d(
-                "ScrollCat",
-                "Debounce: message for $senderKey dropped/exited without generating - reason: scheduled merged generation after debounce window"
-            )
+            val mergedMessages = messages.toList()
+            val mergedText = AiReplyGenerator.mergeMessageTexts(mergedMessages)
+            Logger.d("Interactive merged generation for $senderKey with ${mergedMessages.size} message(s): $mergedText")
+            startInteractiveGeneration(packageName, senderName, senderKey, mergedText)
             return
         }
 
-        if (panelAlreadyOpened) {
-            android.util.Log.d("ScrollCat", "Debounce: generating separately for $senderKey (panel already seen)")
-        } else {
-            android.util.Log.d(
-                "ScrollCat",
-                "Debounce: generating immediately for $senderKey (recentMessage: $recentMessage)"
-            )
-        }
-        interactiveMergeJobs.remove(senderKey)?.let { interactiveDebounceHandler.removeCallbacks(it) }
+        android.util.Log.d("ScrollCat", "Interactive merge: generating separately for $senderKey (panel already seen)")
+        cancelActiveInteractiveGenerations(senderKey)
+        ReplyStore.clearStoredReplies(senderKey)
         interactiveMessageBuffers[senderKey] = mutableListOf(ReplyStore.BufferedMessage(messageText, now))
-        lastInteractiveMessageTime[senderKey] = now
         startInteractiveGeneration(packageName, senderName, senderKey, messageText)
     }
 
@@ -262,13 +253,16 @@ class CatNotificationListener : NotificationListenerService() {
     }
 
     private fun clearInteractiveState(senderKey: String) {
-        interactiveMergeJobs.remove(senderKey)?.let { interactiveDebounceHandler.removeCallbacks(it) }
+        cancelActiveInteractiveGenerations(senderKey)
         interactiveMessageBuffers.remove(senderKey)
-        lastInteractiveMessageTime.remove(senderKey)
         replyPanelOpenedAt.remove(senderKey)
-        activeInteractiveGenerationTokens.remove(senderKey)?.forEach { token ->
-            cancelledInteractiveGenerationTokens.remove(token)
-        }
+        activeInteractiveGenerationTokens.remove(senderKey)
+        pendingBadgeSenderKeys.remove(senderKey)
+        OverlayService.instance?.setBadgeCount(pendingBadgeSenderKeys.size)
+        android.util.Log.d(
+            "ScrollCat",
+            "Badge count after update for $senderKey: ${pendingBadgeSenderKeys.size}, total pending senders: ${pendingBadgeSenderKeys.size}"
+        )
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -279,7 +273,6 @@ class CatNotificationListener : NotificationListenerService() {
         val entry = ReplyStore.getByKey(sbn.key)
         if (entry != null) {
             clearPregeneratedReplies(entry.packageName, entry.notificationId, entry.sender, entry.message)
-            clearInteractiveState(buildSenderKey(entry.packageName, entry.notificationId, entry.sender))
         }
         ReplyStore.remove(sbn.key)
         processedKeys.remove(sbn.key)
@@ -288,7 +281,6 @@ class CatNotificationListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         instance = null
-        interactiveDebounceHandler.removeCallbacksAndMessages(null)
         super.onListenerDisconnected()
     }
 }

@@ -80,6 +80,8 @@ object AppReactionManager {
     )
 
     fun getReaction(context: Context, packageName: String): ReactionConfig? {
+        if (!SettingsManager.isAppReactionsEnabled(context)) return null
+
         // Check user custom reactions first
         val customReaction = getCustomReaction(context, packageName)
         if (customReaction != null) return customReaction

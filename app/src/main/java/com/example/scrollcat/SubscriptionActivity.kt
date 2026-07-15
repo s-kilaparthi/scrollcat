@@ -8,7 +8,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -74,13 +73,9 @@ class SubscriptionActivity : Activity() {
         root.addView(cardsContainer)
 
         // Restore purchases
-        root.addView(Button(this).apply {
-            text = "Restore purchases"
-            textSize = 14f
-            setOnClickListener {
+        root.addView(UiKit.tonalButton(this, "Restore purchases") {
                 billing.queryPurchases()
                 Toast.makeText(this@SubscriptionActivity, "Checking your purchases…", Toast.LENGTH_SHORT).show()
-            }
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -247,18 +242,10 @@ class SubscriptionActivity : Activity() {
         })
 
         if (buttonLabel != null) {
-            card.addView(Button(this).apply {
-                text = buttonLabel
-                textSize = 14f
+            card.addView(UiKit.primaryButton(this, buttonLabel) {
+                if (buttonEnabled) onClick()
+            }.apply {
                 isEnabled = buttonEnabled
-                if (buttonEnabled) {
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        setColor(ACCENT)
-                        cornerRadius = 24f
-                    }
-                }
-                setOnClickListener { if (buttonEnabled) onClick() }
             })
         }
 

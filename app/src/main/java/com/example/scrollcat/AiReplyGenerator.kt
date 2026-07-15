@@ -43,6 +43,8 @@ class AiReplyGenerator(private val context: Context) {
         private const val BUNDLED_MODEL = "llama-3.1-8b-instant"
         private const val CLAUDE_ENDPOINT = "https://api.anthropic.com/v1/messages"
         private const val CLAUDE_MODEL = "claude-haiku-4-5"
+        private const val PROVIDER_MESSAGE_CHAR_LIMIT = 800
+        private const val MERGED_MESSAGE_CHAR_LIMIT = 1500
 
         private fun getBundledKey(): String {
             return String(android.util.Base64.decode(BUNDLED_KEY_ENCODED, android.util.Base64.DEFAULT))
@@ -158,7 +160,12 @@ class AiReplyGenerator(private val context: Context) {
             latestText: String? = null
         ): String {
             val texts = messages.map { it.text } + listOfNotNull(latestText)
-            return texts.joinToString(separator = "\n")
+            val merged = texts.joinToString(separator = "\n")
+            return if (merged.length > MERGED_MESSAGE_CHAR_LIMIT) {
+                merged.take(MERGED_MESSAGE_CHAR_LIMIT) + "... (earlier messages truncated)"
+            } else {
+                merged
+            }
         }
 
         fun flushAllBuffers(context: Context) {
@@ -247,8 +254,9 @@ class AiReplyGenerator(private val context: Context) {
 
         incrementDailyUsage(context)
 
+        val providerMessage = truncateForProviderPrompt(message)
         val userMessage = """Message to reply to:
-"$message"
+"$providerMessage"
 
 Generate 3 short reply options."""
         val providerName = providerNameFor(endpoint)
@@ -272,6 +280,14 @@ Generate 3 short reply options."""
             endpoint.contains("groq.com", ignoreCase = true) -> "Groq"
             endpoint.contains("anthropic.com", ignoreCase = true) -> "Claude"
             else -> "AI provider"
+        }
+    }
+
+    private fun truncateForProviderPrompt(message: String): String {
+        return if (message.length > PROVIDER_MESSAGE_CHAR_LIMIT) {
+            message.take(PROVIDER_MESSAGE_CHAR_LIMIT) + "... (message truncated)"
+        } else {
+            message
         }
     }
 

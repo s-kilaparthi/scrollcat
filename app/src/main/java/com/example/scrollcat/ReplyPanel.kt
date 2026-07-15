@@ -234,7 +234,7 @@ class ReplyPanel(
                 }
             }
             // Clear badge and remove from store after opening app
-            ReplyStore.clearStoredReplies(senderKeyFor(entry))
+            clearPregeneratedReplies(entry)
             ReplyStore.remove(entry.notificationKey)
             OverlayService.instance?.updateBadgeAfterReply()
             dismiss()
@@ -243,7 +243,7 @@ class ReplyPanel(
         // Ignore click - just dismiss and remove from store
         ignoreBtn.setOnClickListener {
             val entry = currentEntry ?: return@setOnClickListener
-            ReplyStore.clearStoredReplies(senderKeyFor(entry))
+            clearPregeneratedReplies(entry)
             ReplyStore.remove(entry.notificationKey)
             OverlayService.instance?.updateBadgeAfterReply()
             dismiss()
@@ -555,12 +555,12 @@ class ReplyPanel(
 
     private fun sendReply(message: ReplyStore.ReplyableMessage, replyText: String) {
         val sent = ReplySender.send(context, message, replyText)
-        ReplyStore.clearStoredReplies(senderKeyFor(message))
+        clearPregeneratedReplies(message)
         ReplyStore.remove(message.notificationKey)
         pending.remove(message)
         currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
+        OverlayService.instance?.updateBadgeAfterReply()
         if (sent) {
-            OverlayService.instance?.clearBadge()
             showConfirmation("Sent to ${message.sender} ✓")
         } else {
             // RemoteInput unusable — fall back to opening the conversation
@@ -694,10 +694,10 @@ class ReplyPanel(
     private fun ignoreUser(message: ReplyStore.ReplyableMessage) {
         val normalizedSender = message.sender.trim().lowercase()
         if (normalizedSender.isNotEmpty()) {
-            val people = SettingsManager.getWatchedPeople(context).toMutableSet()
-            people.add(normalizedSender)
-            SettingsManager.setWatchedPeople(context, people)
-            Logger.d("Added ${message.sender} to People filter")
+            val ignoredChats = SettingsManager.getIgnoredChats(context).toMutableSet()
+            ignoredChats.add(normalizedSender)
+            SettingsManager.setIgnoredChats(context, ignoredChats)
+            Logger.d("Added ${message.sender} to ignored chats")
         }
 
         val ignored = pending.filter {
@@ -707,7 +707,7 @@ class ReplyPanel(
         ignored.forEach { entry ->
             ReplyStore.remove(entry.notificationKey)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
-            ReplyStore.clearStoredReplies(senderKeyFor(entry))
+            clearPregeneratedReplies(entry)
         }
         pending.removeAll(ignored.toSet())
         currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
@@ -724,7 +724,7 @@ class ReplyPanel(
         allPending.forEach { entry ->
             ReplyStore.remove(entry.notificationKey)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
-            ReplyStore.clearStoredReplies(senderKeyFor(entry))
+            clearPregeneratedReplies(entry)
         }
         pending.clear()
         currentIndex = 0
@@ -738,6 +738,15 @@ class ReplyPanel(
         } else {
             "${message.packageName}:${message.notificationId}"
         }
+    }
+
+    private fun clearPregeneratedReplies(message: ReplyStore.ReplyableMessage) {
+        CatNotificationListener.instance?.clearPregeneratedReplies(
+            message.packageName,
+            message.notificationId,
+            message.sender,
+            message.message
+        ) ?: ReplyStore.clearStoredReplies(senderKeyFor(message))
     }
 
     private fun appLabel(packageName: String): String {

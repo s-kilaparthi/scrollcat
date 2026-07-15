@@ -1139,6 +1139,14 @@ class OverlayService : Service() {
         updateBadge()
     }
 
+    fun setBadgeCount(count: Int) {
+        badgeCount = count.coerceAtLeast(0)
+        updateBadge()
+        if (replyPanel?.isShowing == true) {
+            replyPanel?.refreshPendingFromStore()
+        }
+    }
+
     fun updateBadgeAfterReply() {
         val remaining = ReplyStore.getAll().size
         if (remaining == 0) {
@@ -1162,6 +1170,16 @@ class OverlayService : Service() {
         badgeView?.post {
             if (badgeCount > 0) {
                 badgeView?.text = if (badgeCount > 99) "99+" else badgeCount.toString()
+                badgeView?.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(
+                        if (ReplyStore.hasPriorityPending()) {
+                            0xFF16A34A.toInt()
+                        } else {
+                            Color.RED
+                        }
+                    )
+                }
                 badgeView?.visibility = android.view.View.VISIBLE
             } else {
                 badgeView?.visibility = android.view.View.GONE

@@ -1,549 +1,218 @@
 package com.example.scrollcat
 
 import android.app.Activity
-import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
-import android.widget.*
+import android.view.View
+import android.widget.ArrayAdapter
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Spinner
+import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 class SettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 56, 32, 32)
-            setBackgroundColor(0xFFFFFFFF.toInt())
+        val root = UiKit.pageRoot(this)
+        addToolbar(root)
+        addMusicAndGestures(root)
+        addAppReactions(root)
+        addPrivacyLink(root)
+
+        val scrollView = ScrollView(this).apply {
+            setBackgroundColor(UiKit.surfaceColor(this@SettingsActivity))
+            addView(root)
         }
-
-        // Toolbar
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 24)
-        }
-        TextView(this).apply {
-            text = "←"
-            textSize = 22f
-            setOnClickListener { finish() }
-            toolbar.addView(this)
-        }
-        TextView(this).apply {
-            text = "  Settings"
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            toolbar.addView(this)
-        }
-        root.addView(toolbar)
-
-        // Cat size slider
-        root.addView(sectionTitle("🐱 Cat Size"))
-        val catSizeValue = TextView(this).apply {
-            text = "${SettingsManager.getCatSize(this@SettingsActivity)}px"
-            textSize = 14f
-            setTextColor(0xFF888888.toInt())
-        }
-        root.addView(catSizeValue)
-        val catSizeSlider = SeekBar(this).apply {
-            max = 300
-            min = 100
-            progress = SettingsManager.getCatSize(this@SettingsActivity)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
-                    catSizeValue.text = "${value}px"
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    SettingsManager.setCatSize(this@SettingsActivity, sb?.progress ?: 240)
-                    // Apply immediately to live cat
-                    OverlayService.instance?.updateCatSize(sb?.progress ?: 240)
-                }
-            })
-        }
-        root.addView(catSizeSlider)
-        root.addView(divider())
-
-        // Scroll sensitivity slider
-        root.addView(sectionTitle("👆 Scroll Sensitivity"))
-        root.addView(TextView(this).apply {
-            text = "Higher = easier to trigger scroll"
-            textSize = 13f
-            setTextColor(0xFF888888.toInt())
-        })
-        val sensitivityValue = TextView(this).apply {
-            text = "${SettingsManager.getSensitivity(this@SettingsActivity)}"
-            textSize = 14f
-            setTextColor(0xFF888888.toInt())
-        }
-        root.addView(sensitivityValue)
-        val sensitivitySlider = SeekBar(this).apply {
-            max = 150
-            min = 20
-            progress = SettingsManager.getSensitivity(this@SettingsActivity)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
-                    sensitivityValue.text = "$value"
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    SettingsManager.setSensitivity(this@SettingsActivity, sb?.progress ?: 70)
-                    OverlayService.instance?.updateSensitivity(sb?.progress ?: 70)
-                }
-            })
-        }
-        root.addView(sensitivitySlider)
-        root.addView(divider())
-
-        // Break timer interval
-        root.addView(sectionTitle("⏰ Break Reminder"))
-        root.addView(TextView(this).apply {
-            text = "How long before the cat reminds you to take a break"
-            textSize = 13f
-            setTextColor(0xFF888888.toInt())
-        })
-        val breakValue = TextView(this).apply {
-            text = "${SettingsManager.getBreakInterval(this@SettingsActivity)} minutes"
-            textSize = 14f
-            setTextColor(0xFF888888.toInt())
-        }
-        root.addView(breakValue)
-        val breakSlider = SeekBar(this).apply {
-            max = 60
-            min = 5
-            progress = SettingsManager.getBreakInterval(this@SettingsActivity)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
-                    breakValue.text = "$value minutes"
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    SettingsManager.setBreakInterval(this@SettingsActivity, sb?.progress ?: 10)
-                    OverlayService.instance?.updateBreakInterval(sb?.progress ?: 10)
-                }
-            })
-        }
-        root.addView(breakSlider)
-        root.addView(divider())
-
-        root.addView(sectionTitle("😴 Sleep Opacity"))
-        root.addView(sectionSubtitle("How transparent the cat is while sleeping (30% to 100%)"))
-
-        val opacityValue = TextView(this).apply {
-            val current = (SettingsManager.getSleepOpacity(this@SettingsActivity) * 100).toInt()
-            text = "$current%"
-            textSize = 14f
-            setTextColor(0xFF888888.toInt())
-        }
-        root.addView(opacityValue)
-
-        val opacitySlider = SeekBar(this).apply {
-            max = 70 // 30% to 100% range
-            min = 0
-            val current = ((SettingsManager.getSleepOpacity(this@SettingsActivity) * 100) - 30).toInt()
-            progress = current.coerceIn(0, 70)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
-                    val pct = value + 30
-                    opacityValue.text = "$pct%"
-                    if (fromUser) {
-                        val opacity = pct / 100f
-                        SettingsManager.setSleepOpacity(this@SettingsActivity, opacity)
-                        // Apply in real time if cat is currently sleeping
-                        OverlayService.instance?.updateSleepOpacity(opacity)
-                    }
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    val pct = (sb?.progress ?: 20) + 30
-                    val opacity = pct / 100f
-                    SettingsManager.setSleepOpacity(this@SettingsActivity, opacity)
-                }
-            })
-        }
-        root.addView(opacitySlider)
-        root.addView(divider())
-
-        root.addView(sectionTitle("👈 Left Swipe Action"))
-        root.addView(sectionSubtitle("What happens when you swipe left on the cat"))
-
-        val leftSwipeOptions = listOf(
-            "recents" to "Open recent apps",
-            "screenshot" to "Take a screenshot",
-            "notifications" to "Pull down notifications"
-        )
-
-        val currentBehavior = SettingsManager.getLeftSwipeBehavior(this)
-        val radioGroup = android.widget.RadioGroup(this).apply {
-            orientation = android.widget.RadioGroup.VERTICAL
-            setPadding(0, 8, 0, 8)
-        }
-
-        val radioMap = mutableMapOf<Int, String>()
-
-        leftSwipeOptions.forEach { (key, label) ->
-            val radio = android.widget.RadioButton(this).apply {
-                text = label
-                textSize = 15f
-                id = android.view.View.generateViewId()
-                isChecked = key == currentBehavior
-                setPadding(0, 16, 0, 16)
-            }
-            radioMap[radio.id] = key
-            radioGroup.addView(radio)
-        }
-
-        radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val value = radioMap[checkedId] ?: "recents"
-            Logger.d("Saving left swipe: $value")
-            SettingsManager.setLeftSwipeBehavior(this, value)
-        }
-
-        root.addView(radioGroup)
-        root.addView(divider())
-
-        root.addView(sectionTitle("🤖 AI Reply Tone"))
-        root.addView(sectionSubtitle("How the cat writes reply suggestions to your DMs"))
-
-        val toneOptions = listOf(
-            "friendly" to "😊 Friendly — warm and personal",
-            "casual" to "✌️ Casual — like texting a friend",
-            "professional" to "💼 Professional — for business DMs"
-        )
-        val currentTone = SettingsManager.getReplyTone(this)
-        val toneGroup = android.widget.RadioGroup(this).apply {
-            orientation = android.widget.RadioGroup.VERTICAL
-            setPadding(0, 8, 0, 8)
-        }
-        val toneMap = mutableMapOf<Int, String>()
-        toneOptions.forEach { (key, label) ->
-            val radio = android.widget.RadioButton(this).apply {
-                text = label
-                textSize = 15f
-                id = android.view.View.generateViewId()
-                isChecked = key == currentTone
-                setPadding(0, 16, 0, 16)
-            }
-            toneMap[radio.id] = key
-            toneGroup.addView(radio)
-        }
-        toneGroup.setOnCheckedChangeListener { _, checkedId ->
-            val value = toneMap[checkedId] ?: "friendly"
-            SettingsManager.setReplyTone(this, value)
-        }
-        root.addView(toneGroup)
-        root.addView(divider())
-
-        root.addView(sectionTitle("🎭 AI Personalization"))
-        root.addView(sectionSubtitle("Customize how AI replies on your behalf"))
-        Button(this).apply {
-            text = "Edit My Profile"
-            setOnClickListener {
-                startActivity(android.content.Intent(this@SettingsActivity, OnboardingActivity::class.java).apply {
-                    putExtra("edit_mode", true)
-                })
-            }
-            root.addView(this, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 4, 0, 4) })
-        }
-        Button(this).apply {
-            text = "Preview AI Prompt"
-            setOnClickListener {
-                val prompt = UserProfileBuilder.buildSystemPrompt(this@SettingsActivity, 20)
-                val tokens = prompt.length / 4
-                android.app.AlertDialog.Builder(this@SettingsActivity)
-                    .setTitle("Your AI System Prompt (~$tokens tokens)")
-                    .setMessage(prompt)
-                    .setPositiveButton("OK", null)
-                    .show()
-            }
-            root.addView(this, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 4, 0, 4) })
-        }
-        root.addView(divider())
-
-        root.addView(sectionTitle("🤖 AI Settings"))
-        root.addView(sectionSubtitle("Configure Claude, Groq, OpenAI, or custom AI providers."))
-        root.addView(Button(this).apply {
-            text = "AI Model Settings"
-            textSize = 15f
-            setOnClickListener {
-                startActivity(android.content.Intent(this@SettingsActivity, AiProviderActivity::class.java))
-            }
-        })
-        root.addView(divider())
-
-        root.addView(sectionTitle("🤖 AI Status"))
-
-        val nanoStatusText = TextView(this).apply {
-            text = "Tap to check which AI engine is active"
-            textSize = 14f
-            setTextColor(0xFF888888.toInt())
-            setPadding(0, 8, 0, 8)
-        }
-        root.addView(nanoStatusText)
-
-        Button(this).apply {
-            text = "Check AI Status"
-            setOnClickListener {
-                nanoStatusText.text = "Checking..."
-                val generator = AiReplyGenerator(this@SettingsActivity)
-                generator.checkAiStatus { status ->
-                    runOnUiThread {
-                        nanoStatusText.text = status
-                        Toast.makeText(this@SettingsActivity, status, Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-            root.addView(this, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 4, 0, 4) })
-        }
-        root.addView(divider())
-
-        root.addView(sectionTitle("🎵 Music Dance"))
-        val musicRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 16, 0, 16)
-        }
-        TextView(this).apply {
-            text = "Cat dances when music is playing"
-            textSize = 15f
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            musicRow.addView(this)
-        }
-        Switch(this).apply {
-            isChecked = SettingsManager.isMusicDanceEnabled(this@SettingsActivity)
-            setOnCheckedChangeListener { _, checked ->
-                SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
-                if (!checked) OverlayService.instance?.onMusicStopped()
-            }
-            musicRow.addView(this)
-        }
-        root.addView(musicRow)
-        root.addView(divider())
-
-        // Gesture toggles
-        root.addView(sectionTitle("👋 Gestures"))
-        listOf(
-            "tap_scroll" to "Single tap → scroll",
-            "push_scroll" to "Push up/down → scroll",
-            "swipe_back" to "Swipe right → back button",
-            "swipe_voice" to "Swipe left → voice assistant",
-            "double_tap_mode" to "Double tap → toggle Feed/Reels"
-        ).forEach { (key, label) ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 16, 0, 16)
-            }
-            TextView(this).apply {
-                text = label
-                textSize = 15f
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                row.addView(this)
-            }
-            Switch(this).apply {
-                isChecked = SettingsManager.getGestureEnabled(this@SettingsActivity, key)
-                setOnCheckedChangeListener { _, checked ->
-                    SettingsManager.setGestureEnabled(this@SettingsActivity, key, checked)
-                }
-                row.addView(this)
-            }
-            root.addView(row)
-            root.addView(divider())
-        }
-
-        root.addView(sectionTitle("📱 App Reactions"))
-        root.addView(sectionSubtitle("How the cat reacts when you open these apps"))
-
-        val reactionOptions = listOf(
-            "EXCITED" to "😸 Excited",
-            "ALERT" to "👀 Alert",
-            "SLEEPY" to "😴 Sleepy",
-            "MUSIC" to "🎵 Vibe",
-            "HUNGRY" to "😋 Hungry",
-            "SHY" to "🙈 Shy",
-            "SERIOUS" to "😐 Serious",
-            "CURIOUS" to "🤔 Curious",
-            "NORMAL" to "😺 Normal"
-        )
-
-        // category name to list of package names
-        val categoryPackages = mapOf(
-            "📸 Camera" to listOf(
-                "com.sec.android.app.camera",
-                "com.android.camera",
-                "com.android.camera2",
-                "com.google.android.GoogleCamera"
-            ),
-            "📱 Social/Reels" to listOf(
-                "com.instagram.android",
-                "com.zhiliaoapp.musically",
-                "com.google.android.youtube",
-                "com.snapchat.android",
-                "com.twitter.android"
-            ),
-            "🎵 Music" to listOf(
-                "com.spotify.music",
-                "com.google.android.apps.youtube.music"
-            ),
-            "🍔 Food" to listOf(
-                "com.dd.doordash",
-                "in.swiggy.android",
-                "com.ubercab.eats",
-                "com.mcdonalds.mobileapp"
-            ),
-            "💬 Messages" to listOf(
-                "com.whatsapp",
-                "org.telegram.messenger",
-                "com.facebook.orca",
-                "com.discord"
-            ),
-            "💘 Dating" to listOf(
-                "com.tinder",
-                "com.bumble.app",
-                "com.hinge.app"
-            ),
-            "💼 Work" to listOf(
-                "com.google.android.gm",
-                "com.microsoft.office.outlook",
-                "com.microsoft.teams",
-                "us.zoom.videomeetings"
-            ),
-            "🎬 Streaming" to listOf(
-                "com.netflix.mediaclient",
-                "com.amazon.avod.thirdpartyclient"
-            )
-        )
-
-        val categoryLabels = mapOf(
-            "📸 Camera" to "Samsung Camera, Google Camera",
-            "📱 Social/Reels" to "Instagram, TikTok, YouTube, Snapchat, Twitter",
-            "🎵 Music" to "Spotify, YouTube Music",
-            "🍔 Food" to "DoorDash, Swiggy, UberEats, McDonald's",
-            "💬 Messages" to "WhatsApp, Telegram, Messenger, Discord",
-            "💘 Dating" to "Tinder, Bumble, Hinge",
-            "💼 Work" to "Gmail, Outlook, Teams, Zoom",
-            "🎬 Streaming" to "Netflix, Prime Video"
-        )
-
-        // Default reactions per category
-        val categoryDefaults = mapOf(
-            "📸 Camera" to "EXCITED",
-            "📱 Social/Reels" to "EXCITED",
-            "🎵 Music" to "MUSIC",
-            "🍔 Food" to "HUNGRY",
-            "💬 Messages" to "ALERT",
-            "💘 Dating" to "SHY",
-            "💼 Work" to "SERIOUS",
-            "🎬 Streaming" to "SLEEPY"
-        )
-
-        val prefs = getSharedPreferences("app_reactions", MODE_PRIVATE)
-
-        categoryPackages.forEach { (category, packages) ->
-            val categoryRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 16, 0, 4)
-            }
-
-            TextView(this).apply {
-                text = category
-                textSize = 15f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                )
-                categoryRow.addView(this)
-            }
-
-            // Get current saved reaction for first package in category
-            val savedReaction = prefs.getString("reaction_${packages[0]}", categoryDefaults[category] ?: "NORMAL")
-            val currentIndex = reactionOptions.indexOfFirst { it.first == savedReaction }.coerceAtLeast(0)
-
-            val spinner = android.widget.Spinner(this).apply {
-                adapter = android.widget.ArrayAdapter(
-                    this@SettingsActivity,
-                    android.R.layout.simple_spinner_dropdown_item,
-                    reactionOptions.map { it.second }
-                )
-                setSelection(currentIndex)
-                onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                        val reactionKey = reactionOptions[position].first
-                        // Save for ALL packages in this category
-                        val editor = prefs.edit()
-                        packages.forEach { pkg ->
-                            editor.putString("reaction_$pkg", reactionKey)
-                        }
-                        editor.apply()
-                        Logger.d("Saved reaction $reactionKey for category $category")
-                    }
-                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-                }
-            }
-            categoryRow.addView(spinner)
-            root.addView(categoryRow)
-
-            TextView(this).apply {
-                text = categoryLabels[category] ?: ""
-                textSize = 12f
-                setTextColor(0xFF888888.toInt())
-                setPadding(0, 0, 0, 8)
-                root.addView(this)
-            }
-            root.addView(divider())
-        }
-
-        // Legal
-        root.addView(TextView(this).apply {
-            text = "🔒 Privacy Policy"
-            textSize = 14f
-            setTextColor(0xFF4A90D9.toInt())
-            setPadding(0, 24, 0, 24)
-            setOnClickListener {
-                startActivity(android.content.Intent(this@SettingsActivity, PrivacyPolicyActivity::class.java))
-            }
-        })
-
-        val scrollView = ScrollView(this)
-        scrollView.addView(root)
         setContentView(scrollView)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(32, bars.top + 16, 32, 32)
+            v.setPadding(
+                UiKit.dp(this, 24),
+                bars.top + UiKit.dp(this, 16),
+                UiKit.dp(this, 24),
+                UiKit.dp(this, 24) + bars.bottom
+            )
             insets
         }
     }
 
-    private fun sectionTitle(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 16f
-        typeface = Typeface.DEFAULT_BOLD
-        setPadding(0, 20, 0, 8)
+    private fun addToolbar(root: LinearLayout) {
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, UiKit.dp(this@SettingsActivity, 16))
+        }
+        toolbar.addView(TextView(this).apply {
+            text = "←"
+            textSize = 24f
+            setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+            setPadding(0, 0, UiKit.dp(this@SettingsActivity, 12), 0)
+            setOnClickListener { finish() }
+        })
+        toolbar.addView(UiKit.headline(this, "Settings"))
+        root.addView(toolbar)
     }
 
-    private fun sectionSubtitle(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(0xFF888888.toInt())
-        setPadding(0, 0, 0, 8)
+    private fun addMusicAndGestures(root: LinearLayout) {
+        UiKit.section(root, "Music Dance", null) {
+            addSwitchRow("Cat dances when music is playing", SettingsManager.isMusicDanceEnabled(this@SettingsActivity)) { checked ->
+                SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
+                if (!checked) OverlayService.instance?.onMusicStopped()
+            }
+        }
+
+        UiKit.section(root, "Gestures", "Choose which cat gestures are enabled.") {
+            listOf(
+                "tap_scroll" to "Single tap → scroll",
+                "push_scroll" to "Push up/down → scroll",
+                "swipe_back" to "Swipe right → back button",
+                "swipe_voice" to "Swipe left → voice assistant",
+                "double_tap_mode" to "Double tap → toggle Feed/Reels"
+            ).forEach { (key, label) ->
+                addSwitchRow(label, SettingsManager.getGestureEnabled(this@SettingsActivity, key)) { checked ->
+                    SettingsManager.setGestureEnabled(this@SettingsActivity, key, checked)
+                }
+            }
+        }
     }
 
-    private fun divider() = android.view.View(this).apply {
-        setBackgroundColor(0xFFEEEEEE.toInt())
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 2
-        ).apply { setMargins(0, 8, 0, 0) }
+    private fun LinearLayout.addSwitchRow(
+        label: String,
+        checked: Boolean,
+        onChecked: (Boolean) -> Unit
+    ) {
+        val row = LinearLayout(this@SettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, UiKit.dp(this@SettingsActivity, 8), 0, UiKit.dp(this@SettingsActivity, 8))
+        }
+        row.addView(TextView(this@SettingsActivity).apply {
+            text = label
+            textSize = 15f
+            setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        row.addView(SwitchMaterial(this@SettingsActivity).apply {
+            isChecked = checked
+            setOnCheckedChangeListener { _, value -> onChecked(value) }
+        })
+        addView(row)
+    }
+
+    private fun addAppReactions(root: LinearLayout) {
+        UiKit.section(root, "App Reactions", "How the cat reacts when you open these apps.") {
+            val optionsContainer = LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = if (SettingsManager.isAppReactionsEnabled(this@SettingsActivity)) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+            }
+
+            addSwitchRow("Enable app reactions", SettingsManager.isAppReactionsEnabled(this@SettingsActivity)) { checked ->
+                SettingsManager.setAppReactionsEnabled(this@SettingsActivity, checked)
+                optionsContainer.visibility = if (checked) View.VISIBLE else View.GONE
+            }
+
+            val reactionOptions = listOf(
+                "EXCITED" to "😸 Excited",
+                "ALERT" to "👀 Alert",
+                "SLEEPY" to "😴 Sleepy",
+                "MUSIC" to "🎵 Vibe",
+                "HUNGRY" to "😋 Hungry",
+                "SHY" to "🙈 Shy",
+                "SERIOUS" to "😐 Serious",
+                "CURIOUS" to "🤔 Curious",
+                "NORMAL" to "😺 Normal"
+            )
+
+            val categoryPackages = mapOf(
+                "📸 Camera" to listOf("com.sec.android.app.camera", "com.android.camera", "com.android.camera2", "com.google.android.GoogleCamera"),
+                "📱 Social/Reels" to listOf("com.instagram.android", "com.zhiliaoapp.musically", "com.google.android.youtube", "com.snapchat.android", "com.twitter.android"),
+                "🎵 Music" to listOf("com.spotify.music", "com.google.android.apps.youtube.music"),
+                "🍔 Food" to listOf("com.dd.doordash", "in.swiggy.android", "com.ubercab.eats", "com.mcdonalds.mobileapp"),
+                "💬 Messages" to listOf("com.whatsapp", "org.telegram.messenger", "com.facebook.orca", "com.discord"),
+                "💘 Dating" to listOf("com.tinder", "com.bumble.app", "com.hinge.app"),
+                "💼 Work" to listOf("com.google.android.gm", "com.microsoft.office.outlook", "com.microsoft.teams", "us.zoom.videomeetings"),
+                "🎬 Streaming" to listOf("com.netflix.mediaclient", "com.amazon.avod.thirdpartyclient")
+            )
+            val categoryLabels = mapOf(
+                "📸 Camera" to "Samsung Camera, Google Camera",
+                "📱 Social/Reels" to "Instagram, TikTok, YouTube, Snapchat, Twitter",
+                "🎵 Music" to "Spotify, YouTube Music",
+                "🍔 Food" to "DoorDash, Swiggy, UberEats, McDonald's",
+                "💬 Messages" to "WhatsApp, Telegram, Messenger, Discord",
+                "💘 Dating" to "Tinder, Bumble, Hinge",
+                "💼 Work" to "Gmail, Outlook, Teams, Zoom",
+                "🎬 Streaming" to "Netflix, Prime Video"
+            )
+            val categoryDefaults = mapOf(
+                "📸 Camera" to "EXCITED",
+                "📱 Social/Reels" to "EXCITED",
+                "🎵 Music" to "MUSIC",
+                "🍔 Food" to "HUNGRY",
+                "💬 Messages" to "ALERT",
+                "💘 Dating" to "SHY",
+                "💼 Work" to "SERIOUS",
+                "🎬 Streaming" to "SLEEPY"
+            )
+            val prefs = getSharedPreferences("app_reactions", MODE_PRIVATE)
+
+            categoryPackages.forEach { (category, packages) ->
+                val row = LinearLayout(this@SettingsActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, UiKit.dp(this@SettingsActivity, 12), 0, UiKit.dp(this@SettingsActivity, 2))
+                }
+                row.addView(TextView(this@SettingsActivity).apply {
+                    text = category
+                    textSize = 15f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                val savedReaction = prefs.getString("reaction_${packages[0]}", categoryDefaults[category] ?: "NORMAL")
+                val currentIndex = reactionOptions.indexOfFirst { it.first == savedReaction }.coerceAtLeast(0)
+                row.addView(Spinner(this@SettingsActivity).apply {
+                    adapter = ArrayAdapter(
+                        this@SettingsActivity,
+                        android.R.layout.simple_spinner_dropdown_item,
+                        reactionOptions.map { it.second }
+                    )
+                    setSelection(currentIndex)
+                    onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                            val reactionKey = reactionOptions[position].first
+                            val editor = prefs.edit()
+                            packages.forEach { pkg -> editor.putString("reaction_$pkg", reactionKey) }
+                            editor.apply()
+                            Logger.d("Saved reaction $reactionKey for category $category")
+                        }
+                        override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                    }
+                })
+                optionsContainer.addView(row)
+                optionsContainer.addView(UiKit.body(this@SettingsActivity, categoryLabels[category] ?: "", muted = true))
+            }
+            addView(optionsContainer)
+        }
+    }
+
+    private fun addPrivacyLink(root: LinearLayout) {
+        root.addView(TextView(this).apply {
+            text = "🔒 Privacy Policy"
+            textSize = 14f
+            setTextColor(UiKit.primaryColor(this@SettingsActivity))
+            setPadding(0, UiKit.dp(this@SettingsActivity, 12), 0, UiKit.dp(this@SettingsActivity, 24))
+            setOnClickListener {
+                startActivity(android.content.Intent(this@SettingsActivity, PrivacyPolicyActivity::class.java))
+            }
+        })
     }
 }

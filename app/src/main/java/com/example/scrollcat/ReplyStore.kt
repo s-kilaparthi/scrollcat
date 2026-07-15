@@ -46,7 +46,8 @@ object ReplyStore {
         val hasRemoteInput: Boolean,
         val actionIntent: PendingIntent?,
         val remoteInputs: Array<RemoteInput>,
-        val contentIntent: PendingIntent?
+        val contentIntent: PendingIntent?,
+        val priority: Boolean = false
     ) {
         val conversationKey: String get() = "$packageName|$sender"
     }
@@ -169,6 +170,12 @@ object ReplyStore {
         return msg
     }
 
+    @Synchronized
+    fun markPriority(notificationKey: String, priority: Boolean) {
+        val entry = messages.entries.firstOrNull { it.value.notificationKey == notificationKey } ?: return
+        entry.setValue(entry.value.copy(priority = priority))
+    }
+
     private fun findReplyAction(notification: Notification): Notification.Action? {
         notification.actions?.forEach { action ->
             if (action.remoteInputs?.any { it.allowFreeFormInput } == true) return action
@@ -182,14 +189,22 @@ object ReplyStore {
 
     /** Most recent replyable entry, or null when nothing is pending. */
     @Synchronized
-    fun getLatest(): ReplyableMessage? = messages.values.lastOrNull()
+    fun getLatest(): ReplyableMessage? = getAll().firstOrNull()
 
     /** All pending messages, newest first. */
     @Synchronized
-    fun getAll(): List<ReplyableMessage> = messages.values.toList().asReversed()
+    fun getAll(): List<ReplyableMessage> {
+        return messages.values
+            .toList()
+            .asReversed()
+            .sortedByDescending { it.priority }
+    }
 
     @Synchronized
     fun count(): Int = messages.size
+
+    @Synchronized
+    fun hasPriorityPending(): Boolean = messages.values.any { it.priority }
 
     /** Lookup by StatusBarNotification key before removal. */
     @Synchronized
