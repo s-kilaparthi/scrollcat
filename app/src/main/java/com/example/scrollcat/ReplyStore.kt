@@ -227,6 +227,49 @@ object ReplyStore {
         recentlySentReplies.clear()
     }
 
+    /** Package used only for the scripted onboarding demo (not a real app). */
+    const val DEMO_PACKAGE = "com.example.scrollcat.demo"
+    const val DEMO_NOTIFICATION_KEY = "scrollcat_onboarding_demo"
+    const val DEMO_SENDER = "Demo"
+    const val DEMO_MESSAGE = "Hey, how's your day today?"
+
+    val DEMO_REPLIES = listOf(
+        "Pretty good, thanks!",
+        "Busy but good!",
+        "Can't complain!"
+    )
+
+    /** Inserts a fake replyable message for the onboarding demo (no real notification). */
+    @Synchronized
+    fun putDemo(): ReplyableMessage {
+        remove(DEMO_NOTIFICATION_KEY)
+        messages.remove("$DEMO_PACKAGE|$DEMO_SENDER")
+        val msg = ReplyableMessage(
+            notificationKey = DEMO_NOTIFICATION_KEY,
+            notificationId = -4242,
+            packageName = DEMO_PACKAGE,
+            sender = DEMO_SENDER,
+            message = DEMO_MESSAGE,
+            timestamp = System.currentTimeMillis(),
+            hasRemoteInput = true,
+            actionIntent = null,
+            remoteInputs = emptyArray(),
+            contentIntent = null,
+            priority = false
+        )
+        messages[msg.conversationKey] = msg
+        return msg
+    }
+
+    @Synchronized
+    fun clearDemo() {
+        remove(DEMO_NOTIFICATION_KEY)
+        messages.remove("$DEMO_PACKAGE|$DEMO_SENDER")
+    }
+
+    fun isDemoMessage(message: ReplyableMessage): Boolean =
+        message.packageName == DEMO_PACKAGE || message.notificationKey == DEMO_NOTIFICATION_KEY
+
     fun trackSentReply(replyText: String) {
         recentlySentReplies.add(replyText.trim())
         // Keep only last 10 sent replies

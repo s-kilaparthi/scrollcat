@@ -6,11 +6,14 @@ import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.radiobutton.MaterialRadioButton
+import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 
 class SettingsActivity : Activity() {
@@ -20,6 +23,8 @@ class SettingsActivity : Activity() {
 
         val root = UiKit.pageRoot(this)
         addToolbar(root)
+        addCatAppearance(root)
+        addReplyTextSize(root)
         addMusicAndGestures(root)
         addAppReactions(root)
         addPrivacyLink(root)
@@ -56,6 +61,159 @@ class SettingsActivity : Activity() {
         })
         toolbar.addView(UiKit.headline(this, "Settings"))
         root.addView(toolbar)
+    }
+
+    private fun addCatAppearance(root: LinearLayout) {
+        UiKit.section(root, "Cat Appearance", "Size and sleep transparency for the floating cat.") {
+            val sizeLabel = TextView(this@SettingsActivity).apply {
+                textSize = 15f
+                setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                setPadding(0, 0, 0, UiKit.dp(this@SettingsActivity, 4))
+            }
+            val sizeSlider = Slider(this@SettingsActivity).apply {
+                valueFrom = 100f
+                valueTo = 400f
+                stepSize = 10f
+                val raw = SettingsManager.getCatSize(this@SettingsActivity).coerceIn(100, 400)
+                value = ((raw + 5) / 10 * 10).coerceIn(100, 400).toFloat()
+            }
+            fun updateSizeLabel(size: Int) {
+                sizeLabel.text = "Cat size: ${size}px"
+            }
+            updateSizeLabel(sizeSlider.value.toInt())
+            sizeSlider.addOnChangeListener { _, value, fromUser ->
+                val size = value.toInt()
+                updateSizeLabel(size)
+                if (fromUser) {
+                    SettingsManager.setCatSize(this@SettingsActivity, size)
+                    OverlayService.instance?.updateCatSize(size)
+                }
+            }
+            addView(sizeLabel)
+            addView(sizeSlider)
+
+            val opacityLabel = TextView(this@SettingsActivity).apply {
+                textSize = 15f
+                setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                setPadding(
+                    0,
+                    UiKit.dp(this@SettingsActivity, 12),
+                    0,
+                    UiKit.dp(this@SettingsActivity, 4)
+                )
+            }
+            val currentOpacityPct = ((SettingsManager.getSleepOpacity(this@SettingsActivity) * 100f)
+                .toInt()
+                .coerceIn(30, 100) + 2) / 5 * 5
+            val opacitySlider = Slider(this@SettingsActivity).apply {
+                valueFrom = 30f
+                valueTo = 100f
+                stepSize = 5f
+                value = currentOpacityPct.toFloat()
+            }
+            fun updateOpacityLabel(pct: Int) {
+                opacityLabel.text = "Sleep opacity: $pct%"
+            }
+            updateOpacityLabel(opacitySlider.value.toInt())
+            opacitySlider.addOnChangeListener { _, value, fromUser ->
+                val pct = value.toInt()
+                updateOpacityLabel(pct)
+                if (fromUser) {
+                    val opacity = pct / 100f
+                    SettingsManager.setSleepOpacity(this@SettingsActivity, opacity)
+                    OverlayService.instance?.updateSleepOpacity(opacity)
+                }
+            }
+            addView(opacityLabel)
+            addView(opacitySlider)
+
+            addView(TextView(this@SettingsActivity).apply {
+                text = "Cat display mode"
+                textSize = 15f
+                setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                setPadding(
+                    0,
+                    UiKit.dp(this@SettingsActivity, 16),
+                    0,
+                    UiKit.dp(this@SettingsActivity, 4)
+                )
+            })
+            val displayOptions = listOf(
+                SettingsManager.DISPLAY_MODE_ALWAYS_VISIBLE to "Always visible",
+                SettingsManager.DISPLAY_MODE_EDGE_DOCKING to "Edge docking"
+            )
+            val selectedMode = SettingsManager.getCatDisplayMode(this@SettingsActivity)
+            val displayGroup = RadioGroup(this@SettingsActivity).apply {
+                orientation = RadioGroup.VERTICAL
+            }
+            val displayMap = mutableMapOf<Int, String>()
+            displayOptions.forEach { (key, label) ->
+                val radio = MaterialRadioButton(this@SettingsActivity).apply {
+                    text = label
+                    textSize = 15f
+                    id = View.generateViewId()
+                    isChecked = key == selectedMode
+                    setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                    setPadding(
+                        0,
+                        UiKit.dp(this@SettingsActivity, 10),
+                        0,
+                        UiKit.dp(this@SettingsActivity, 10)
+                    )
+                }
+                displayMap[radio.id] = key
+                displayGroup.addView(radio)
+            }
+            displayGroup.setOnCheckedChangeListener { _, checkedId ->
+                val key = displayMap[checkedId] ?: return@setOnCheckedChangeListener
+                SettingsManager.setCatDisplayMode(this@SettingsActivity, key)
+                OverlayService.instance?.applyCatDisplayMode()
+            }
+            addView(displayGroup)
+        }
+    }
+
+    private fun addReplyTextSize(root: LinearLayout) {
+        UiKit.section(
+            root,
+            "Reply text size",
+            "Size of message preview and AI reply suggestions."
+        ) {
+            val options = listOf(
+                "small" to "Small",
+                "normal" to "Normal",
+                "large" to "Large",
+                "xlarge" to "Extra Large"
+            )
+            val selected = SettingsManager.getReplyTextSizeOption(this@SettingsActivity)
+            val group = RadioGroup(this@SettingsActivity).apply {
+                orientation = RadioGroup.VERTICAL
+                setPadding(0, UiKit.dp(this@SettingsActivity, 4), 0, 0)
+            }
+            val radioMap = mutableMapOf<Int, String>()
+            options.forEach { (key, label) ->
+                val radio = MaterialRadioButton(this@SettingsActivity).apply {
+                    text = label
+                    textSize = 15f
+                    id = View.generateViewId()
+                    isChecked = key == selected
+                    setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+                    setPadding(
+                        0,
+                        UiKit.dp(this@SettingsActivity, 10),
+                        0,
+                        UiKit.dp(this@SettingsActivity, 10)
+                    )
+                }
+                radioMap[radio.id] = key
+                group.addView(radio)
+            }
+            group.setOnCheckedChangeListener { _, checkedId ->
+                val key = radioMap[checkedId] ?: return@setOnCheckedChangeListener
+                SettingsManager.setReplyTextSizeOption(this@SettingsActivity, key)
+            }
+            addView(group)
+        }
     }
 
     private fun addMusicAndGestures(root: LinearLayout) {

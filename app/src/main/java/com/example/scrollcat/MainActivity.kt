@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     private lateinit var notificationBadge: TextView
     private var btnUpgrade: MaterialButton? = null
     private var btnShare: MaterialButton? = null
+    private var aiKeyBanner: MaterialCardView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,10 +53,46 @@ class MainActivity : Activity() {
         root.addView(UiKit.headline(this, "ScrollCat Dashboard"))
         root.addView(UiKit.body(this, "Set up permissions, summon the cat, and manage your smart replies.", muted = true))
 
+        aiKeyBanner = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@MainActivity, 14).toFloat()
+            cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
+            strokeWidth = 1
+            strokeColor = 0xFFD97706.toInt()
+            setCardBackgroundColor(0xFFFFF3E0.toInt())
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, AiProviderActivity::class.java))
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = "Add your free AI key to unlock Smart Replies"
+                textSize = 14f
+                setTextColor(0xFF241A12.toInt())
+                setPadding(
+                    UiKit.dp(this@MainActivity, 18),
+                    UiKit.dp(this@MainActivity, 16),
+                    UiKit.dp(this@MainActivity, 18),
+                    UiKit.dp(this@MainActivity, 16)
+                )
+            })
+        }
+        root.addView(aiKeyBanner, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
+        refreshAiKeyBanner()
+
         dashboardSection(root, "Cat Controls") {
             UiKit.addButton(this, UiKit.primaryButton(this@MainActivity, "Summon the Cat \uD83D\uDC31") {
+                val running = OverlayService.instance != null
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Summon called - current state: overlayOk=${Settings.canDrawOverlays(this@MainActivity)} " +
+                        "serviceInstance=$running containerAttached=${OverlayService.instance != null}"
+                )
                 if (Settings.canDrawOverlays(this@MainActivity)) {
-                    startForegroundService(Intent(this@MainActivity, OverlayService::class.java))
+                    startForegroundService(
+                        Intent(this@MainActivity, OverlayService::class.java)
+                            .setAction(OverlayService.ACTION_SUMMON)
+                    )
                 } else {
                     startActivity(
                         Intent(
@@ -66,7 +103,19 @@ class MainActivity : Activity() {
                 }
             })
             UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "Dismiss the Cat") {
-                stopService(Intent(this@MainActivity, OverlayService::class.java))
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Dismiss called - current state: serviceInstance=${OverlayService.instance != null}"
+                )
+                // Prefer in-service dismiss so the WindowManager view is removed before stop
+                if (OverlayService.instance != null) {
+                    startService(
+                        Intent(this@MainActivity, OverlayService::class.java)
+                            .setAction(OverlayService.ACTION_DISMISS)
+                    )
+                } else {
+                    stopService(Intent(this@MainActivity, OverlayService::class.java))
+                }
             })
         }
 
@@ -228,6 +277,12 @@ class MainActivity : Activity() {
         return frame to badge
     }
 
+    private fun refreshAiKeyBanner() {
+        val banner = aiKeyBanner ?: return
+        val hasKey = SettingsManager.getActiveAiKey(this).isNotBlank()
+        banner.visibility = if (hasKey) View.GONE else View.VISIBLE
+    }
+
     override fun onResume() {
         super.onResume()
         if (!::overlayBadge.isInitialized) return
@@ -243,6 +298,7 @@ class MainActivity : Activity() {
         btnShare?.visibility =
             if (StatsTracker.getTotalRepliesSent(this) >= 5) android.view.View.VISIBLE
             else android.view.View.GONE
+        refreshAiKeyBanner()
         RateUsManager.maybeShowRatePrompt(this)
     }
 }

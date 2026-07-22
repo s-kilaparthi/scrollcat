@@ -14,10 +14,27 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Claude API (Pro tier) -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
 
+    <!-- Package visibility (API 30+): allow icon/label lookups for messaging apps -->
     <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.google.android.gm" />
+        <package android:name="com.facebook.orca" />
+        <package android:name="com.snapchat.android" />
+        <package android:name="com.twitter.android" />
+        <package android:name="com.linkedin.android" />
+        <package android:name="com.microsoft.teams" />
+        <package android:name="us.zoom.videomeetings" />
+        <package android:name="org.thoughtcrime.securesms" />
+        <package android:name="com.slack" />
+        <package android:name="com.discord" />
+        <package android:name="com.microsoft.office.outlook" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.samsung.android.messaging" />
+        <package android:name="com.google.android.apps.messaging" />
         <package android:name="com.google.android.aicore" />
 
         <intent>
@@ -25,6 +42,8 @@
         </intent>
     </queries>
 
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <permission
@@ -43,6 +62,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:testOnly="true"
         android:theme="@style/Theme.ScrollCat" >
         <activity
             android:name="com.example.scrollcat.SplashActivity"

@@ -65,7 +65,8 @@ class CatAnimator(
     private val random = Random()
     private var idleTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isIdleSleeping = false
-    private val IDLE_TIMEOUT_MS = 30_000L // 30 seconds
+    private var idleSleepEnabled = true
+    private val IDLE_TIMEOUT_MS = 10_000L // 10 seconds
 
     // Show static frame — no animation loop
     fun showStatic() {
@@ -74,8 +75,25 @@ class CatAnimator(
         resetIdleTimeout()
     }
 
+    /** When false (edge-docking mode), cat never fades into sleep opacity. */
+    fun setIdleSleepEnabled(enabled: Boolean) {
+        idleSleepEnabled = enabled
+        if (!enabled) {
+            cancelIdleTimeout()
+            if (isIdleSleeping) {
+                isIdleSleeping = false
+                imageView.animate().cancel()
+                imageView.alpha = 1.0f
+                setFrame(75)
+            }
+        } else {
+            resetIdleTimeout()
+        }
+    }
+
     private fun resetIdleTimeout() {
         idleTimeoutHandler.removeCallbacksAndMessages(null)
+        if (!idleSleepEnabled) return
         idleTimeoutHandler.postDelayed({
             Logger.d("Idle timeout fired - entering sleep")
             enterIdleSleep()

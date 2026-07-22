@@ -71,6 +71,13 @@ class CatNotificationListener : NotificationListenerService() {
         if (pkg == "android") return
         if (pkg == "com.android.systemui") return
 
+        // Apps filter: empty list = watch everything; otherwise only selected packages
+        val selectedApps = SettingsManager.getWatchedApps(this)
+        val isAllowed = selectedApps.isEmpty() ||
+            selectedApps.any { it.equals(pkg, ignoreCase = true) }
+        Logger.d("App filter check for $pkg - selectedApps: $selectedApps, allowed: $isAllowed")
+        if (!isAllowed) return
+
         // Prevent duplicate processing of the same notification update
         val now = System.currentTimeMillis()
         val lastKeyTime = processedKeys[notificationKey] ?: 0L
@@ -179,6 +186,9 @@ class CatNotificationListener : NotificationListenerService() {
         if (isNewPendingSender) {
             OverlayService.instance?.incrementBadge()
         }
+        // Always sync an open reply panel — badge may not increment for an already-tracked
+        // senderKey, but ReplyStore still changed and other senders may need the ↓ indicator.
+        OverlayService.instance?.onReplyablesChanged()
         android.util.Log.d(
             "ScrollCat",
             "Badge count after update for $senderKey: ${pendingBadgeSenderKeys.size}, total pending senders: ${pendingBadgeSenderKeys.size}"

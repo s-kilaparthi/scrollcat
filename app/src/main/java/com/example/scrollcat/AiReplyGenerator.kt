@@ -437,6 +437,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
             .filter { it.isNotEmpty() && it.length <= 120 }
             .distinct()
             .take(SUGGESTION_COUNT)
+            .let { sanitizeParsedReplies(it) }
     }
 
     private fun parseReplies(content: String): List<String> {
@@ -474,6 +475,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                 }
             }
             replies.filter { it.isNotEmpty() && it.length > 2 }.take(3)
+                .let { sanitizeParsedReplies(it) }
         } catch (e: Exception) {
             cleaned.split("\n")
                 .map { it.trim()
@@ -485,7 +487,65 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                 }
                 .filter { it.isNotEmpty() && it.length > 3 && !it.startsWith("{") }
                 .take(3)
+                .let { sanitizeParsedReplies(it) }
         }
+    }
+
+    private val danglingEndWords = setOf(
+        "to", "a", "an", "the", "is", "of", "for", "and", "or", "but",
+        "with", "at", "in", "on", "my", "be", "am", "are", "was", "were",
+        "will", "would", "could", "should", "going", "from", "by", "as"
+    )
+
+    /** Strong fragment endings (cut off mid-thought) regardless of length. */
+    private val hardFragmentEndings = setOf(
+        "to", "a", "an", "the", "of", "for", "and", "or", "with", "by", "as", "from", "going"
+    )
+
+    private val fallbackReplies = listOf(
+        "Sounds good!",
+        "Got it!",
+        "Sure thing!"
+    )
+
+    /** Drop incomplete sentence fragments; pad with generic acknowledgments up to 3. */
+    private fun sanitizeParsedReplies(replies: List<String>): List<String> {
+        val valid = mutableListOf<String>()
+        for (reply in replies) {
+            if (isIncompleteFragment(reply)) {
+                android.util.Log.d("ScrollCat", "Filtered malformed reply: '$reply'")
+            } else {
+                valid.add(reply)
+            }
+        }
+        var fallbackIndex = 0
+        while (valid.size < SUGGESTION_COUNT && fallbackIndex < fallbackReplies.size) {
+            val fallback = fallbackReplies[fallbackIndex++]
+            if (fallback !in valid) valid.add(fallback)
+        }
+        return valid.take(SUGGESTION_COUNT)
+    }
+
+    private fun isIncompleteFragment(reply: String): Boolean {
+        val trimmed = reply.trim()
+        if (trimmed.isEmpty()) return true
+
+        val words = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return true
+
+        val lastWord = words.last()
+            .lowercase()
+            .trimEnd('.', '!', '?', ',', ';', ':', '"', '\'', '…')
+
+        // e.g. "to", "a plan" — too short and ends on a function word
+        if (words.size < 3 && lastWord in danglingEndWords) return true
+        // e.g. "plan is to", "going to be" (last token is a hard fragment ending)
+        if (lastWord in hardFragmentEndings) return true
+        if (words.size <= 4 && lastWord in setOf("be", "is")) return true
+
+        val lastChar = trimmed.last()
+        val endsLikeSentence = lastChar.isLetterOrDigit() || lastChar in ".!?"
+        return !endsLikeSentence
     }
 
     private fun getFallbackReplies(): List<String> = HARDCODED_FALLBACK

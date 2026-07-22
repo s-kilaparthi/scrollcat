@@ -1,6 +1,5 @@
 package com.example.scrollcat
 
-import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Notification
@@ -33,6 +32,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.BounceInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -46,6 +46,8 @@ class OverlayService : Service() {
         var instance: OverlayService? = null
             private set
         const val CHANNEL_ID = "scrollcat_overlay"
+        const val ACTION_SUMMON = "com.example.scrollcat.ACTION_SUMMON"
+        const val ACTION_DISMISS = "com.example.scrollcat.ACTION_DISMISS"
         const val FLING_VELOCITY_THRESHOLD = 700 // px/sec, tune on device
         const val DISTANCE_TRIGGER_THRESHOLD = 70 // px for up/down scroll
         const val HORIZONTAL_TRIGGER_THRESHOLD = 180 // px for left/right — much bigger to avoid accidental triggers
@@ -53,13 +55,10 @@ class OverlayService : Service() {
         const val MOVE_CANCEL_SLOP = 60 // px of movement that cancels a pending long-press
         const val MODE_FEED = false
         const val MODE_REELS = true
-        const val MOOD_INTERVAL_MS = 600_000L // 10 minutes
-        const val MOOD_EXCITED = "\uD83D\uDE38"   // 😸
-        const val MOOD_TIRED = "\uD83D\uDE10"     // 😐
-        const val MOOD_GRUMPY = "\uD83D\uDE3E"   // 😾
-        const val MOOD_NORMAL = "\uD83D\uDC31"   // 🐱
+        const val DOCK_VISIBILITY_MS = 10_000L
+        const val INITIAL_SETTLE_DOCK_MS = 10_000L
+        const val MOVE_MODE_TIMEOUT_MS = 10_000L
         var DISTANCE_TRIGGER_THRESHOLD_LIVE = 70
-        var MOOD_INTERVAL_MS_LIVE = 600_000L
     }
 
     private lateinit var windowManager: WindowManager
@@ -67,13 +66,11 @@ class OverlayService : Service() {
     private var lottieView: ImageView? = null
     private var catAnimator: CatAnimator? = null
     private var scrollAnimPlaying = false
-    private var isHiding = false
     private var currentReactionEmoji: android.widget.TextView? = null
     private var reactionHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var musicDetector: MusicDetector? = null
     private var volumeControlView: android.widget.LinearLayout? = null
     private var volumeHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var radialMenu: RadialMenu? = null
     private var replyPanel: ReplyPanel? = null
     var screenTranslator: ScreenTranslator? = null
     private var translationBubble: android.widget.TextView? = null
@@ -85,19 +82,14 @@ class OverlayService : Service() {
     private var isVolumeMode = false
     private var lastVolumeY = 0f
     private val VOLUME_STEP_PX = 30f // px to drag per volume step
-    private var originalX = 60
-    private var originalY = 600
-    private val batteryReceiver = BatteryReceiver()
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    isScreenOn = false
                     pauseBackgroundWork()
                     Logger.d("Screen off - background work paused")
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    isScreenOn = true
                     resumeBackgroundWork()
                     Logger.d("Screen on - background work resumed")
                 }
@@ -106,8 +98,6 @@ class OverlayService : Service() {
     }
     private var layoutParams: WindowManager.LayoutParams? = null
     private var isDestroyed = false
-    private var isScreenOn = true
-    private var batteryAnimator: android.animation.ValueAnimator? = null
     private var catTouchListener: CatTouchListener? = null
 
     private fun safeAddView(view: View, params: WindowManager.LayoutParams): Boolean {
@@ -158,34 +148,40 @@ class OverlayService : Service() {
         }
     }
 
-    private fun cancelBatteryAnimation() {
-        batteryAnimator?.cancel()
-        batteryAnimator = null
-    }
-
     private fun pauseBackgroundWork() {
         catAnimator?.stop()
         catAnimator?.cancelIdleTimeout()
-        moodHandler.removeCallbacksAndMessages(null)
         musicDetector?.pause()
-        cancelBatteryAnimation()
     }
 
     private fun resumeBackgroundWork() {
         if (isDestroyed) return
         catAnimator?.showStatic()
         musicDetector?.resume()
-        if (isScreenOn) startMoodTracking()
     }
 
     private var badgeCount = 0
     private var badgeView: android.widget.TextView? = null
     private var containerView: FrameLayout? = null
 
-    private var scrollingStartTime = 0L
-    private var moodHandler = Handler(Looper.getMainLooper())
-    private var currentMood = MOOD_NORMAL
-    private var breakMessageShown = false
+    // Edge-docking state (only used when display mode is edge_docking)
+    private var isEdgeDocked = false
+    /** True while waiting for the post-summon settle-into-dock (not the post-message re-dock timer). */
+    private var awaitingInitialDock = false
+    private var dockAnimator: ValueAnimator? = null
+    private val dockHandler = Handler(Looper.getMainLooper())
+    private val dockVisibilityRunnable = Runnable {
+        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+            dockToEdge(animate = true)
+        }
+    }
+    private val initialSettleDockRunnable = Runnable {
+        if (SettingsManager.isEdgeDockingMode(this) && awaitingInitialDock && !isEdgeDocked) {
+            awaitingInitialDock = false
+            dockToEdge(animate = true)
+            Logger.d("Initial settle timer elapsed — docking")
+        }
+    }
 
     var isReelsMode = false
         private set
@@ -199,27 +195,143 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        android.util.Log.d(
+            "ScrollCat",
+            "Summon/onCreate - isDestroyed=$isDestroyed instance=${instance != null} " +
+                "containerAttached=${isViewAttached(containerView)} catView=$catView " +
+                "isEdgeDocked=$isEdgeDocked"
+        )
         val screenStateFilter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
         }
         registerReceiver(screenStateReceiver, screenStateFilter)
         instance = this
+        isDestroyed = false
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startAsForeground()
         addCatView()
-        startMoodTracking()
-        radialMenu = RadialMenu(this, windowManager)
         replyPanel = ReplyPanel(this, windowManager)
+        if (SettingsManager.isEdgeDockingMode(this)) {
+            // Summon at full float + full opacity; dock after settle timer if untouched
+            catAnimator?.setIdleSleepEnabled(false)
+            isEdgeDocked = false
+            catView?.alpha = 1f
+            containerView?.visibility = View.VISIBLE
+            awaitingInitialDock = true
+            startInitialSettleTimer()
+        } else {
+            catAnimator?.setIdleSleepEnabled(true)
+        }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
         }
         registerReceiver(screenReceiver, filter)
-        val batteryFilter = android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        registerReceiver(batteryReceiver, batteryFilter)
         musicDetector = MusicDetector(this)
         musicDetector?.start()
         screenTranslator = ScreenTranslator(this)
+        android.util.Log.d(
+            "ScrollCat",
+            "Summon/onCreate done - containerAttached=${isViewAttached(containerView)} " +
+                "alpha=${catView?.alpha} visibility=${containerView?.visibility}"
+        )
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        android.util.Log.d(
+            "ScrollCat",
+            "Summon called - current state: action=$action isDestroyed=$isDestroyed " +
+                "containerAttached=${isViewAttached(containerView)} catView=$catView " +
+                "isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha} startId=$startId"
+        )
+        if (action == ACTION_DISMISS) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Dismiss called - current state: isDestroyed=$isDestroyed " +
+                    "containerAttached=${isViewAttached(containerView)} catView=$catView " +
+                    "isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha}"
+            )
+            dismissAndStop()
+            return START_NOT_STICKY
+        }
+        // Re-summon while service still alive: re-attach cat if the view was lost
+        ensureCatOnScreen()
+        return START_STICKY
+    }
+
+    /** Tear down overlay and stop the service (used by Dismiss). */
+    private fun dismissAndStop() {
+        android.util.Log.d(
+            "ScrollCat",
+            "dismissAndStop - removing cat from WindowManager, stopForeground+stopSelf"
+        )
+        cancelDockAnimator()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        replyPanel?.dismiss()
+        safeRemoveView(containerView)
+        containerView = null
+        catView = null
+        badgeView = null
+        layoutParams = null
+        isEdgeDocked = false
+        awaitingInitialDock = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    /**
+     * Ensures the cat overlay is attached and visible. Handles the case where
+     * Summon is called while the service is still running but the view was removed.
+     */
+    private fun ensureCatOnScreen() {
+        if (isDestroyed) return
+        val attached = isViewAttached(containerView)
+        android.util.Log.d(
+            "ScrollCat",
+            "ensureCatOnScreen - attached=$attached container=$containerView"
+        )
+        if (!attached) {
+            safeRemoveView(containerView)
+            containerView = null
+            catView = null
+            badgeView = null
+            layoutParams = null
+            catTouchListener?.cleanup()
+            catTouchListener = null
+            catAnimator?.stopAll()
+            catAnimator = null
+            addCatView()
+            if (replyPanel == null) {
+                replyPanel = ReplyPanel(this, windowManager)
+            }
+            if (SettingsManager.isEdgeDockingMode(this)) {
+                catAnimator?.setIdleSleepEnabled(false)
+                isEdgeDocked = false
+                catView?.alpha = 1f
+                awaitingInitialDock = true
+                startInitialSettleTimer()
+            } else {
+                catAnimator?.setIdleSleepEnabled(true)
+            }
+        } else {
+            // Already on screen — wake to full float visibility
+            isEdgeDocked = false
+            catView?.alpha = 1f
+            containerView?.visibility = View.VISIBLE
+            catAnimator?.play("idle")
+            cancelDockVisibilityTimer()
+            if (SettingsManager.isEdgeDockingMode(this)) {
+                awaitingInitialDock = true
+                startInitialSettleTimer()
+            }
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "ensureCatOnScreen done - attached=${isViewAttached(containerView)} " +
+                "alpha=${catView?.alpha} size=${layoutParams?.width}"
+        )
     }
 
     private fun startAsForeground() {
@@ -234,7 +346,7 @@ class OverlayService : Service() {
         }
         val notification: Notification =
             Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("ScrollCat is on screen")
+                .setContentTitle("Cat is on screen and ready to reply")
                 .setSmallIcon(android.R.drawable.star_on)
                 .build()
         startForeground(1, notification)
@@ -289,16 +401,17 @@ class OverlayService : Service() {
         container.addView(cat)
         container.addView(badge)
 
+        val catSize = SettingsManager.getCatSize(this)
         val params = WindowManager.LayoutParams(
-            240,
-            240,
+            catSize,
+            catSize,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 60
-            y = 600
+            x = SettingsManager.getCatFloatX(this@OverlayService)
+            y = SettingsManager.getCatFloatY(this@OverlayService)
         }
 
         container.setOnTouchListener(CatTouchListener(params).also { catTouchListener = it })
@@ -310,8 +423,14 @@ class OverlayService : Service() {
             badgeView = badge
             containerView = container
             layoutParams = params
+            android.util.Log.d(
+                "ScrollCat",
+                "Cat view added to WindowManager - attached=${container.windowToken != null} " +
+                    "x=${params.x} y=${params.y} size=$catSize"
+            )
         } catch (e: Exception) {
             Logger.e("Failed to add cat view: ${e.message}")
+            android.util.Log.e("ScrollCat", "Cat view NOT added to WindowManager: ${e.message}")
         }
     }
 
@@ -331,18 +450,49 @@ class OverlayService : Service() {
 
         private var isDragMode = false
         private var isWakingUp = false
-        private var moveModePending = false
+        /** After long-press activates Move, suppress tap/double-tap for this gesture. */
+        private var suppressTapGestures = false
+        private var lastTouchRawX = 0f
+        private var lastTouchRawY = 0f
+        private var moveDragStarted = false
 
         private val handler = Handler(Looper.getMainLooper())
+        private val moveModeTimeoutRunnable = Runnable {
+            if (!isDragMode || moveDragStarted) return@Runnable
+            isDragMode = false
+            suppressTapGestures = false
+            hideDragHandle()
+            catAnimator?.showStatic()
+            Logger.d("Move mode cancelled — timeout")
+            // Resume normal idle/dock timing (single 10s window, not stacked with Move timeout)
+            noteCatInteraction()
+        }
         private val longPressRunnable = Runnable {
             if (layoutParams == null) return@Runnable
             val p = layoutParams ?: return@Runnable
-            val catSize = SettingsManager.getCatSize(this@OverlayService)
-            radialMenu?.show(p.x, p.y, catSize)
-            Logger.d("Radial menu shown")
+            // Enter drag immediately on the same finger-down — no lift required
+            suppressTapGestures = true
+            isDragMode = true
+            moveDragStarted = false
+            // Anchor drag to current finger + current cat position (may already be slightly offset)
+            homeX = p.x
+            homeY = p.y
+            pressStartTouchX = lastTouchRawX
+            pressStartTouchY = lastTouchRawY
+            showDragHandle(p)
+            cancelDockVisibilityTimer()
+            cancelInitialSettleTimer()
+            handler.removeCallbacks(moveModeTimeoutRunnable)
+            handler.postDelayed(moveModeTimeoutRunnable, MOVE_MODE_TIMEOUT_MS)
+            Logger.d("Move mode started (continuous long-press)")
+        }
+
+        private fun cancelMoveModeTimeout() {
+            handler.removeCallbacks(moveModeTimeoutRunnable)
         }
 
         fun cleanup() {
+            cancelMoveModeTimeout()
             handler.removeCallbacksAndMessages(null)
         }
 
@@ -350,6 +500,21 @@ class OverlayService : Service() {
             this@OverlayService,
             object : SimpleOnGestureListener() {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    // Edge-docked: undock then run panel logic if pending; otherwise just undock
+                    if (SettingsManager.isEdgeDockingMode(this@OverlayService) && isEdgeDocked) {
+                        undockToFloat(animate = true, startVisibilityTimer = true) {
+                            if (badgeCount > 0) {
+                                val pending = ReplyStore.getAll()
+                                if (pending.isNotEmpty()) {
+                                    showReplyPanel()
+                                } else {
+                                    clearBadge()
+                                }
+                            }
+                        }
+                        return true
+                    }
+
                     // If cat is sleeping — wake up but DON'T clear badge or open reply panel
                     // User needs to tap again after cat wakes up to see replies
                     if (catAnimator?.isAsleep() == true) {
@@ -359,32 +524,12 @@ class OverlayService : Service() {
                         return true
                     }
 
-                    // Cat is awake — handle badge tap normally
-                    if (badgeCount > 0) {
-                        // Show reply panel if there are replyable messages
-                        val pending = ReplyStore.getAll()
-                        if (pending.isNotEmpty()) {
-                            showReplyPanel()
-                        } else {
-                            Logger.d("clearBadge called from: onSingleTapConfirmed - badge tap with no pending replies")
-                            clearBadge()
-                        }
-                        return true
-                    }
-
-                    // Normal tap = scroll
-                    if (catAnimator?.currentAnim == "music") {
-                        catAnimator?.stopMusic()
-                        return true
-                    }
-
-                    CatAccessibilityService.instance?.performSwipe(up = true, long = isReelsMode)
-                        ?: showNoAccessibilityToast()
-                    animateTap()
+                    handleAwakeCatTap()
                     return true
                 }
 
                 override fun onDoubleTap(e: MotionEvent): Boolean {
+                    if (isEdgeDocked) return true
                     isReelsMode = !isReelsMode
                     // When toggling modes, show correct emoji for current mood state
                     // mood emoji replaced by Lottie animation
@@ -393,12 +538,19 @@ class OverlayService : Service() {
                         if (isReelsMode) "Reels mode \uD83D\uDE38" else "Feed mode \uD83D\uDC31",
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
+                    noteCatInteraction()
                     return true
                 }
             }
         )
 
         override fun onTouch(v: View, event: MotionEvent): Boolean {
+            // Docked: only tap-to-undock — ignore scroll/drag/long-press gestures
+            if (isEdgeDocked) {
+                gestureDetector.onTouchEvent(event)
+                return true
+            }
+
             if (catAnimator?.isAsleep() == true || isWakingUp) {
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                     if (catAnimator?.isAsleep() == true) {
@@ -414,20 +566,20 @@ class OverlayService : Service() {
                 return true
             }
 
-            gestureDetector.onTouchEvent(event)
+            lastTouchRawX = event.rawX
+            lastTouchRawY = event.rawY
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                suppressTapGestures = false
+            }
+            // Skip once long-press Move is active so tap/double-tap don't fire after Move
+            if (!suppressTapGestures) {
+                gestureDetector.onTouchEvent(event)
+            }
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    if (moveModePending) {
-                        moveModePending = false
-                        isDragMode = true
-                        homeX = params.x
-                        homeY = params.y
-                        pressStartTouchX = event.rawX
-                        pressStartTouchY = event.rawY
-                        Logger.d("Move mode started")
-                        return true
-                    }
+                    noteCatInteraction()
+                    moveDragStarted = false
                     homeX = params.x
                     homeY = params.y
                     pressStartTouchX = event.rawX
@@ -438,20 +590,13 @@ class OverlayService : Service() {
                     leftProgressX = pressStartTouchX
                     rightProgressX = pressStartTouchX
                     isDragMode = false
+                    cancelMoveModeTimeout()
                     handler.postDelayed(longPressRunnable, LONG_PRESS_TIMEOUT_MS)
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     // If sleeping, block all movement
                     if (catAnimator?.isAsleep() == true) return true
-
-                    // If radial menu showing, only update highlight
-                    if (radialMenu?.isShowing == true) {
-                        val p = layoutParams ?: return true
-                        val catSize = SettingsManager.getCatSize(this@OverlayService)
-                        radialMenu?.updateHighlight(event.rawX, event.rawY, p.x, p.y, catSize)
-                        return true
-                    }
 
                     // If volume mode — only adjust volume, don't move cat
                     if (isVolumeMode) {
@@ -480,8 +625,12 @@ class OverlayService : Service() {
                         return true
                     }
 
-                    // If drag/move mode — move the cat
+                    // Continuous long-press drag — same finger, no lift required
                     if (isDragMode) {
+                        if (!moveDragStarted) {
+                            moveDragStarted = true
+                            cancelMoveModeTimeout()
+                        }
                         val dx = event.rawX - pressStartTouchX
                         val dy = event.rawY - pressStartTouchY
                         params.x = homeX + dx.toInt()
@@ -491,7 +640,7 @@ class OverlayService : Service() {
                         return true
                     }
 
-                    // Cancel long press if finger moved too much
+                    // Cancel long press if finger moved too much before threshold
                     val slopDx = event.rawX - pressStartTouchX
                     val slopDy = event.rawY - pressStartTouchY
                     if (abs(slopDx) > MOVE_CANCEL_SLOP || abs(slopDy) > MOVE_CANCEL_SLOP) {
@@ -511,22 +660,6 @@ class OverlayService : Service() {
                     if (catAnimator?.isAsleep() == true) return true
                     handler.removeCallbacks(longPressRunnable)
 
-                    // Handle radial menu selection
-                    if (radialMenu?.isShowing == true) {
-                        val action = radialMenu?.getHighlightedAction()
-                        radialMenu?.dismiss()
-                        Logger.d("Radial action selected: $action")
-                        when (action) {
-                            "move" -> {
-                                moveModePending = true
-                                showDragHandle(params)
-                                Logger.d("Move mode pending")
-                            }
-                            "ai" -> executeRadialAction("ai")
-                        }
-                        return true
-                    }
-
                     // Handle volume mode — don't let evaluatePush fire
                     if (isVolumeMode) {
                         hideVolumeControls()
@@ -536,11 +669,15 @@ class OverlayService : Service() {
                         return true
                     }
 
-                    // Handle drag/move mode
+                    // Finish continuous Move drag
                     if (isDragMode) {
                         hideDragHandle()
                         isDragMode = false
+                        cancelMoveModeTimeout()
+                        suppressTapGestures = false
+                        persistFloatPositionAndDockSide(params.x, params.y)
                         catAnimator?.showStatic()
+                        noteCatInteraction()
                         return true
                     }
 
@@ -632,66 +769,277 @@ class OverlayService : Service() {
         ).show()
     }
 
-    private fun startMoodTracking() {
-        scrollingStartTime = System.currentTimeMillis()
-        breakMessageShown = false
-        moodHandler.removeCallbacksAndMessages(null)
-        scheduleMoodCheck()
-    }
-
-    private fun scheduleMoodCheck() {
-        if (!isScreenOn || isDestroyed) return
-        moodHandler.postDelayed({
-            if (!isScreenOn || isDestroyed) return@postDelayed
-            val elapsed = System.currentTimeMillis() - scrollingStartTime
-            val minutes = elapsed / MOOD_INTERVAL_MS_LIVE
-
-            val newMood = when {
-                minutes >= 3 -> MOOD_GRUMPY
-                minutes >= 2 -> MOOD_TIRED
-                minutes >= 1 -> MOOD_EXCITED
-                else -> MOOD_NORMAL
+    private fun handleAwakeCatTap() {
+        noteCatInteraction()
+        if (badgeCount > 0) {
+            val pending = ReplyStore.getAll()
+            if (pending.isNotEmpty()) {
+                showReplyPanel()
+            } else {
+                Logger.d("clearBadge called from: handleAwakeCatTap - badge tap with no pending replies")
+                clearBadge()
             }
+            return
+        }
 
-            if (newMood != currentMood) {
-                currentMood = newMood
-                if (newMood == MOOD_GRUMPY) {
-                    animateGrumpy()
-                }
-                // Update emoji regardless of mode — but respect reels toggle emoji
-                // mood emoji replaced by Lottie animation
+        if (catAnimator?.currentAnim == "music") {
+            catAnimator?.stopMusic()
+            return
+        }
 
-                if (newMood == MOOD_GRUMPY && !breakMessageShown) {
-                    breakMessageShown = true
-                    showBreakMessage()
+        CatAccessibilityService.instance?.performSwipe(up = true, long = isReelsMode)
+            ?: showNoAccessibilityToast()
+        animateTap()
+    }
 
-                    // Reset after 5 seconds and start count again
-                    moodHandler.postDelayed({
-                        currentMood = MOOD_NORMAL
-                        stopMoodAnimation()
-                        breakMessageShown = false
-                        scrollingStartTime = System.currentTimeMillis()
-                        // mood emoji replaced by Lottie animation
-                        scheduleMoodCheck()
-                    }, 120_000L)
-                    return@postDelayed
-                }
+    /** Reset the edge-dock visibility timer on any undocked interaction. */
+    private fun noteCatInteraction() {
+        if (awaitingInitialDock) {
+            startInitialSettleTimer()
+            return
+        }
+        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+            resetDockVisibilityTimer()
+        }
+    }
+
+    private fun persistFloatPositionAndDockSide(x: Int, y: Int) {
+        SettingsManager.setCatFloatPosition(this, x, y)
+        val screenWidth = resources.displayMetrics.widthPixels
+        val catSize = SettingsManager.getCatSize(this)
+        val centerX = x + catSize / 2
+        val side = if (centerX < screenWidth / 2) "left" else "right"
+        SettingsManager.setCatDockSide(this, side)
+        Logger.d("Saved float position ($x,$y) dock side=$side")
+    }
+
+    private fun dockedIconSize(): Int {
+        return (SettingsManager.getCatSize(this) * 0.55f).toInt().coerceAtLeast(72)
+    }
+
+    private fun dockedEdgeX(dockSize: Int): Int {
+        val screenWidth = resources.displayMetrics.widthPixels
+        return if (SettingsManager.getCatDockSide(this) == "left") {
+            -dockSize / 2
+        } else {
+            screenWidth - dockSize / 2
+        }
+    }
+
+    private fun cancelDockAnimator() {
+        dockAnimator?.cancel()
+        dockAnimator = null
+    }
+
+    private fun cancelDockVisibilityTimer() {
+        dockHandler.removeCallbacks(dockVisibilityRunnable)
+    }
+
+    private fun cancelInitialSettleTimer() {
+        dockHandler.removeCallbacks(initialSettleDockRunnable)
+    }
+
+    private fun startInitialSettleTimer() {
+        cancelInitialSettleTimer()
+        cancelDockVisibilityTimer()
+        if (!SettingsManager.isEdgeDockingMode(this) || isEdgeDocked) return
+        awaitingInitialDock = true
+        dockHandler.postDelayed(initialSettleDockRunnable, INITIAL_SETTLE_DOCK_MS)
+        Logger.d("Initial settle dock timer started (${INITIAL_SETTLE_DOCK_MS}ms)")
+    }
+
+    private fun resetDockVisibilityTimer() {
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        if (!SettingsManager.isEdgeDockingMode(this) || isEdgeDocked) return
+        dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
+        Logger.d("Edge-dock visibility timer reset (${DOCK_VISIBILITY_MS}ms)")
+    }
+
+    fun applyCatDisplayMode() {
+        if (isDestroyed) return
+        if (SettingsManager.isEdgeDockingMode(this)) {
+            catAnimator?.setIdleSleepEnabled(false)
+            cancelInitialSettleTimer()
+            awaitingInitialDock = false
+            if (!isEdgeDocked) {
+                dockToEdge(animate = true)
+            } else {
+                applyDockedOpacity()
             }
-
-            scheduleMoodCheck()
-        }, MOOD_INTERVAL_MS_LIVE)
+        } else {
+            cancelInitialSettleTimer()
+            cancelDockVisibilityTimer()
+            awaitingInitialDock = false
+            catAnimator?.setIdleSleepEnabled(true)
+            if (isEdgeDocked) {
+                undockToFloat(animate = true, startVisibilityTimer = false)
+            }
+        }
+        Logger.d("Applied cat display mode: ${SettingsManager.getCatDisplayMode(this)}")
     }
 
-    private fun showBreakMessage() {
-        val message = android.widget.Toast.makeText(
-            this,
-            "Hey, maybe take a break? \uD83D\uDC40",
-            android.widget.Toast.LENGTH_LONG
-        )
-        message.show()
+    private fun applyDockedOpacity() {
+        val opacity = SettingsManager.getSleepOpacity(this)
+        catView?.alpha = opacity
     }
 
-    fun startIdleAnimation() {
+    private fun dockToEdge(animate: Boolean) {
+        val params = layoutParams ?: return
+        val view = containerView ?: return
+        if (!SettingsManager.isEdgeDockingMode(this)) return
+
+        // Remember current float spot before docking (if undocked)
+        if (!isEdgeDocked) {
+            persistFloatPositionAndDockSide(params.x, params.y)
+        }
+
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        cancelDockAnimator()
+        replyPanel?.dismiss()
+
+        val dockSize = dockedIconSize()
+        val targetX = dockedEdgeX(dockSize)
+        val targetY = SettingsManager.getCatFloatY(this)
+            .coerceIn(40, (resources.displayMetrics.heightPixels - dockSize - 40).coerceAtLeast(40))
+        val startX = params.x
+        val startY = params.y
+        val startW = params.width
+        val startH = params.height
+        val startAlpha = catView?.alpha ?: 1f
+        val targetAlpha = SettingsManager.getSleepOpacity(this)
+
+        isEdgeDocked = true
+        catAnimator?.showStatic()
+
+        if (!animate) {
+            params.width = dockSize
+            params.height = dockSize
+            params.x = targetX
+            params.y = targetY
+            safeUpdateViewLayout(view, params)
+            applyDockedOpacity()
+            Logger.d("Cat docked at edge x=$targetX size=$dockSize opacity=$targetAlpha")
+            return
+        }
+
+        dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 320
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (isDestroyed) return@addUpdateListener
+                val t = anim.animatedValue as Float
+                params.width = (startW + (dockSize - startW) * t).toInt()
+                params.height = (startH + (dockSize - startH) * t).toInt()
+                params.x = (startX + (targetX - startX) * t).toInt()
+                params.y = (startY + (targetY - startY) * t).toInt()
+                catView?.alpha = startAlpha + (targetAlpha - startAlpha) * t
+                safeUpdateViewLayout(view, params)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    dockAnimator = null
+                    params.width = dockSize
+                    params.height = dockSize
+                    params.x = targetX
+                    params.y = targetY
+                    safeUpdateViewLayout(view, params)
+                    applyDockedOpacity()
+                    Logger.d("Cat docked at edge x=$targetX size=$dockSize opacity=$targetAlpha")
+                }
+            })
+        }
+        dockAnimator?.start()
+    }
+
+    private fun undockToFloat(
+        animate: Boolean,
+        startVisibilityTimer: Boolean,
+        onComplete: (() -> Unit)? = null
+    ) {
+        val params = layoutParams ?: return
+        val view = containerView ?: return
+
+        if (!isEdgeDocked) {
+            if (startVisibilityTimer && SettingsManager.isEdgeDockingMode(this)) {
+                resetDockVisibilityTimer()
+            }
+            onComplete?.invoke()
+            return
+        }
+
+        cancelDockAnimator()
+        val fullSize = SettingsManager.getCatSize(this)
+        val targetX = SettingsManager.getCatFloatX(this)
+        val targetY = SettingsManager.getCatFloatY(this)
+        val startX = params.x
+        val startY = params.y
+        val startW = params.width
+        val startH = params.height
+
+        isEdgeDocked = false
+        catView?.alpha = 1f
+        awaitingInitialDock = false
+        cancelInitialSettleTimer()
+
+        fun finishUndock() {
+            params.width = fullSize
+            params.height = fullSize
+            params.x = targetX
+            params.y = targetY
+            safeUpdateViewLayout(view, params)
+            catAnimator?.showStatic()
+            if (startVisibilityTimer && SettingsManager.isEdgeDockingMode(this)) {
+                resetDockVisibilityTimer()
+            } else {
+                cancelDockVisibilityTimer()
+            }
+            Logger.d("Cat undocked to ($targetX,$targetY)")
+            onComplete?.invoke()
+        }
+
+        if (!animate) {
+            finishUndock()
+            return
+        }
+
+        dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 320
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (isDestroyed) return@addUpdateListener
+                val t = anim.animatedValue as Float
+                params.width = (startW + (fullSize - startW) * t).toInt()
+                params.height = (startH + (fullSize - startH) * t).toInt()
+                params.x = (startX + (targetX - startX) * t).toInt()
+                params.y = (startY + (targetY - startY) * t).toInt()
+                safeUpdateViewLayout(view, params)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    dockAnimator = null
+                    finishUndock()
+                }
+            })
+        }
+        dockAnimator?.start()
+    }
+
+    private fun onReplyableBadgeIncreased() {
+        if (!SettingsManager.isEdgeDockingMode(this)) return
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        if (isEdgeDocked) {
+            undockToFloat(animate = true, startVisibilityTimer = true)
+        } else {
+            resetDockVisibilityTimer()
+        }
+    }
+
+    private fun startIdleAnimation() {
         catAnimator?.showStatic()
     }
 
@@ -714,115 +1062,10 @@ class OverlayService : Service() {
         }
     }
 
-    fun animateGrumpy() {
-        catView?.let { view ->
-            ObjectAnimator.ofFloat(view, "rotation", 0f, -8f, 8f, -8f, 8f, 0f).apply {
-                duration = 1000
-                repeatCount = ValueAnimator.INFINITE
-                start()
-            }
-        }
-    }
-
-    fun stopMoodAnimation() {
-        catView?.let { view ->
-            view.animate().rotation(0f).setDuration(200).start()
-            startIdleAnimation()
-        }
-    }
-
     fun wakeFromSleep() {
         Logger.d("wakeFromSleep called - badge count: $badgeCount")
         catAnimator?.wakeUp()
         // DO NOT clear badge here
-    }
-
-    fun onBatteryLow() {
-        if (isHiding) return
-        isHiding = true
-        val params = layoutParams ?: return
-        val view = containerView ?: return
-        originalX = params.x
-        originalY = params.y
-
-        // Get screen width
-        val dm = resources.displayMetrics
-        val screenWidth = dm.widthPixels
-
-        // Slide to nearest edge
-        val targetX = if (params.x > screenWidth / 2) {
-            screenWidth - 40 // right edge, just ears showing
-        } else {
-            -params.width + 40 // left edge, just ears showing
-        }
-
-        // Play walk animation while sliding
-        catAnimator?.play("walk")
-
-        // Animate sliding to edge
-        val startX = params.x
-        cancelBatteryAnimation()
-        batteryAnimator = android.animation.ValueAnimator.ofInt(startX, targetX).apply {
-            duration = 1000
-            addUpdateListener { anim ->
-                if (isDestroyed) return@addUpdateListener
-                params.x = anim.animatedValue as Int
-                view.post { safeUpdateViewLayout(view, params) }
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    batteryAnimator = null
-                    catAnimator?.showStatic()
-                    Logger.d("Cat hiding at edge - battery low")
-                }
-            })
-        }
-        batteryAnimator?.start()
-    }
-
-    fun onBatteryCritical() {
-        if (!isHiding) onBatteryLow()
-        // Show warning toast once
-        android.widget.Toast.makeText(
-            this,
-            "⚡ Battery critical! ScrollCat is hiding...",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    fun onBatteryCharging() {
-        if (!isHiding) return
-        isHiding = false
-        val params = layoutParams ?: return
-        val view = containerView ?: return
-
-        // Slide back to original position
-        catAnimator?.play("walk")
-        val startX = params.x
-        cancelBatteryAnimation()
-        batteryAnimator = android.animation.ValueAnimator.ofInt(startX, originalX).apply {
-            duration = 1000
-            addUpdateListener { anim ->
-                if (isDestroyed) return@addUpdateListener
-                params.x = anim.animatedValue as Int
-                view.post { safeUpdateViewLayout(view, params) }
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    batteryAnimator = null
-                    params.y = originalY
-                    view.post { safeUpdateViewLayout(view, params) }
-                    catAnimator?.showStatic()
-                    Logger.d("Cat came back - charging")
-                }
-            })
-        }
-        batteryAnimator?.start()
-    }
-
-    fun onBatteryNormal() {
-        if (!isHiding) return
-        onBatteryCharging() // same behavior - come back out
     }
 
     fun reactToApp(packageName: String) {
@@ -854,9 +1097,9 @@ class OverlayService : Service() {
     }
 
     fun updateSleepOpacity(opacity: Float) {
-        if (catAnimator?.isAsleep() == true) {
+        if (catAnimator?.isAsleep() == true || isEdgeDocked) {
             catView?.alpha = opacity
-            Logger.d("Sleep opacity updated in real time: $opacity")
+            Logger.d("Sleep/dock opacity updated in real time: $opacity")
         }
     }
 
@@ -938,23 +1181,6 @@ class OverlayService : Service() {
         isVolumeMode = false
         volumeUIShown = false
         hideDragHandle()
-    }
-
-    fun executeRadialAction(action: String) {
-        when (action) {
-            "ai" -> {
-                Logger.d("AI mode activated")
-                // AI feature coming soon
-                android.widget.Toast.makeText(
-                    this,
-                    "🤖 AI coming soon!",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
-            "move" -> {
-                // handled directly in touch listener
-            }
-        }
     }
 
     fun showTranslationBubble(original: String, translated: String, language: String) {
@@ -1103,6 +1329,14 @@ class OverlayService : Service() {
     fun updateCatSize(size: Int) {
         val params = layoutParams ?: return
         val view = containerView ?: return
+        if (isEdgeDocked && SettingsManager.isEdgeDockingMode(this)) {
+            val dockSize = (size * 0.55f).toInt().coerceAtLeast(72)
+            params.width = dockSize
+            params.height = dockSize
+            params.x = dockedEdgeX(dockSize)
+            view.post { safeUpdateViewLayout(view, params) }
+            return
+        }
         params.width = size
         params.height = size
         view.post { safeUpdateViewLayout(view, params) }
@@ -1110,13 +1344,6 @@ class OverlayService : Service() {
 
     fun updateSensitivity(value: Int) {
         DISTANCE_TRIGGER_THRESHOLD_LIVE = value
-    }
-
-    fun updateBreakInterval(minutes: Int) {
-        moodHandler.removeCallbacksAndMessages(null)
-        scrollingStartTime = System.currentTimeMillis()
-        MOOD_INTERVAL_MS_LIVE = minutes * 60_000L
-        scheduleMoodCheck()
     }
 
     fun incrementBadge() {
@@ -1129,9 +1356,8 @@ class OverlayService : Service() {
         catView?.post { animateNotification() }
         badgeCount++
         updateBadge()
-        if (panelOpen) {
-            replyPanel?.refreshPendingFromStore()
-        }
+        onReplyableBadgeIncreased()
+        onReplyablesChanged()
     }
 
     fun clearBadge() {
@@ -1140,9 +1366,31 @@ class OverlayService : Service() {
     }
 
     fun setBadgeCount(count: Int) {
+        val previous = badgeCount
         badgeCount = count.coerceAtLeast(0)
         updateBadge()
-        if (replyPanel?.isShowing == true) {
+        if (badgeCount > previous) {
+            onReplyableBadgeIncreased()
+        }
+        onReplyablesChanged()
+    }
+
+    /**
+     * Called whenever ReplyStore pending replyables may have changed while the overlay
+     * is alive. Refreshes the open ReplyPanel so ↓ new-sender UI can appear.
+     */
+    fun onReplyablesChanged() {
+        if (isDestroyed) return
+        val panel = replyPanel
+        val open = panel?.isShowing == true
+        android.util.Log.d(
+            "ScrollCat",
+            "onReplyablesChanged - panelOpen=$open storeCount=${ReplyStore.count()}"
+        )
+        if (!open || panel == null) return
+        // Notification listener may not always be on the main thread — post UI work.
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            if (isDestroyed || replyPanel?.isShowing != true) return@post
             replyPanel?.refreshPendingFromStore()
         }
     }
@@ -1164,6 +1412,27 @@ class OverlayService : Service() {
         animateTap()
         replyPanel?.show(params.x, params.y, catSize)
         Logger.d("Reply panel shown (${ReplyStore.count()} pending)")
+    }
+
+    /**
+     * Seeds the scripted onboarding demo: fake message + badge on the cat.
+     * Tapping the badge opens the real ReplyPanel with hardcoded demo data.
+     */
+    fun seedOnboardingDemo(
+        onDemoPanelShown: (() -> Unit)? = null,
+        onDemoReplySent: (() -> Unit)? = null
+    ) {
+        ReplyStore.putDemo()
+        replyPanel?.resetOnboardingDemoState()
+        replyPanel?.onDemoPanelShown = onDemoPanelShown
+        replyPanel?.onDemoReplySent = onDemoReplySent
+        setBadgeCount(ReplyStore.count().coerceAtLeast(1))
+        Logger.d("Onboarding demo seeded (badge=$badgeCount)")
+    }
+
+    fun clearOnboardingDemoCallback() {
+        replyPanel?.onDemoPanelShown = null
+        replyPanel?.onDemoReplySent = null
     }
 
     private fun updateBadge() {
@@ -1259,13 +1528,18 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        android.util.Log.d(
+            "ScrollCat",
+            "Dismiss/onDestroy - containerAttached=${isViewAttached(containerView)} " +
+                "catView=$catView isEdgeDocked=$isEdgeDocked"
+        )
         isDestroyed = true
-        cancelBatteryAnimation()
+        cancelDockAnimator()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
         catTouchListener?.cleanup()
         catTouchListener = null
         hideDragHandle()
-        radialMenu?.destroy()
-        radialMenu = null
         replyPanel?.destroy()
         replyPanel = null
         hideVolumeControls()
@@ -1279,7 +1553,8 @@ class OverlayService : Service() {
         lottieView = null
         badgeView = null
         layoutParams = null
-        moodHandler.removeCallbacksAndMessages(null)
+        isEdgeDocked = false
+        awaitingInitialDock = false
         reactionHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
         translationHandler.removeCallbacksAndMessages(null)
@@ -1291,7 +1566,6 @@ class OverlayService : Service() {
         screenTranslator?.close()
         screenTranslator = null
         try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
-        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) { }
         try { unregisterReceiver(screenStateReceiver) } catch (e: Exception) { }
         instance = null
         super.onDestroy()

@@ -102,6 +102,8 @@ object UserProfileBuilder {
             append("Never invent or assume specific facts about what the user is doing, where they are, or what happened to them (no \"I was in a meeting\", \"just got back from...\", \"I'm at the gym\" type statements) unless that exact fact is explicitly present in the user's profile above. ")
             append("Replies should be short, natural responses that acknowledge, ask a follow-up question, or express interest/agreement/decline — without asserting new facts about the user's life. ")
             append("If unsure what to say, prefer a generic acknowledgment (\"Sounds good!\", \"Let me check and get back to you\") over a fabricated specific. ")
+            append("Every reply must be a complete, standalone phrase or sentence that makes sense on its own — never a sentence fragment, never cut off mid-thought (e.g. \"plan is to\", \"going to be\" are NOT valid — \"I'll be there\" or \"Yes, I'll be back in time\" ARE valid). ")
+            append("Each reply should directly and clearly answer or acknowledge what the message is asking, especially for yes/no or confirmation-style questions. ")
         }
     }
 

@@ -12,12 +12,13 @@ object SettingsManager {
 
     fun getWatchedApps(context: Context): Set<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getStringSet(KEY_WATCHED_APPS, emptySet()) ?: emptySet()
+        // Copy: SharedPreferences StringSet is a live reference and can go stale
+        return HashSet(prefs.getStringSet(KEY_WATCHED_APPS, emptySet()) ?: emptySet())
     }
 
     fun setWatchedApps(context: Context, values: Set<String>) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putStringSet(KEY_WATCHED_APPS, values).apply()
+            .edit().putStringSet(KEY_WATCHED_APPS, HashSet(values)).apply()
     }
 
     fun getWatchedPeople(context: Context): Set<String> {
@@ -111,14 +112,66 @@ object SettingsManager {
         }
     }
 
-    // Cat size (default 240px)
+    // Cat size (default 210px)
     fun getCatSize(context: Context): Int {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("cat_size", 240)
+            .getInt("cat_size", 210)
     }
     fun setCatSize(context: Context, size: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putInt("cat_size", size).apply()
+    }
+
+    // Cat display mode: "always_visible" (default) | "edge_docking"
+    private const val KEY_CAT_DISPLAY_MODE = "cat_display_mode"
+    private const val KEY_CAT_DOCK_SIDE = "cat_dock_side"
+    private const val KEY_CAT_FLOAT_X = "cat_float_x"
+    private const val KEY_CAT_FLOAT_Y = "cat_float_y"
+    const val DISPLAY_MODE_ALWAYS_VISIBLE = "always_visible"
+    const val DISPLAY_MODE_EDGE_DOCKING = "edge_docking"
+
+    fun getCatDisplayMode(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CAT_DISPLAY_MODE, DISPLAY_MODE_EDGE_DOCKING)
+            ?: DISPLAY_MODE_EDGE_DOCKING
+    }
+
+    fun setCatDisplayMode(context: Context, mode: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_CAT_DISPLAY_MODE, mode).apply()
+    }
+
+    fun isEdgeDockingMode(context: Context): Boolean {
+        return getCatDisplayMode(context) == DISPLAY_MODE_EDGE_DOCKING
+    }
+
+    /** "left" or "right" — last Move-side preference for edge docking. */
+    fun getCatDockSide(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CAT_DOCK_SIDE, "right") ?: "right"
+    }
+
+    fun setCatDockSide(context: Context, side: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_CAT_DOCK_SIDE, side).apply()
+    }
+
+    fun getCatFloatX(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_CAT_FLOAT_X, 60)
+    }
+
+    fun getCatFloatY(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_CAT_FLOAT_Y, 600)
+    }
+
+    fun setCatFloatPosition(context: Context, x: Int, y: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_CAT_FLOAT_X, x)
+            .putInt(KEY_CAT_FLOAT_Y, y)
+            .apply()
     }
 
     // Scroll sensitivity / distance threshold (default 70px)
@@ -129,16 +182,6 @@ object SettingsManager {
     fun setSensitivity(context: Context, value: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putInt("sensitivity", value).apply()
-    }
-
-    // Break timer interval in minutes (default 10)
-    fun getBreakInterval(context: Context): Int {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("break_interval", 10)
-    }
-    fun setBreakInterval(context: Context, value: Int) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putInt("break_interval", value).apply()
     }
 
     // Gesture toggles (all default true)
@@ -171,6 +214,46 @@ object SettingsManager {
     fun setSleepOpacity(context: Context, value: Float) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putFloat("sleep_opacity", value).apply()
+    }
+
+    // Reply panel text size: "small" | "normal" | "large" | "xlarge"
+    // Normal (14sp) matches the previous default chip text size.
+    private const val KEY_REPLY_TEXT_SIZE = "reply_text_size"
+
+    fun getReplyTextSizeOption(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val saved = prefs.getString(KEY_REPLY_TEXT_SIZE, null)
+        if (saved != null) return saved
+        return defaultReplyTextSizeOption(context)
+    }
+
+    fun hasExplicitReplyTextSize(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .contains(KEY_REPLY_TEXT_SIZE)
+    }
+
+    fun setReplyTextSizeOption(context: Context, option: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_REPLY_TEXT_SIZE, option).apply()
+    }
+
+    /** Resolved sp size for message preview + reply chips. */
+    fun getReplyTextSizeSp(context: Context): Float {
+        return when (getReplyTextSizeOption(context)) {
+            "small" -> 12f
+            "large" -> 17f
+            "xlarge" -> 20f
+            else -> 14f // normal — matches prior chip default
+        }
+    }
+
+    private fun defaultReplyTextSizeOption(context: Context): String {
+        val scale = context.resources.configuration.fontScale
+        return when {
+            scale >= 1.3f -> "xlarge"
+            scale > 1.0f -> "large"
+            else -> "normal"
+        }
     }
 
     // AI reply tone: "casual", "friendly" or "professional"
