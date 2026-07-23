@@ -17,6 +17,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.card.MaterialCardView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Floating panel shown above the cat with 3 AI reply suggestions for the
@@ -31,11 +34,19 @@ class ReplyPanel(
     companion object {
         private const val PANEL_WIDTH = 680
         private const val CONFIRMATION_MS = 3000L
-        private const val ACCENT = 0xFF4A90D9.toInt()
-        private const val PANEL_BG = 0xF21A1A2E.toInt()
-        private const val CHIP_BG = 0xFF2A2A45.toInt()
+        private const val ACCENT = 0xFFB39DDB.toInt()
+        private const val PANEL_BG = 0xF21E1E28.toInt()
+        private const val CHIP_BG = 0xFF2A2A36.toInt()
         private const val MAX_PANEL_HEIGHT_FRACTION = 0.4f
         private const val TAG_NEW_SENDER_ARROW = "scrollcat_new_sender_arrow"
+        private const val MUTED_TEXT = 0xFFA39BB0.toInt()
+        private const val SOFT_TEXT = 0xFFE8E4EF.toInt()
+        private const val DANGER = 0xFFFCA5A5.toInt()
+        private const val BUTTON_BG = 0xFF2E2A3A.toInt()
+        private const val INPUT_BG = 0xFF25252C.toInt()
+        private const val PLACEHOLDER_BG = 0xFF3A3548.toInt()
+        private const val NAV_ACCENT = 0xFFC4B5E0.toInt()
+        private const val TIP_ACCENT = 0xFFE9D5FF.toInt()
     }
 
     var isShowing = false
@@ -156,21 +167,21 @@ class ReplyPanel(
         header.addView(TextView(context).apply {
             text = "Pending replies"
             textSize = 15f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFFF5F3F7.toInt())
+            typeface = UiKit.headingTypeface(context)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         header.addView(TextView(context).apply {
             text = "Ignore all"
             textSize = 13f
-            setTextColor(0xFFFF9999.toInt())
+            setTextColor(DANGER)
             setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener { clearAllPendingReplies() }
         })
         header.addView(TextView(context).apply {
             text = "✕"
             textSize = 16f
-            setTextColor(0xFF9999BB.toInt())
+            setTextColor(MUTED_TEXT)
             setPadding(dp(8), dp(4), dp(4), dp(4))
             setOnClickListener { dismiss() }
         })
@@ -215,15 +226,15 @@ class ReplyPanel(
         textCol.addView(TextView(themed).apply {
             text = entry.sender
             textSize = 14f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFFF5F3F7.toInt())
+            typeface = UiKit.headingTypeface(context)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
         textCol.addView(TextView(themed).apply {
-            text = appLabel(entry.packageName)
+            text = formatReceivedTime(entry.timestamp)
             textSize = 11f
-            setTextColor(0xFF9999BB.toInt())
+            setTextColor(MUTED_TEXT)
         })
         val preview = entry.message.let {
             if (it.length > 48) it.take(48) + "…" else it
@@ -231,7 +242,7 @@ class ReplyPanel(
         textCol.addView(TextView(themed).apply {
             text = preview
             textSize = 12f
-            setTextColor(0xFFCCCCDD.toInt())
+            setTextColor(SOFT_TEXT)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding(0, dp(2), 0, 0)
@@ -253,7 +264,7 @@ class ReplyPanel(
         row.addView(TextView(themed).apply {
             text = "✕"
             textSize = 15f
-            setTextColor(0xFF9999BB.toInt())
+            setTextColor(MUTED_TEXT)
             setPadding(dp(10), dp(6), dp(6), dp(6))
             setOnClickListener { dismissSenderFromList(entry) }
         })
@@ -268,6 +279,7 @@ class ReplyPanel(
     }
 
     private fun dismissSenderFromList(entry: ReplyStore.ReplyableMessage) {
+        cancelShadeNotification(entry)
         clearPregeneratedReplies(entry)
         ReplyStore.remove(entry.notificationKey)
         ReplyStore.getAndClearBuffer(senderKeyFor(entry))
@@ -283,14 +295,15 @@ class ReplyPanel(
 
     private fun snapshotKnownOthersAtOpen(current: ReplyStore.ReplyableMessage) {
         knownOthersAtOpen.clear()
+        // Snapshot ALL pending conversations at open (including the one being viewed),
+        // so ←/→ between already-known senders never looks like a "new" arrival.
         pending.forEach { entry ->
-            if (entry.conversationKey != current.conversationKey) {
-                knownOthersAtOpen.add(entry.conversationKey)
-            }
+            knownOthersAtOpen.add(entry.conversationKey)
         }
         android.util.Log.d(
             "ScrollCat",
-            "Panel opened for ${current.notificationKey} - known others at open time: $knownOthersAtOpen"
+            "Panel opened for ${current.notificationKey} - known at open time: $knownOthersAtOpen " +
+                "(including current ${current.conversationKey})"
         )
     }
 
@@ -318,31 +331,54 @@ class ReplyPanel(
             handler.post { onDemoPanelShown?.invoke() }
         }
 
-        // ── Header: sender + app icon + close ──
+        // ── Header: row1 time+icon+close, row2 sender name ──
         val header = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        header.addView(TextView(context).apply {
-            text = "💬 ${message.sender}"
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        headerRow.addView(TextView(context).apply {
+            text = formatReceivedTime(message.timestamp)
+            textSize = 11f
+            setTextColor(MUTED_TEXT)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         })
-        header.addView(appIconView(message.packageName, sizeDp = 22, viewContext = materialContext).apply {
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
+        })
+        headerRow.addView(appIconView(message.packageName, sizeDp = 22, viewContext = materialContext).apply {
             val iconSize = dp(22)
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
-                setMargins(0, 0, dp(12), 0)
+                setMargins(0, 0, dp(8), 0)
                 gravity = Gravity.CENTER_VERTICAL
             }
         })
-        header.addView(TextView(context).apply {
+        headerRow.addView(TextView(context).apply {
             text = "✕"
             textSize = 16f
-            setTextColor(0xFF9999BB.toInt())
-            setPadding(12, 4, 4, 4)
+            setTextColor(MUTED_TEXT)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             setOnClickListener { dismiss() }
+        })
+        header.addView(headerRow)
+        header.addView(TextView(context).apply {
+            text = message.sender
+            textSize = 15f
+            setTextColor(0xFFF5F3F7.toInt())
+            typeface = UiKit.headingTypeface(context)
+            setSingleLine(false)
+            maxLines = Integer.MAX_VALUE
+            ellipsize = null
+            setPadding(0, dp(6), 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         })
         panel.addView(header)
 
@@ -351,7 +387,7 @@ class ReplyPanel(
         val messagePreview = TextView(context).apply {
             text = message.message
             setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
-            setTextColor(0xFFCCCCDD.toInt())
+            setTextColor(SOFT_TEXT)
             setPadding(0, 10, 0, 16)
         }
         val messageScroll = ScrollView(context).apply {
@@ -378,58 +414,58 @@ class ReplyPanel(
         panel.addView(chipsContainer)
 
         // ── Bottom row: Reply in app + Ignore + more ──
-        val bottomRow = android.widget.LinearLayout(context).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
+        val bottomRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 12 }
         }
 
-        val replyInAppBtn = android.widget.TextView(context).apply {
+        val replyInAppBtn = TextView(context).apply {
             text = "↗ Reply in app"
             textSize = 13f
-            setTextColor(0xFF4A90D9.toInt())
-            gravity = android.view.Gravity.CENTER
+            setTextColor(ACCENT)
+            gravity = Gravity.CENTER
             setPadding(16, 20, 16, 20)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFF2a2a2a.toInt())
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
                 cornerRadius = 24f
             }
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-            ).apply { setMargins(0, 0, 6, 0) }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, 6, 0)
+            }
         }
 
-        val ignoreBtn = android.widget.TextView(context).apply {
+        val ignoreBtn = TextView(context).apply {
             text = "✕ Ignore"
             textSize = 13f
-            setTextColor(0xFF888888.toInt())
-            gravity = android.view.Gravity.CENTER
+            setTextColor(MUTED_TEXT)
+            gravity = Gravity.CENTER
             setPadding(16, 20, 16, 20)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFF2a2a2a.toInt())
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
                 cornerRadius = 24f
             }
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-            ).apply { setMargins(6, 0, 6, 0) }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(6, 0, 6, 0)
+            }
         }
 
-        val moreBtn = android.widget.TextView(context).apply {
+        val moreBtn = TextView(context).apply {
             text = "⋮"
             textSize = 18f
-            setTextColor(0xFFBBBBCC.toInt())
-            gravity = android.view.Gravity.CENTER
+            setTextColor(SOFT_TEXT)
+            gravity = Gravity.CENTER
             setPadding(18, 18, 18, 18)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFF2a2a2a.toInt())
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
                 cornerRadius = 24f
             }
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-            ).apply { marginStart = 6 }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginStart = 6
+            }
         }
 
         // Reply in app click
@@ -472,9 +508,10 @@ class ReplyPanel(
             dismiss()
         }
 
-        // Ignore click - just dismiss and remove from store
+        // Ignore click - dismiss panel entry and clear the OS shade notification
         ignoreBtn.setOnClickListener {
             val entry = currentEntry ?: return@setOnClickListener
+            cancelShadeNotification(entry)
             clearPregeneratedReplies(entry)
             ReplyStore.remove(entry.notificationKey)
             OverlayService.instance?.updateBadgeAfterReply()
@@ -487,60 +524,24 @@ class ReplyPanel(
         bottomRow.addView(moreBtn)
         panel.addView(bottomRow)
 
-        val demoInstructions = if (ReplyStore.isDemoMessage(message) && !demoInstructionsDismissed) {
-            buildDemoInstructions().also { panel.addView(it) }
-        } else {
-            null
-        }
-
-        val menuContainer = LinearLayout(context).apply {
+        // Content below the button row (demo instructions + inline overflow menu).
+        // Lives in the panel hierarchy so height auto-sizing includes it.
+        val belowButtons = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
-        panel.addView(menuContainer)
+        if (ReplyStore.isDemoMessage(message) && !demoInstructionsDismissed) {
+            belowButtons.addView(buildDemoInstructions())
+        }
 
-        moreBtn.setOnClickListener {
-            if (menuContainer.childCount > 0) {
-                menuContainer.removeAllViews()
-                return@setOnClickListener
-            }
-            menuContainer.addView(TextView(context).apply {
-                val entry = currentEntry
-                text = if (entry != null) "Ignore ${entry.sender} forever" else "Ignore this user forever"
-                textSize = 13f
-                setTextColor(0xFFFF9999.toInt())
-                gravity = Gravity.END
-                setPadding(16, 12, 16, 12)
-                background = GradientDrawable().apply {
-                    setColor(0xFF2a2a2a.toInt())
-                    cornerRadius = 18f
-                }
-                setOnClickListener {
-                    val entry = currentEntry ?: return@setOnClickListener
-                    showIgnoreUserConfirmation(entry)
-                }
-            })
-            menuContainer.addView(View(context).apply {
-                setBackgroundColor(0xFF444455.toInt())
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1
-                ).apply { setMargins(12, 6, 12, 6) }
-            })
-            menuContainer.addView(TextView(context).apply {
-                text = "Clear all pending replies"
-                textSize = 13f
-                setTextColor(0xFFBBBBCC.toInt())
-                gravity = Gravity.END
-                setPadding(16, 12, 16, 12)
-                background = GradientDrawable().apply {
-                    setColor(0xFF2a2a2a.toInt())
-                    cornerRadius = 18f
-                }
-                setOnClickListener {
-                    clearAllPendingReplies()
-                }
-            })
+        val overflowMenu = buildInlineOverflowMenu().also {
+            it.visibility = View.GONE
+            belowButtons.addView(it)
         }
+        panel.addView(belowButtons)
 
         // ── Footer: remaining conversations ──
         updatePendingFooter()
@@ -549,9 +550,15 @@ class ReplyPanel(
         fun sizePanelForContent() {
             panel.post {
                 applyAutoPanelHeight(
-                    header, messageScroll, messagePreview, chipsContainer, bottomRow, demoInstructions
+                    header, messageScroll, messagePreview, chipsContainer, bottomRow, belowButtons
                 )
             }
+        }
+
+        moreBtn.setOnClickListener {
+            val expanding = overflowMenu.visibility != View.VISIBLE
+            overflowMenu.visibility = if (expanding) View.VISIBLE else View.GONE
+            sizePanelForContent()
         }
 
         fun showThinkingState() {
@@ -559,7 +566,7 @@ class ReplyPanel(
             chipsContainer.addView(TextView(context).apply {
                 text = "🐾 Cat is thinking…"
                 textSize = 13f
-                setTextColor(0xFF9999BB.toInt())
+                setTextColor(MUTED_TEXT)
                 gravity = Gravity.CENTER
                 setPadding(0, 12, 0, 12)
             })
@@ -580,14 +587,14 @@ class ReplyPanel(
                 setText(initialText)
                 setSelection(text.length)
                 textSize = 14f
-                setTextColor(Color.WHITE)
-                setHintTextColor(0xFF777788.toInt())
+                setTextColor(0xFFF5F3F7.toInt())
+                setHintTextColor(MUTED_TEXT)
                 setSingleLine(false)
                 minLines = 1
                 maxLines = 3
                 setPadding(18, 14, 18, 14)
                 background = GradientDrawable().apply {
-                    setColor(0xFF202038.toInt())
+                    setColor(INPUT_BG)
                     cornerRadius = 20f
                     setStroke(1, 0x44FFFFFF)
                 }
@@ -598,7 +605,7 @@ class ReplyPanel(
             val sendBtn = TextView(context).apply {
                 text = "Send"
                 textSize = 13f
-                setTextColor(Color.WHITE)
+                setTextColor(0xFFF5F3F7.toInt())
                 gravity = Gravity.CENTER
                 setPadding(18, 16, 18, 16)
                 background = GradientDrawable().apply {
@@ -633,7 +640,7 @@ class ReplyPanel(
             chipsContainer.addView(TextView(context).apply {
                 text = "Cancel"
                 textSize = 12f
-                setTextColor(0xFF9999BB.toInt())
+                setTextColor(MUTED_TEXT)
                 gravity = Gravity.END
                 setPadding(0, 10, 6, 0)
                 setOnClickListener {
@@ -658,7 +665,7 @@ class ReplyPanel(
                 chipsContainer.addView(TextView(context).apply {
                     text = AiReplyGenerator.UPGRADE_MESSAGE
                     textSize = 13f
-                    setTextColor(0xFFFFD37A.toInt())
+                    setTextColor(TIP_ACCENT)
                     gravity = Gravity.CENTER
                     setPadding(8, 12, 8, 12)
                     setOnClickListener {
@@ -675,7 +682,7 @@ class ReplyPanel(
                 chipsContainer.addView(TextView(context).apply {
                     text = "😿 Couldn't think of a reply"
                     textSize = 13f
-                    setTextColor(0xFF9999BB.toInt())
+                    setTextColor(MUTED_TEXT)
                     gravity = Gravity.CENTER
                     setPadding(0, 12, 0, 12)
                 })
@@ -719,7 +726,7 @@ class ReplyPanel(
                 chipRow.addView(TextView(context).apply {
                     text = suggestion
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
-                    setTextColor(Color.WHITE)
+                    setTextColor(0xFFF5F3F7.toInt())
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(24, 18, 12, 18)
                     layoutParams = LinearLayout.LayoutParams(
@@ -730,7 +737,7 @@ class ReplyPanel(
                 chipRow.addView(TextView(context).apply {
                     text = "✎"
                     textSize = 16f
-                    setTextColor(0xFFBBBBCC.toInt())
+                    setTextColor(SOFT_TEXT)
                     gravity = Gravity.CENTER
                     setPadding(18, 18, 24, 18)
                     layoutParams = LinearLayout.LayoutParams(
@@ -745,7 +752,7 @@ class ReplyPanel(
                 chipsContainer.addView(TextView(context).apply {
                     text = "💡 Tap a suggestion to copy it, or tap ✎ to edit first"
                     textSize = 12f
-                    setTextColor(0xFF888888.toInt())
+                    setTextColor(MUTED_TEXT)
                     setPadding(16, 8, 16, 8)
                 })
                 suggestions.forEach { suggestion ->
@@ -888,12 +895,64 @@ class ReplyPanel(
         panel.requestLayout()
     }
 
+    /**
+     * Inline overflow section shown under the button row (not a PopupWindow).
+     * Visibility is toggled by the ⋮ button; panel height recalculates via applyAutoPanelHeight.
+     */
+    private fun buildInlineOverflowMenu(): LinearLayout {
+        val entry = currentEntry
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+            background = GradientDrawable().apply {
+                setColor(CHIP_BG)
+                cornerRadius = dp(14).toFloat()
+                setStroke(1, 0x33FFFFFF)
+            }
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+
+            addView(TextView(context).apply {
+                text = if (entry != null) {
+                    "Ignore ${entry.sender} forever"
+                } else {
+                    "Ignore this user forever"
+                }
+                textSize = 13f
+                setTextColor(DANGER)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                setOnClickListener {
+                    val current = currentEntry ?: return@setOnClickListener
+                    showIgnoreUserConfirmation(current)
+                }
+            })
+
+            addView(View(context).apply {
+                setBackgroundColor(0x33FFFFFF)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    1
+                ).apply { setMargins(dp(10), 0, dp(10), 0) }
+            })
+
+            addView(TextView(context).apply {
+                text = "Clear all pending replies"
+                textSize = 13f
+                setTextColor(SOFT_TEXT)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                setOnClickListener { clearAllPendingReplies() }
+            })
+        }
+    }
+
     private fun suggestionChip(text: String, message: ReplyStore.ReplyableMessage): TextView {
         val replyTextSp = SettingsManager.getReplyTextSizeSp(context)
         return TextView(context).apply {
             this.text = text
             setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
-            setTextColor(Color.WHITE)
+            setTextColor(0xFFF5F3F7.toInt())
             setPadding(24, 18, 24, 18)
             background = GradientDrawable().apply {
                 setColor(CHIP_BG)
@@ -919,20 +978,20 @@ class ReplyPanel(
             addView(TextView(context).apply {
                 text = "Instructions"
                 textSize = 11f
-                setTextColor(0xFFAAAABB.toInt())
-                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(MUTED_TEXT)
+                typeface = UiKit.headingTypeface(context)
                 setPadding(0, 0, 0, dp(4))
             })
             addView(TextView(context).apply {
                 text = "1. Tap the pencil to edit a reply and make it more personal."
                 textSize = 11f
-                setTextColor(0xFF9999BB.toInt())
+                setTextColor(MUTED_TEXT)
                 setPadding(0, 0, 0, dp(2))
             })
             addView(TextView(context).apply {
                 text = "2. Tap any option to send it as your reply."
                 textSize = 11f
-                setTextColor(0xFF9999BB.toInt())
+                setTextColor(MUTED_TEXT)
             })
         }
     }
@@ -944,6 +1003,11 @@ class ReplyPanel(
             pending.remove(message)
             currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
             OverlayService.instance?.updateBadgeAfterReply()
+            SettingsManager.setOnboardingDemoCompleted(context, true)
+            android.util.Log.d(
+                "ScrollCat",
+                "Demo completed, notifying onboarding to show Grant Access"
+            )
             showConfirmation("Sent! ✓", notifyDemoSent = true)
             return
         }
@@ -970,8 +1034,8 @@ class ReplyPanel(
         panel.addView(TextView(context).apply {
             this.text = text
             textSize = 15f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFFF5F3F7.toInt())
+            typeface = UiKit.headingTypeface(context)
             gravity = Gravity.CENTER
             setPadding(0, 28, 0, 28)
         })
@@ -1008,14 +1072,11 @@ class ReplyPanel(
      */
     private fun jumpToNextUnviewedSender() {
         if (pending.size <= 1) return
-        val currentConv = currentEntry?.conversationKey
         for (offset in 1..pending.size) {
             val idx = (currentIndex + offset) % pending.size
             val entry = pending[idx]
             // Only jump to senders that arrived after this panel opened
-            if (entry.conversationKey != currentConv &&
-                entry.conversationKey !in knownOthersAtOpen
-            ) {
+            if (entry.conversationKey !in knownOthersAtOpen) {
                 currentIndex = idx
                 showMessage(entry) // no new snapshot — still same open session
                 return
@@ -1058,6 +1119,12 @@ class ReplyPanel(
             currentIndex = liveIndex
             updatePendingFooter()
             val unviewed = hasNewlyArrivedOtherSenders()
+            val currentPendingSet = pending.map { it.conversationKey }.toSet()
+            android.util.Log.d(
+                "ScrollCat",
+                "Arrow check - knownAtOpen: $knownOthersAtOpen, currentPending: $currentPendingSet, " +
+                    "showing arrow: $unviewed"
+            )
             android.util.Log.d(
                 "ScrollCat",
                 "refreshPendingFromStore - kept current sender, " +
@@ -1087,9 +1154,8 @@ class ReplyPanel(
             return
         }
 
-        val currentConv = currentEntry?.conversationKey
         val unviewedCount = pending.count {
-            it.conversationKey != currentConv && it.conversationKey !in knownOthersAtOpen
+            it.conversationKey !in knownOthersAtOpen
         }
 
         // Prefer the arrow already attached to this panel; otherwise create and attach it.
@@ -1099,7 +1165,7 @@ class ReplyPanel(
                 ?: TextView(context).apply {
                     tag = TAG_NEW_SENDER_ARROW
                     textSize = 20f
-                    setTextColor(0xFFFFD37A.toInt())
+                    setTextColor(TIP_ACCENT)
                     gravity = Gravity.CENTER
                     setPadding(12, 10, 12, 4)
                     layoutParams = LinearLayout.LayoutParams(
@@ -1141,10 +1207,8 @@ class ReplyPanel(
 
     /** True only for senders that arrived after this single-sender panel opened. */
     private fun hasNewlyArrivedOtherSenders(): Boolean {
-        val currentConv = currentEntry?.conversationKey
         return pending.any { entry ->
-            entry.conversationKey != currentConv &&
-                entry.conversationKey !in knownOthersAtOpen
+            entry.conversationKey !in knownOthersAtOpen
         }
     }
 
@@ -1194,14 +1258,14 @@ class ReplyPanel(
             row.addView(TextView(context).apply {
                 text = "←"
                 textSize = 18f
-                setTextColor(0xFF9999FF.toInt())
+                setTextColor(NAV_ACCENT)
                 gravity = Gravity.CENTER
                 setPadding(24, 8, 24, 8)
                 setOnClickListener { previous() }
             })
             pendingCountView = TextView(context).apply {
                 textSize = 11f
-                setTextColor(0xFF7777AA.toInt())
+                setTextColor(MUTED_TEXT)
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
@@ -1209,7 +1273,7 @@ class ReplyPanel(
             row.addView(TextView(context).apply {
                 text = "→"
                 textSize = 18f
-                setTextColor(0xFF9999FF.toInt())
+                setTextColor(NAV_ACCENT)
                 gravity = Gravity.CENTER
                 setPadding(24, 8, 24, 8)
                 setOnClickListener { advance() }
@@ -1255,6 +1319,7 @@ class ReplyPanel(
                 it.sender.equals(message.sender, ignoreCase = true)
         }
         ignored.forEach { entry ->
+            cancelShadeNotification(entry)
             ReplyStore.remove(entry.notificationKey)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
             clearPregeneratedReplies(entry)
@@ -1271,6 +1336,9 @@ class ReplyPanel(
 
     private fun clearAllPendingReplies() {
         val allPending = pending.toList()
+        CatNotificationListener.instance?.cancelSystemNotifications(
+            allPending.map { it.notificationKey }
+        )
         allPending.forEach { entry ->
             ReplyStore.remove(entry.notificationKey)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
@@ -1282,12 +1350,23 @@ class ReplyPanel(
         dismiss()
     }
 
+    /** Clears the OS notification shade entry; does not mark the chat read in-app. */
+    private fun cancelShadeNotification(entry: ReplyStore.ReplyableMessage) {
+        if (ReplyStore.isDemoMessage(entry)) return
+        CatNotificationListener.instance?.cancelSystemNotification(entry.notificationKey)
+    }
+
     private fun senderKeyFor(message: ReplyStore.ReplyableMessage): String {
         return if (message.packageName == "com.whatsapp") {
             "${message.packageName}:${message.sender.replace(Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE), "").trim()}"
         } else {
             "${message.packageName}:${message.notificationId}"
         }
+    }
+
+    private fun formatReceivedTime(timestampMs: Long): String {
+        if (timestampMs <= 0L) return ""
+        return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestampMs))
     }
 
     private fun clearPregeneratedReplies(message: ReplyStore.ReplyableMessage) {
@@ -1333,7 +1412,7 @@ class ReplyPanel(
                     "ScrollCat",
                     "Setting app icon for $packageName - success: false, reason: demo package (skip lookup)"
                 )
-                setBackgroundColor(0xFF444455.toInt())
+                setBackgroundColor(PLACEHOLDER_BG)
                 return@apply
             }
 
@@ -1350,7 +1429,7 @@ class ReplyPanel(
 
             fun showNeutralPlaceholder() {
                 setImageDrawable(null)
-                setBackgroundColor(0xFF444455.toInt())
+                setBackgroundColor(PLACEHOLDER_BG)
             }
 
             val firstError = applyIconOrNull()

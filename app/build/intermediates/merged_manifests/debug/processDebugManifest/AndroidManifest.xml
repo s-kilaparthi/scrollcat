@@ -35,6 +35,14 @@
         <package android:name="com.facebook.katana" />
         <package android:name="com.samsung.android.messaging" />
         <package android:name="com.google.android.apps.messaging" />
+        <package android:name="com.android.mms" />
+
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+
         <package android:name="com.google.android.aicore" />
 
         <intent>
@@ -81,26 +89,31 @@
         <activity
             android:name="com.example.scrollcat.NotificationSettingsActivity"
             android:exported="false"
-            android:label="Notification Settings" />
+            android:label="Notification Settings"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.SettingsActivity"
             android:exported="false"
             android:label="Settings" />
         <activity
             android:name="com.example.scrollcat.AiProviderActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.AiSettingsActivity"
             android:exported="false"
-            android:label="My AI Settings" />
+            android:label="My AI Settings"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.AutoReplyActivity"
             android:exported="false"
-            android:label="Auto-Reply Rules" />
+            android:label="Auto-Reply Rules"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.OnboardingActivity"
             android:exported="false"
-            android:label="Welcome to ScrollCat" />
+            android:label="Welcome to ScrollCat"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.SubscriptionActivity"
             android:exported="false"

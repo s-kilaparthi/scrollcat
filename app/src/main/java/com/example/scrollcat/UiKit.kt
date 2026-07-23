@@ -7,20 +7,22 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.res.ResourcesCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 
 object UiKit {
-    private const val AMBER = 0xFFD97706.toInt()
-    private const val AMBER_CONTAINER = 0xFFFFE0B2.toInt()
-    private const val ON_AMBER_CONTAINER = 0xFF3F2200.toInt()
-    private const val TEAL_CONTAINER = 0xFFCCFBF1.toInt()
-    private const val ON_TEAL_CONTAINER = 0xFF042F2E.toInt()
-    private const val SURFACE = 0xFFFFF8F0.toInt()
-    private const val ON_SURFACE = 0xFF241A12.toInt()
-    private const val MUTED = 0xFF6F5F50.toInt()
-    private const val OUTLINE = 0x338C7A68
+    // Midnight Cat fallbacks (theme attrs preferred when available)
+    private const val PRIMARY = 0xFFB39DDB.toInt()
+    private const val PRIMARY_CONTAINER = 0xFF4A3F6B.toInt()
+    private const val ON_PRIMARY_CONTAINER = 0xFFF5F3F7.toInt()
+    private const val SECONDARY_CONTAINER = 0xFF2E2A3A.toInt()
+    private const val ON_SECONDARY_CONTAINER = 0xFFE8E4EF.toInt()
+    private const val SURFACE = 0xFF1A1A1E.toInt()
+    private const val ON_SURFACE = 0xFFF5F3F7.toInt()
+    private const val MUTED = 0xFFA39BB0.toInt()
+    private const val OUTLINE = 0x556B6578
 
     fun dp(context: Context, value: Int): Int {
         return (value * context.resources.displayMetrics.density).toInt()
@@ -35,10 +37,18 @@ object UiKit {
     }
 
     fun primaryColor(context: Context): Int {
-        return MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, AMBER)
+        return MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, PRIMARY)
     }
 
     fun mutedColor(context: Context): Int = MUTED
+
+    fun headingTypeface(context: Context): Typeface {
+        return try {
+            ResourcesCompat.getFont(context, R.font.baloo2) ?: Typeface.DEFAULT_BOLD
+        } catch (_: Exception) {
+            Typeface.DEFAULT_BOLD
+        }
+    }
 
     fun pageRoot(context: Context): LinearLayout {
         return LinearLayout(context).apply {
@@ -60,7 +70,13 @@ object UiKit {
             cardElevation = dp(context, 2).toFloat()
             strokeWidth = 1
             strokeColor = OUTLINE
-            setCardBackgroundColor(surfaceColor(context))
+            setCardBackgroundColor(
+                MaterialColors.getColor(
+                    context,
+                    com.google.android.material.R.attr.colorSurfaceVariant,
+                    0xFF25252C.toInt()
+                )
+            )
         }
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -81,7 +97,7 @@ object UiKit {
         return TextView(context).apply {
             this.text = text
             textSize = 24f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = headingTypeface(context)
             setTextColor(onSurfaceColor(context))
             setPadding(0, 0, 0, dp(context, 8))
         }
@@ -91,7 +107,7 @@ object UiKit {
         return TextView(context).apply {
             this.text = text
             textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = headingTypeface(context)
             setTextColor(onSurfaceColor(context))
             setPadding(0, 0, 0, dp(context, 8))
         }
@@ -110,7 +126,6 @@ object UiKit {
         return TextView(context).apply {
             this.text = text
             textSize = 14f
-            typeface = Typeface.DEFAULT_BOLD
             setTextColor(onSurfaceColor(context))
             setPadding(0, dp(context, 8), 0, dp(context, 6))
         }
@@ -129,14 +144,14 @@ object UiKit {
                 MaterialColors.getColor(
                     context,
                     com.google.android.material.R.attr.colorSecondaryContainer,
-                    TEAL_CONTAINER
+                    SECONDARY_CONTAINER
                 )
             )
             setTextColor(
                 MaterialColors.getColor(
                     context,
                     com.google.android.material.R.attr.colorOnSecondaryContainer,
-                    ON_TEAL_CONTAINER
+                    ON_SECONDARY_CONTAINER
                 )
             )
             setOnClickListener { onClick() }
@@ -156,14 +171,14 @@ object UiKit {
                 MaterialColors.getColor(
                     context,
                     com.google.android.material.R.attr.colorPrimaryContainer,
-                    AMBER_CONTAINER
+                    PRIMARY_CONTAINER
                 )
             )
             setTextColor(
                 MaterialColors.getColor(
                     context,
                     com.google.android.material.R.attr.colorOnPrimaryContainer,
-                    ON_AMBER_CONTAINER
+                    ON_PRIMARY_CONTAINER
                 )
             )
             setOnClickListener { onClick() }
@@ -187,7 +202,7 @@ object UiKit {
                 textSize = 16f
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(if (ok) 0xFF15803D.toInt() else 0xFFB42318.toInt())
+                setTextColor(if (ok) 0xFF86EFAC.toInt() else 0xFFFCA5A5.toInt())
                 layoutParams = LinearLayout.LayoutParams(dp(context, 28), dp(context, 28))
             })
             addView(TextView(context).apply {

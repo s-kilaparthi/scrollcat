@@ -32,7 +32,7 @@ class ShareCardActivity : Activity() {
     companion object {
         private const val TAG = "ScrollCat"
         private const val CARD_SIZE = 1080
-        private const val ACCENT = 0xFF4A90D9.toInt()
+        private const val ACCENT = 0xFFB39DDB.toInt()
     }
 
     private lateinit var cardBitmap: Bitmap
@@ -47,14 +47,14 @@ class ShareCardActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(0xFF0A0A0A.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
             setPadding(48, 48, 48, 48)
         }
 
         root.addView(TextView(this).apply {
             text = "Share your cat's work 🐾"
             textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@ShareCardActivity)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 24)
@@ -87,7 +87,7 @@ class ShareCardActivity : Activity() {
         val bgPaint = Paint().apply {
             shader = LinearGradient(
                 0f, 0f, 0f, CARD_SIZE.toFloat(),
-                intArrayOf(0xFF16202E.toInt(), 0xFF0A0A0A.toInt(), 0xFF0A0A0A.toInt()),
+                intArrayOf(0xFF2E2A3A.toInt(), 0xFF1A1A1E.toInt(), 0xFF1A1A1E.toInt()),
                 floatArrayOf(0f, 0.4f, 1f),
                 Shader.TileMode.CLAMP
             )
@@ -95,7 +95,7 @@ class ShareCardActivity : Activity() {
         canvas.drawRect(0f, 0f, CARD_SIZE.toFloat(), CARD_SIZE.toFloat(), bgPaint)
 
         // Accent card behind the numbers
-        val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF1A1A22.toInt() }
+        val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF25252C.toInt() }
         canvas.drawRoundRect(RectF(90f, 400f, CARD_SIZE - 90f, 800f), 48f, 48f, panelPaint)
 
         val emojiPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -108,7 +108,7 @@ class ShareCardActivity : Activity() {
             color = Color.WHITE
             textSize = 56f
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@ShareCardActivity)
         }
         canvas.drawText("My AI cat replied to", cx, 510f, titlePaint)
 
@@ -116,14 +116,14 @@ class ShareCardActivity : Activity() {
             color = ACCENT
             textSize = 150f
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@ShareCardActivity)
         }
         canvas.drawText("$replies", cx, 670f, bigPaint)
 
         canvas.drawText("messages today!", cx, 760f, titlePaint)
 
         val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF9A9AB0.toInt()
+            color = 0xFFA39BB0.toInt()
             textSize = 44f
             textAlign = Paint.Align.CENTER
         }
@@ -133,7 +133,7 @@ class ShareCardActivity : Activity() {
             color = ACCENT
             textSize = 46f
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@ShareCardActivity)
         }
         canvas.drawText("🐱 ScrollCat — scrollcat.app", cx, 1000f, brandPaint)
 

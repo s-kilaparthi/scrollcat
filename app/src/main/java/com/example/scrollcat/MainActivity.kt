@@ -8,7 +8,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
-import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -23,12 +23,15 @@ import com.google.android.material.card.MaterialCardView
  */
 class MainActivity : Activity() {
 
-    private lateinit var overlayBadge: TextView
-    private lateinit var accessibilityBadge: TextView
-    private lateinit var notificationBadge: TextView
     private var btnUpgrade: MaterialButton? = null
     private var btnShare: MaterialButton? = null
     private var aiKeyBanner: MaterialCardView? = null
+    private var dashboardCatAnimator: CatAnimator? = null
+
+    companion object {
+        private const val DASHBOARD_CAT_SIZE_DP = 148
+        private const val DASHBOARD_REST_FRAME = 104
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,21 +54,20 @@ class MainActivity : Activity() {
 
         val root = UiKit.pageRoot(this)
         root.addView(UiKit.headline(this, "ScrollCat Dashboard"))
-        root.addView(UiKit.body(this, "Set up permissions, summon the cat, and manage your smart replies.", muted = true))
 
         aiKeyBanner = MaterialCardView(this).apply {
             radius = UiKit.dp(this@MainActivity, 14).toFloat()
             cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
             strokeWidth = 1
-            strokeColor = 0xFFD97706.toInt()
-            setCardBackgroundColor(0xFFFFF3E0.toInt())
+            strokeColor = 0xFFB39DDB.toInt()
+            setCardBackgroundColor(0xFF2E2A3A.toInt())
             setOnClickListener {
                 startActivity(Intent(this@MainActivity, AiProviderActivity::class.java))
             }
             addView(TextView(this@MainActivity).apply {
                 text = "Add your free AI key to unlock Smart Replies"
                 textSize = 14f
-                setTextColor(0xFF241A12.toInt())
+                setTextColor(0xFFF5F3F7.toInt())
                 setPadding(
                     UiKit.dp(this@MainActivity, 18),
                     UiKit.dp(this@MainActivity, 16),
@@ -80,8 +82,17 @@ class MainActivity : Activity() {
         ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
         refreshAiKeyBanner()
 
-        dashboardSection(root, "Cat Controls") {
-            UiKit.addButton(this, UiKit.primaryButton(this@MainActivity, "Summon the Cat \uD83D\uDC31") {
+        root.addView(dashboardCatIllustration())
+
+        val catControlsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, UiKit.dp(this@MainActivity, 4), 0, UiKit.dp(this@MainActivity, 12))
+        }
+        catControlsRow.addView(
+            UiKit.primaryButton(this, "Summon the Cat") {
                 val running = OverlayService.instance != null
                 android.util.Log.d(
                     "ScrollCat",
@@ -101,13 +112,21 @@ class MainActivity : Activity() {
                         )
                     )
                 }
-            })
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "Dismiss the Cat") {
+            }.apply {
+                minimumHeight = UiKit.dp(this@MainActivity, 52)
+                insetTop = UiKit.dp(this@MainActivity, 6)
+                insetBottom = UiKit.dp(this@MainActivity, 6)
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = UiKit.dp(this@MainActivity, 6)
+            }
+        )
+        catControlsRow.addView(
+            UiKit.tonalButton(this, "Dismiss the Cat") {
                 android.util.Log.d(
                     "ScrollCat",
                     "Dismiss called - current state: serviceInstance=${OverlayService.instance != null}"
                 )
-                // Prefer in-service dismiss so the WindowManager view is removed before stop
                 if (OverlayService.instance != null) {
                     startService(
                         Intent(this@MainActivity, OverlayService::class.java)
@@ -116,33 +135,16 @@ class MainActivity : Activity() {
                 } else {
                     stopService(Intent(this@MainActivity, OverlayService::class.java))
                 }
-            })
-        }
-
-        dashboardSection(root, "Setup Steps") {
-            val overlayButton = setupButton("Grant Overlay Permission") {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
+            }.apply {
+                minimumHeight = UiKit.dp(this@MainActivity, 52)
+                insetTop = UiKit.dp(this@MainActivity, 6)
+                insetBottom = UiKit.dp(this@MainActivity, 6)
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = UiKit.dp(this@MainActivity, 6)
             }
-            overlayBadge = overlayButton.second
-            addView(overlayButton.first)
-
-            val accessibilityButton = setupButton("Enable Accessibility Service") {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-            accessibilityBadge = accessibilityButton.second
-            addView(accessibilityButton.first)
-
-            val notificationButton = setupButton("Enable Notification Access") {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-            notificationBadge = notificationButton.second
-            addView(notificationButton.first)
-        }
+        )
+        root.addView(catControlsRow)
 
         dashboardSection(root, "Smart Replies") {
             UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "\uD83D\uDCCB Auto-Reply Rules") {
@@ -188,6 +190,7 @@ class MainActivity : Activity() {
 
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(UiKit.surfaceColor(this@MainActivity))
+            clipToPadding = false
             addView(root)
         }
         setContentView(scrollView)
@@ -208,13 +211,13 @@ class MainActivity : Activity() {
         title: String,
         build: LinearLayout.() -> Unit
     ) {
-        root.addView(UiKit.label(this, title))
+        root.addView(UiKit.sectionTitle(this, title))
         val card = MaterialCardView(this).apply {
             radius = UiKit.dp(this@MainActivity, 16).toFloat()
             cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
             strokeWidth = 1
-            strokeColor = 0x338C7A68
-            setCardBackgroundColor(UiKit.surfaceColor(this@MainActivity))
+            strokeColor = 0x556B6578
+            setCardBackgroundColor(0xFF25252C.toInt())
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -233,48 +236,36 @@ class MainActivity : Activity() {
         ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 12)) })
     }
 
-    private fun setupButton(label: String, onClick: () -> Unit): Pair<FrameLayout, TextView> {
-        val frame = FrameLayout(this)
-        val button = UiKit.primaryButton(this, label, onClick).apply {
-            gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(
-                UiKit.dp(this@MainActivity, 18),
-                paddingTop,
-                UiKit.dp(this@MainActivity, 112),
-                paddingBottom
-            )
+    private fun dashboardCatIllustration(): LinearLayout {
+        val size = UiKit.dp(this, DASHBOARD_CAT_SIZE_DP)
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, UiKit.dp(this@MainActivity, 4), 0, UiKit.dp(this@MainActivity, 8))
         }
-        frame.addView(button, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ))
-        val badge = TextView(this).apply {
-            text = "Enabled"
-            textSize = 12f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setPadding(
-                UiKit.dp(this@MainActivity, 10),
-                UiKit.dp(this@MainActivity, 4),
-                UiKit.dp(this@MainActivity, 10),
-                UiKit.dp(this@MainActivity, 4)
-            )
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFF15803D.toInt())
-                cornerRadius = UiKit.dp(this@MainActivity, 16).toFloat()
+        val image = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            contentDescription = "Cat Picture"
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
             }
-            visibility = View.GONE
+            setOnClickListener { playDashboardTapAnimation() }
         }
-        frame.addView(badge, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.END or Gravity.CENTER_VERTICAL
-        ).apply { marginEnd = UiKit.dp(this@MainActivity, 14) })
-        frame.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, UiKit.dp(this@MainActivity, 6), 0, UiKit.dp(this@MainActivity, 6)) }
-        return frame to badge
+        dashboardCatAnimator = CatAnimator(this, image).apply {
+            showFrame(DASHBOARD_REST_FRAME)
+        }
+        wrapper.addView(image)
+        return wrapper
+    }
+
+    private fun playDashboardTapAnimation() {
+        val animator = dashboardCatAnimator ?: return
+        if (animator.currentAnim != null) return
+        animator.play("tap") {
+            animator.showFrame(DASHBOARD_REST_FRAME)
+        }
     }
 
     private fun refreshAiKeyBanner() {
@@ -285,20 +276,25 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (!::overlayBadge.isInitialized) return
+        dashboardCatAnimator?.showFrame(DASHBOARD_REST_FRAME)
 
-        val overlayOk = Settings.canDrawOverlays(this)
-        val a11yOk = CatAccessibilityService.instance != null
-        val notifOk = CatNotificationListener.instance != null
         val isPro = BillingManager.getInstance(this).isPro()
-        overlayBadge.visibility = if (overlayOk) View.VISIBLE else View.GONE
-        accessibilityBadge.visibility = if (a11yOk) View.VISIBLE else View.GONE
-        notificationBadge.visibility = if (notifOk) View.VISIBLE else View.GONE
         btnUpgrade?.visibility = if (isPro) android.view.View.GONE else android.view.View.VISIBLE
         btnShare?.visibility =
             if (StatsTracker.getTotalRepliesSent(this) >= 5) android.view.View.VISIBLE
             else android.view.View.GONE
         refreshAiKeyBanner()
         RateUsManager.maybeShowRatePrompt(this)
+    }
+
+    override fun onPause() {
+        dashboardCatAnimator?.stop()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        dashboardCatAnimator?.stopAll()
+        dashboardCatAnimator = null
+        super.onDestroy()
     }
 }

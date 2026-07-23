@@ -289,6 +289,30 @@ class CatNotificationListener : NotificationListenerService() {
         super.onNotificationRemoved(sbn)
     }
 
+    /**
+     * Removes the OS shade entry for a captured notification key (sbn.key).
+     * Does not mark the chat as read inside WhatsApp/Telegram/etc. — only clears
+     * the system notification. No-ops for demo keys or if the listener is unbound.
+     */
+    fun cancelSystemNotification(notificationKey: String) {
+        if (notificationKey.isBlank()) return
+        if (notificationKey == ReplyStore.DEMO_NOTIFICATION_KEY ||
+            notificationKey.startsWith("scrollcat_")
+        ) {
+            return
+        }
+        try {
+            cancelNotification(notificationKey)
+            Log.d(TAG, "cancelNotification called for key=$notificationKey")
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelNotification failed for $notificationKey: ${e.message}")
+        }
+    }
+
+    fun cancelSystemNotifications(keys: Collection<String>) {
+        keys.forEach { cancelSystemNotification(it) }
+    }
+
     override fun onListenerDisconnected() {
         instance = null
         super.onListenerDisconnected()

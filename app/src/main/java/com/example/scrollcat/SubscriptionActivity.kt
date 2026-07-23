@@ -22,7 +22,7 @@ import androidx.core.view.WindowInsetsCompat
 class SubscriptionActivity : Activity() {
 
     companion object {
-        private const val ACCENT = 0xFF4A90D9.toInt()
+        private const val ACCENT = 0xFFB39DDB.toInt()
         private const val TERMS_URL = "https://scrollcat.app/terms"
         private const val PRIVACY_URL = "https://scrollcat.app/privacy"
     }
@@ -39,7 +39,7 @@ class SubscriptionActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 56, 32, 32)
-            setBackgroundColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
         }
 
         // Toolbar
@@ -56,13 +56,13 @@ class SubscriptionActivity : Activity() {
         toolbar.addView(TextView(this).apply {
             text = "  ScrollCat Pro"
             textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@SubscriptionActivity)
         })
         root.addView(toolbar)
 
         statusText = TextView(this).apply {
             textSize = 13f
-            setTextColor(0xFF888888.toInt())
+            setTextColor(0xFFA39BB0.toInt())
             setPadding(0, 0, 0, 16)
         }
         root.addView(statusText)
@@ -101,7 +101,7 @@ class SubscriptionActivity : Activity() {
         legalRow.addView(TextView(this).apply {
             text = "·"
             textSize = 12f
-            setTextColor(0xFF888888.toInt())
+            setTextColor(0xFFA39BB0.toInt())
         })
         legalRow.addView(TextView(this).apply {
             text = "Privacy Policy"
@@ -209,9 +209,9 @@ class SubscriptionActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 28, 32, 28)
             background = GradientDrawable().apply {
-                setColor(if (highlighted) 0xFFF0F6FF.toInt() else 0xFFF7F7FA.toInt())
+                setColor(if (highlighted) 0xFF2E2A3A.toInt() else 0xFF25252C.toInt())
                 cornerRadius = 28f
-                setStroke(if (highlighted) 4 else 2, if (highlighted) ACCENT else 0xFFE0E0E8.toInt())
+                setStroke(if (highlighted) 4 else 2, if (highlighted) ACCENT else 0xFF6B6578.toInt())
             }
         }
 
@@ -222,14 +222,14 @@ class SubscriptionActivity : Activity() {
         headerRow.addView(TextView(this).apply {
             text = "$emoji $name"
             textSize = 17f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(0xFF222233.toInt())
+            typeface = UiKit.headingTypeface(this@SubscriptionActivity)
+            setTextColor(0xFFF5F3F7.toInt())
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         headerRow.addView(TextView(this).apply {
             text = price
             textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@SubscriptionActivity)
             setTextColor(ACCENT)
         })
         card.addView(headerRow)
@@ -237,7 +237,7 @@ class SubscriptionActivity : Activity() {
         card.addView(TextView(this).apply {
             text = features
             textSize = 13f
-            setTextColor(0xFF666677.toInt())
+            setTextColor(0xFFA39BB0.toInt())
             setPadding(0, 10, 0, 14)
         })
 

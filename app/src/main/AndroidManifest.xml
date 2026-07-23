@@ -28,6 +28,11 @@
         <package android:name="com.facebook.katana" />
         <package android:name="com.samsung.android.messaging" />
         <package android:name="com.google.android.apps.messaging" />
+        <package android:name="com.android.mms" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -57,7 +62,8 @@
         <activity
             android:name=".NotificationSettingsActivity"
             android:exported="false"
-            android:label="Notification Settings" />
+            android:label="Notification Settings"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".SettingsActivity"
@@ -66,22 +72,26 @@
 
         <activity
             android:name=".AiProviderActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".AiSettingsActivity"
             android:exported="false"
-            android:label="My AI Settings" />
+            android:label="My AI Settings"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".AutoReplyActivity"
             android:exported="false"
-            android:label="Auto-Reply Rules" />
+            android:label="Auto-Reply Rules"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".OnboardingActivity"
             android:exported="false"
-            android:label="Welcome to ScrollCat" />
+            android:label="Welcome to ScrollCat"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".SubscriptionActivity"

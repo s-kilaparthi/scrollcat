@@ -2041,12 +2041,16 @@ color primary_text_disabled_material_dark
 color primary_text_disabled_material_light
 color ripple_material_dark
 color ripple_material_light
+color scrollcat_accent
+color scrollcat_chip_bg
+color scrollcat_muted
 color scrollcat_on_primary
 color scrollcat_on_primary_container
 color scrollcat_on_secondary
 color scrollcat_on_secondary_container
 color scrollcat_on_surface
 color scrollcat_outline
+color scrollcat_panel_bg
 color scrollcat_primary
 color scrollcat_primary_container
 color scrollcat_secondary
@@ -2992,6 +2996,8 @@ drawable ic_call_decline
 drawable ic_call_decline_low
 drawable ic_clear_black_24
 drawable ic_clock_black_24dp
+drawable ic_close_zone_x
+drawable ic_delete_outline
 drawable ic_keyboard_black_24dp
 drawable ic_launcher_background
 drawable ic_launcher_foreground
@@ -3002,7 +3008,12 @@ drawable ic_mtrl_checked_circle
 drawable ic_mtrl_chip_checked_black
 drawable ic_mtrl_chip_checked_circle
 drawable ic_mtrl_chip_close_circle
+drawable ic_pets
 drawable ic_search_black_24
+drawable ic_section_apps
+drawable ic_section_block
+drawable ic_section_key
+drawable ic_section_person
 drawable indeterminate_static
 drawable m3_avd_hide_password
 drawable m3_avd_show_password
@@ -3080,6 +3091,9 @@ drawable splash_screen
 drawable test_level_drawable
 drawable tooltip_frame_dark
 drawable tooltip_frame_light
+font baloo2
+font baloo2_bold
+font baloo2_semibold
 id ALT
 id BOTTOM_END
 id BOTTOM_START
@@ -4453,6 +4467,7 @@ style TextAppearance_MaterialComponents_Subtitle1
 style TextAppearance_MaterialComponents_Subtitle2
 style TextAppearance_MaterialComponents_TimePicker_Title
 style TextAppearance_MaterialComponents_Tooltip
+style TextAppearance_ScrollCat_Heading
 style TextAppearance_Widget_AppCompat_ExpandedMenu_Item
 style TextAppearance_Widget_AppCompat_Toolbar_Subtitle
 style TextAppearance_Widget_AppCompat_Toolbar_Title

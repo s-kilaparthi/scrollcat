@@ -268,8 +268,11 @@ object SettingsManager {
     }
 
     fun isMusicDanceEnabled(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("music_dance_enabled", true)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.contains("music_dance_enabled")) {
+            return false
+        }
+        return prefs.getBoolean("music_dance_enabled", false)
     }
 
     fun setMusicDanceEnabled(context: Context, enabled: Boolean) {
@@ -287,6 +290,26 @@ object SettingsManager {
             .edit().putBoolean("app_reactions_enabled", enabled).apply()
     }
 
+    fun getPrimaryLanguage(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("primary_language", "English") ?: "English"
+    }
+
+    fun setPrimaryLanguage(context: Context, language: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("primary_language", language).apply()
+    }
+
+    fun isMatchLanguageEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("match_language", true)
+    }
+
+    fun setMatchLanguageEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("match_language", enabled).apply()
+    }
+
     // ── Onboarding / user profile ──
 
     fun isOnboardingComplete(context: Context): Boolean {
@@ -297,6 +320,19 @@ object SettingsManager {
     fun setOnboardingComplete(context: Context, complete: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("onboarding_complete", complete).apply()
+        if (complete) {
+            setOnboardingDemoCompleted(context, false)
+        }
+    }
+
+    fun isOnboardingDemoCompleted(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("onboarding_demo_completed", false)
+    }
+
+    fun setOnboardingDemoCompleted(context: Context, completed: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("onboarding_demo_completed", completed).apply()
     }
 
     // "creator", "business" or "personal"

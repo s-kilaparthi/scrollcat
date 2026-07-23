@@ -1,38 +1,74 @@
 [
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_accessibility_service_config.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_delete_outline.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_delete_outline.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_data_extraction_rules.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/data_extraction_rules.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_backup_rules.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/backup_rules.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_launcher_foreground.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_splash_screen.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/splash_screen.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_section_key.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_section_key.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_splash_screen.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/splash_screen.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_section_person.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_section_person.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_file_paths.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/file_paths.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/font_baloo2.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/font/baloo2.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_launcher_background.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_launcher_background.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/font_baloo2_bold.ttf.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/font/baloo2_bold.ttf"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_backup_rules.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/backup_rules.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_launcher_background.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_resize_grip.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/a2a5d106017f85fce2bacd426120476a/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_resize_grip.xml"
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_section_apps.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_section_apps.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_accessibility_service_config.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_pets.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_pets.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_file_paths.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/file_paths.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_close_zone_x.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_close_zone_x.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_section_block.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_section_block.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/font_baloo2_semibold.ttf.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/font/baloo2_semibold.ttf"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-debug-4:/xml_data_extraction_rules.xml.flat",
+        "source": "/tmp/cursor-sandbox-cache/40106b87c63d5c74c9f215d27b7d2976/gradle/daemon/8.7/com.example.scrollcat.app-main-6:/xml/data_extraction_rules.xml"
     }
 ]

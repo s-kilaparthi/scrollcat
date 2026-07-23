@@ -40,7 +40,7 @@ class SplashActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(0xFF0A0A0A.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
         }
 
         root.addView(TextView(this).apply {
@@ -52,8 +52,8 @@ class SplashActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "ScrollCat"
             textSize = 26f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(0xFFFFFFFF.toInt())
+            typeface = UiKit.headingTypeface(this@SplashActivity)
+            setTextColor(0xFFF5F3F7.toInt())
             gravity = Gravity.CENTER
             setPadding(0, 24, 0, 0)
         })
@@ -61,7 +61,7 @@ class SplashActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "Your AI companion that never sleeps"
             textSize = 13f
-            setTextColor(0xFF9A9AB0.toInt())
+            setTextColor(0xFFA39BB0.toInt())
             gravity = Gravity.CENTER
             setPadding(0, 8, 0, 0)
         })

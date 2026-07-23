@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="scrollcat_primary">#D97706</color>
-    <color name="scrollcat_on_primary">#FFFFFF</color>
-    <color name="scrollcat_primary_container">#FFE0B2</color>
-    <color name="scrollcat_on_primary_container">#3F2200</color>
-    <color name="scrollcat_secondary">#0F766E</color>
-    <color name="scrollcat_on_secondary">#FFFFFF</color>
-    <color name="scrollcat_secondary_container">#CCFBF1</color>
-    <color name="scrollcat_on_secondary_container">#042F2E</color>
-    <color name="scrollcat_surface">#FFF8F0</color>
-    <color name="scrollcat_on_surface">#241A12</color>
-    <color name="scrollcat_surface_variant">#F2E4D4</color>
-    <color name="scrollcat_outline">#8C7A68</color>
+    <!-- Midnight Cat fixed brand palette -->
+    <color name="scrollcat_primary">#B39DDB</color>
+    <color name="scrollcat_on_primary">#1A1224</color>
+    <color name="scrollcat_primary_container">#4A3F6B</color>
+    <color name="scrollcat_on_primary_container">#F5F3F7</color>
+    <color name="scrollcat_secondary">#7E7399</color>
+    <color name="scrollcat_on_secondary">#F5F3F7</color>
+    <color name="scrollcat_secondary_container">#2E2A3A</color>
+    <color name="scrollcat_on_secondary_container">#E8E4EF</color>
+    <color name="scrollcat_surface">#1A1A1E</color>
+    <color name="scrollcat_on_surface">#F5F3F7</color>
+    <color name="scrollcat_surface_variant">#25252C</color>
+    <color name="scrollcat_outline">#6B6578</color>
+    <color name="scrollcat_muted">#A39BB0</color>
+    <color name="scrollcat_panel_bg">#F21E1E28</color>
+    <color name="scrollcat_chip_bg">#2A2A36</color>
+    <color name="scrollcat_accent">#B39DDB</color>
 </resources>

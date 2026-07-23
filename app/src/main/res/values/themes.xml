@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ScrollCat" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.ScrollCat" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/scrollcat_primary</item>
         <item name="colorOnPrimary">@color/scrollcat_on_primary</item>
         <item name="colorPrimaryContainer">@color/scrollcat_primary_container</item>
@@ -13,8 +13,20 @@
         <item name="colorOnSurface">@color/scrollcat_on_surface</item>
         <item name="colorSurfaceVariant">@color/scrollcat_surface_variant</item>
         <item name="colorOutline">@color/scrollcat_outline</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorBackground">@color/scrollcat_surface</item>
+        <item name="android:windowBackground">@color/scrollcat_surface</item>
+        <item name="android:statusBarColor">@color/scrollcat_surface</item>
         <item name="android:navigationBarColor">@color/scrollcat_surface</item>
-        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.ScrollCat.Heading</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.ScrollCat.Heading</item>
+    </style>
+
+    <style name="TextAppearance.ScrollCat.Heading" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">@font/baloo2</item>
+        <item name="fontFamily">@font/baloo2</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/scrollcat_on_surface</item>
     </style>
 </resources>

@@ -75,6 +75,11 @@ class CatAnimator(
         resetIdleTimeout()
     }
 
+    fun showFrame(frameIndex: Int) {
+        stopAnim()
+        setFrame(frameIndex)
+    }
+
     /** When false (edge-docking mode), cat never fades into sleep opacity. */
     fun setIdleSleepEnabled(enabled: Boolean) {
         idleSleepEnabled = enabled

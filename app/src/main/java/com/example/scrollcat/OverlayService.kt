@@ -34,11 +34,13 @@ import android.view.WindowManager
 import android.view.animation.BounceInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.example.scrollcat.CatAnimator
 import kotlin.math.abs
+import kotlin.math.hypot
 
 class OverlayService : Service() {
 
@@ -171,11 +173,20 @@ class OverlayService : Service() {
     private var dockAnimator: ValueAnimator? = null
     private val dockHandler = Handler(Looper.getMainLooper())
     private val dockVisibilityRunnable = Runnable {
+        // Keep fully visible while the reply panel is open; timer resumes on dismiss.
+        if (replyPanel?.isShowing == true) {
+            Logger.d("Dock visibility timer fired but reply panel is open — skipping re-dock")
+            return@Runnable
+        }
         if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
             dockToEdge(animate = true)
         }
     }
     private val initialSettleDockRunnable = Runnable {
+        if (replyPanel?.isShowing == true) {
+            Logger.d("Initial settle dock skipped — reply panel open")
+            return@Runnable
+        }
         if (SettingsManager.isEdgeDockingMode(this) && awaitingInitialDock && !isEdgeDocked) {
             awaitingInitialDock = false
             dockToEdge(animate = true)
@@ -188,6 +199,9 @@ class OverlayService : Service() {
 
     private var handleView: View? = null
     private var handleParams: WindowManager.LayoutParams? = null
+    private var closeZoneView: View? = null
+    private var closeZoneParams: WindowManager.LayoutParams? = null
+    private var closeZoneHighlighted = false
 
     private val screenStateReceiver = ScreenStateReceiver(
         onScreenOn = { AiReplyGenerator.flushAllBuffers(applicationContext) }
@@ -210,7 +224,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startAsForeground()
         addCatView()
-        replyPanel = ReplyPanel(this, windowManager)
+        replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
         if (SettingsManager.isEdgeDockingMode(this)) {
             // Summon at full float + full opacity; dock after settle timer if untouched
             catAnimator?.setIdleSleepEnabled(false)
@@ -269,6 +283,8 @@ class OverlayService : Service() {
         cancelDockAnimator()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
+        hideDragHandle()
+        hideCloseZone()
         replyPanel?.dismiss()
         safeRemoveView(containerView)
         containerView = null
@@ -304,7 +320,7 @@ class OverlayService : Service() {
             catAnimator = null
             addCatView()
             if (replyPanel == null) {
-                replyPanel = ReplyPanel(this, windowManager)
+                replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
             }
             if (SettingsManager.isEdgeDockingMode(this)) {
                 catAnimator?.setIdleSleepEnabled(false)
@@ -462,6 +478,8 @@ class OverlayService : Service() {
             isDragMode = false
             suppressTapGestures = false
             hideDragHandle()
+            resetCatCloseZoneScale()
+            hideCloseZone(animated = true)
             catAnimator?.showStatic()
             Logger.d("Move mode cancelled — timeout")
             // Resume normal idle/dock timing (single 10s window, not stacked with Move timeout)
@@ -480,6 +498,7 @@ class OverlayService : Service() {
             pressStartTouchX = lastTouchRawX
             pressStartTouchY = lastTouchRawY
             showDragHandle(p)
+            showCloseZone()
             cancelDockVisibilityTimer()
             cancelInitialSettleTimer()
             handler.removeCallbacks(moveModeTimeoutRunnable)
@@ -635,8 +654,11 @@ class OverlayService : Service() {
                         val dy = event.rawY - pressStartTouchY
                         params.x = homeX + dx.toInt()
                         params.y = homeY + dy.toInt()
+                        // Soft snap toward close-zone center when clearly over it
+                        applyCloseZoneMagnet(params)
                         safeUpdateViewLayout(containerView, params, fromTouch = true)
                         moveDragHandle(params)
+                        updateCloseZoneHighlight(params)
                         return true
                     }
 
@@ -671,10 +693,20 @@ class OverlayService : Service() {
 
                     // Finish continuous Move drag
                     if (isDragMode) {
+                        val dismissNow = isCatClearlyInCloseZone(params)
                         hideDragHandle()
                         isDragMode = false
                         cancelMoveModeTimeout()
                         suppressTapGestures = false
+                        if (dismissNow) {
+                            Logger.d("Cat dropped on close zone — dismissing")
+                            animateDismissIntoCloseZone {
+                                dismissAndStop()
+                            }
+                            return true
+                        }
+                        resetCatCloseZoneScale()
+                        hideCloseZone(animated = true)
                         persistFloatPositionAndDockSide(params.x, params.y)
                         catAnimator?.showStatic()
                         noteCatInteraction()
@@ -751,7 +783,7 @@ class OverlayService : Service() {
                         ?: showNoAccessibilityToast()
                     rightProgressX = x
                 }
-                // Horizontal — voice assistant (left swipe, within 20° of horizontal)
+                // Horizontal — Recent apps (left swipe, within 20° of horizontal)
                 isHorizontal && leftDistance > HORIZONTAL_TRIGGER_THRESHOLD && leftDistance > rightDistance -> {
                     CatAccessibilityService.instance?.performRecentApps()
                         ?: showNoAccessibilityToast()
@@ -853,8 +885,25 @@ class OverlayService : Service() {
         cancelInitialSettleTimer()
         awaitingInitialDock = false
         if (!SettingsManager.isEdgeDockingMode(this) || isEdgeDocked) return
+        if (replyPanel?.isShowing == true) {
+            Logger.d("Dock visibility timer not started — reply panel open")
+            return
+        }
         dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
         Logger.d("Edge-dock visibility timer reset (${DOCK_VISIBILITY_MS}ms)")
+    }
+
+    /** Resume normal edge-dock countdown after the reply panel closes. */
+    private fun onReplyPanelDismissed() {
+        if (isDestroyed) return
+        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+            resetDockVisibilityTimer()
+            Logger.d("Reply panel closed — dock visibility timer resumed")
+        }
+    }
+
+    private fun wireReplyPanel(panel: ReplyPanel) {
+        panel.onDismissed = { onReplyPanelDismissed() }
     }
 
     fun applyCatDisplayMode() {
@@ -913,7 +962,7 @@ class OverlayService : Service() {
         val targetAlpha = SettingsManager.getSleepOpacity(this)
 
         isEdgeDocked = true
-        catAnimator?.showStatic()
+        catAnimator?.showFrame(69)
 
         if (!animate) {
             params.width = dockSize
@@ -1201,7 +1250,7 @@ class OverlayService : Service() {
             maxWidth = 600
             setSingleLine(false)
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xCC1A1A1A.toInt())
+                setColor(0xCC1E1E28.toInt())
                 cornerRadius = 24f
                 setStroke(1, 0x44FFFFFF.toInt())
             }
@@ -1260,7 +1309,7 @@ class OverlayService : Service() {
             typeface = Typeface.DEFAULT_BOLD
             maxWidth = 600
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xE61A1A2E.toInt())
+                setColor(0xE61E1E28.toInt())
                 cornerRadius = 24f
                 setStroke(1, 0x44FFFFFF)
             }
@@ -1410,8 +1459,12 @@ class OverlayService : Service() {
         val params = layoutParams ?: return
         val catSize = SettingsManager.getCatSize(this)
         animateTap()
+        // Hold undocked/visible for the entire time the panel is open.
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
         replyPanel?.show(params.x, params.y, catSize)
-        Logger.d("Reply panel shown (${ReplyStore.count()} pending)")
+        Logger.d("Reply panel shown (${ReplyStore.count()} pending) — dock timer paused")
     }
 
     /**
@@ -1500,6 +1553,276 @@ class OverlayService : Service() {
         handleParams = null
     }
 
+    private fun closeZoneIdleSizePx(): Int = dp(64)
+
+    private fun closeZoneActiveScale(): Float = 76f / 64f // ~76dp when highlighted
+
+    private fun closeZoneBottomMarginPx(): Int = dp(96)
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
+    private fun closeZoneInterpolator() = AccelerateDecelerateInterpolator()
+
+    private fun showCloseZone() {
+        if (closeZoneView != null) return
+        val size = closeZoneIdleSizePx()
+        val dm = resources.displayMetrics
+
+        // Outer host sized for idle circle; scale-up animates beyond layout bounds (overlay OK)
+        val zone = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            alpha = 0f
+            scaleX = 0.8f
+            scaleY = 0.8f
+            elevation = dp(8).toFloat()
+        }
+
+        // Soft outer glow ring (hidden until highlighted)
+        val glow = View(this).apply {
+            tag = "close_zone_glow"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(4), 0x66E53935)
+            }
+            alpha = 0f
+            scaleX = 1.15f
+            scaleY = 1.15f
+            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+        }
+        zone.addView(glow)
+
+        // Main circle disk
+        val disk = FrameLayout(this).apply {
+            tag = "close_zone_disk"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xCC1E1E28.toInt())
+            }
+            elevation = dp(6).toFloat()
+            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+            addView(ImageView(this@OverlayService).apply {
+                setImageResource(R.drawable.ic_close_zone_x)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                val icon = dp(24)
+                layoutParams = FrameLayout.LayoutParams(icon, icon, Gravity.CENTER)
+            })
+        }
+        zone.addView(disk)
+
+        val params = WindowManager.LayoutParams(
+            size, size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = (dm.widthPixels - size) / 2
+            y = dm.heightPixels - size - closeZoneBottomMarginPx()
+        }
+        if (safeAddView(zone, params)) {
+            closeZoneView = zone
+            closeZoneParams = params
+            closeZoneHighlighted = false
+            zone.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(150L)
+                .setInterpolator(closeZoneInterpolator())
+                .start()
+            Logger.d("Close zone shown for Move mode")
+        }
+    }
+
+    private fun hideCloseZone(animated: Boolean = false, onEnd: (() -> Unit)? = null) {
+        val zone = closeZoneView
+        if (zone == null) {
+            onEnd?.invoke()
+            return
+        }
+        zone.animate().cancel()
+        if (!animated) {
+            safeRemoveView(zone)
+            closeZoneView = null
+            closeZoneParams = null
+            closeZoneHighlighted = false
+            onEnd?.invoke()
+            return
+        }
+        zone.animate()
+            .alpha(0f)
+            .scaleX(0.8f)
+            .scaleY(0.8f)
+            .setDuration(150L)
+            .setInterpolator(closeZoneInterpolator())
+            .withEndAction {
+                safeRemoveView(zone)
+                if (closeZoneView === zone) {
+                    closeZoneView = null
+                    closeZoneParams = null
+                    closeZoneHighlighted = false
+                }
+                onEnd?.invoke()
+            }
+            .start()
+    }
+
+    private fun animateDismissIntoCloseZone(onEnd: () -> Unit) {
+        val zone = closeZoneView
+        val cat = containerView
+        val interp = closeZoneInterpolator()
+        // Shrink + fade cat and zone together
+        cat?.animate()?.cancel()
+        zone?.animate()?.cancel()
+        var pending = 0
+        fun done() {
+            pending--
+            if (pending <= 0) onEnd()
+        }
+        if (cat != null) {
+            pending++
+            cat.pivotX = cat.width / 2f
+            cat.pivotY = cat.height / 2f
+            cat.animate()
+                .scaleX(0.2f)
+                .scaleY(0.2f)
+                .alpha(0f)
+                .setDuration(150L)
+                .setInterpolator(interp)
+                .withEndAction { done() }
+                .start()
+        }
+        if (zone != null) {
+            pending++
+            hideCloseZone(animated = true) { done() }
+        }
+        if (pending == 0) onEnd()
+    }
+
+    private fun resetCatCloseZoneScale() {
+        val cat = containerView ?: return
+        cat.animate().cancel()
+        cat.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(150L)
+            .setInterpolator(closeZoneInterpolator())
+            .start()
+    }
+
+    private fun catCenter(catParams: WindowManager.LayoutParams): Pair<Float, Float> {
+        val cx = catParams.x + catParams.width / 2f
+        val cy = catParams.y + catParams.height / 2f
+        return cx to cy
+    }
+
+    private fun closeZoneCenter(): Pair<Float, Float>? {
+        val zp = closeZoneParams ?: return null
+        val size = closeZoneIdleSizePx()
+        return (zp.x + size / 2f) to (zp.y + size / 2f)
+    }
+
+    /**
+     * Clear overlap required for dismiss — roughly centers within ~55% of combined radii
+     * so near-misses near the zone edge do not dismiss.
+     */
+    private fun isCatClearlyInCloseZone(catParams: WindowManager.LayoutParams): Boolean {
+        val (cx, cy) = catCenter(catParams)
+        val (zx, zy) = closeZoneCenter() ?: return false
+        val dist = hypot((cx - zx).toDouble(), (cy - zy).toDouble()).toFloat()
+        val zoneR = closeZoneIdleSizePx() / 2f * (if (closeZoneHighlighted) closeZoneActiveScale() else 1f)
+        val combinedR = catParams.width / 2f + zoneR
+        return dist <= combinedR * 0.55f
+    }
+
+    /** Slightly looser than dismiss — used to highlight / soft-magnet while dragging. */
+    private fun isCatNearCloseZone(catParams: WindowManager.LayoutParams): Boolean {
+        val (cx, cy) = catCenter(catParams)
+        val (zx, zy) = closeZoneCenter() ?: return false
+        val dist = hypot((cx - zx).toDouble(), (cy - zy).toDouble()).toFloat()
+        val zoneR = closeZoneIdleSizePx() / 2f
+        val combinedR = catParams.width / 2f + zoneR
+        return dist <= combinedR * 0.85f
+    }
+
+    private fun applyCloseZoneMagnet(catParams: WindowManager.LayoutParams) {
+        if (!isCatNearCloseZone(catParams)) return
+        val (zx, zy) = closeZoneCenter() ?: return
+        val (cx, cy) = catCenter(catParams)
+        // Pull ~35% of the way toward zone center each move frame
+        val targetX = (cx + (zx - cx) * 0.35f - catParams.width / 2f).toInt()
+        val targetY = (cy + (zy - cy) * 0.35f - catParams.height / 2f).toInt()
+        catParams.x = targetX
+        catParams.y = targetY
+    }
+
+    private fun updateCloseZoneHighlight(catParams: WindowManager.LayoutParams) {
+        val zone = closeZoneView ?: return
+        val near = isCatNearCloseZone(catParams)
+        val cat = containerView
+        if (cat != null) {
+            cat.pivotX = (cat.width.takeIf { it > 0 } ?: catParams.width).toFloat() / 2f
+            cat.pivotY = (cat.height.takeIf { it > 0 } ?: catParams.height).toFloat() / 2f
+            if (near) {
+                // WhatsApp-style "about to delete" shrink
+                if (cat.scaleX > 0.75f) {
+                    cat.animate().cancel()
+                    cat.animate()
+                        .scaleX(0.7f)
+                        .scaleY(0.7f)
+                        .setDuration(160L)
+                        .setInterpolator(closeZoneInterpolator())
+                        .start()
+                }
+            } else if (closeZoneHighlighted && cat.scaleX < 0.95f) {
+                cat.animate().cancel()
+                cat.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(160L)
+                    .setInterpolator(closeZoneInterpolator())
+                    .start()
+            }
+        }
+        if (near == closeZoneHighlighted) return
+        closeZoneHighlighted = near
+
+        val disk = zone.findViewWithTag<View>("close_zone_disk")
+        val glow = zone.findViewWithTag<View>("close_zone_glow")
+        val diskBg = disk?.background as? GradientDrawable
+        val glowBg = glow?.background as? GradientDrawable
+        zone.animate().cancel()
+        if (near) {
+            diskBg?.setColor(0xE6E53935.toInt()) // #E53935 ~90%
+            glowBg?.setStroke(dp(5), 0x99FF8A80.toInt())
+            glow?.animate()?.alpha(1f)?.setDuration(160L)?.setInterpolator(closeZoneInterpolator())?.start()
+            zone.animate()
+                .scaleX(closeZoneActiveScale())
+                .scaleY(closeZoneActiveScale())
+                .setDuration(180L)
+                .setInterpolator(closeZoneInterpolator())
+                .start()
+            zone.elevation = dp(14).toFloat()
+            disk?.elevation = dp(10).toFloat()
+        } else {
+            diskBg?.setColor(0xCC1E1E28.toInt())
+            glow?.animate()?.alpha(0f)?.setDuration(160L)?.setInterpolator(closeZoneInterpolator())?.start()
+            zone.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(180L)
+                .setInterpolator(closeZoneInterpolator())
+                .start()
+            zone.elevation = dp(8).toFloat()
+            disk?.elevation = dp(6).toFloat()
+        }
+    }
+
     fun setTouchable(touchable: Boolean) {
         val params = layoutParams ?: return
         val view = catView ?: return
@@ -1540,6 +1863,7 @@ class OverlayService : Service() {
         catTouchListener?.cleanup()
         catTouchListener = null
         hideDragHandle()
+        hideCloseZone()
         replyPanel?.destroy()
         replyPanel = null
         hideVolumeControls()

@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class AiProviderActivity : Activity() {
 
@@ -36,12 +38,14 @@ class AiProviderActivity : Activity() {
     )
 
     companion object {
-        private const val ACCENT = 0xFF4A90D9.toInt()
-        private const val CARD = 0xFF1a1a1a.toInt()
-        private const val CARD_SELECTED = 0xFF0D1B2A.toInt()
-        private const val STROKE = 0xFF333333.toInt()
-        private const val MUTED = 0xFF888888.toInt()
-        private const val GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+        private const val ACCENT = 0xFFB39DDB.toInt()
+        private const val CARD = 0xFF25252C.toInt()
+        private const val CARD_SELECTED = 0xFF2E2A3A.toInt()
+        private const val STROKE = 0xFF6B6578.toInt()
+        private const val MUTED = 0xFFA39BB0.toInt()
+        const val GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+        const val GROQ_MODEL = "llama-3.1-8b-instant"
+        private const val PREFS_NAME = "ai_providers"
 
         val PROVIDER_OPTIONS = listOf(
             ProviderInfo(
@@ -54,7 +58,7 @@ class AiProviderActivity : Activity() {
                 keyLinkText = "→ Get free Groq key at console.groq.com",
                 keyLinkUrl = "https://console.groq.com",
                 endpoint = GROQ_ENDPOINT,
-                model = "llama-3.1-8b-instant"
+                model = GROQ_MODEL
             ),
             ProviderInfo(
                 key = "claude",
@@ -95,6 +99,150 @@ class AiProviderActivity : Activity() {
         )
 
         val PRESETS = PROVIDER_OPTIONS.associate { it.key to Triple(it.endpoint, it.model, it.keyLinkText) }
+
+        fun loadProviderList(context: android.content.Context): MutableList<AiProvider> {
+            val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val json = prefs.getString("providers", null) ?: return mutableListOf()
+            return try {
+                val arr = org.json.JSONArray(json)
+                (0 until arr.length()).map { i ->
+                    val obj = arr.getJSONObject(i)
+                    AiProvider(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        endpoint = obj.getString("endpoint"),
+                        model = obj.getString("model"),
+                        apiKey = obj.getString("apiKey"),
+                        isActive = obj.getBoolean("isActive")
+                    )
+                }.toMutableList()
+            } catch (_: Exception) {
+                mutableListOf()
+            }
+        }
+
+        /** Persist providers and sync the active one into SettingsManager / key stores. */
+        fun saveProviderList(context: android.content.Context, providers: List<AiProvider>) {
+            val arr = org.json.JSONArray()
+            providers.forEach { p ->
+                arr.put(org.json.JSONObject().apply {
+                    put("id", p.id)
+                    put("name", p.name)
+                    put("endpoint", p.endpoint)
+                    put("model", p.model)
+                    put("apiKey", p.apiKey)
+                    put("isActive", p.isActive)
+                })
+            }
+            context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString("providers", arr.toString())
+                .putString("active_id", providers.find { it.isActive }?.id ?: "")
+                .apply()
+
+            val active = providers.find { it.isActive }
+            if (active != null) {
+                val endpoint = resolveEndpoint(active)
+                val model = resolveModel(active)
+                if (endpoint.isNotEmpty() && !endpoint.startsWith("https://")) {
+                    Logger.e("Invalid endpoint URL for ${active.name}: $endpoint")
+                    return
+                }
+                Logger.d("Saving active provider: ${active.name} endpoint: $endpoint model: $model")
+                SettingsManager.setActiveAiProvider(context, endpoint, model, active.apiKey)
+                if (active.name.lowercase().contains("groq") || active.id == "groq_default") {
+                    ApiKeyStore.setGroqApiKey(context, active.apiKey)
+                }
+            } else {
+                SettingsManager.setActiveAiProvider(context, "", "", "")
+            }
+        }
+
+        fun saveGroqApiKey(context: android.content.Context, key: String) {
+            ApiKeyStore.setGroqApiKey(context, key)
+            val providers = loadProviderList(context)
+            var found = false
+            for (i in providers.indices) {
+                val p = providers[i]
+                if (p.id == "groq_default" || p.name.lowercase().contains("groq")) {
+                    providers[i] = p.copy(
+                        apiKey = key,
+                        endpoint = GROQ_ENDPOINT,
+                        model = GROQ_MODEL,
+                        isActive = true
+                    )
+                    found = true
+                } else {
+                    providers[i] = p.copy(isActive = false)
+                }
+            }
+            if (!found) {
+                providers.add(
+                    AiProvider(
+                        id = "groq_default",
+                        name = "Groq",
+                        endpoint = GROQ_ENDPOINT,
+                        model = GROQ_MODEL,
+                        apiKey = key,
+                        isActive = true
+                    )
+                )
+            }
+            saveProviderList(context, providers)
+        }
+
+        /**
+         * Saves a named custom/third-party provider from onboarding.
+         * Endpoint/model are inferred from the name when possible (same rules as the AI settings UI).
+         */
+        fun saveCustomNamedProvider(context: android.content.Context, name: String, apiKey: String) {
+            val trimmed = name.trim().ifBlank { "Custom" }
+            val endpoint = when {
+                trimmed.lowercase().contains("claude") -> "https://api.anthropic.com/v1/messages"
+                trimmed.lowercase().contains("openai") || trimmed.lowercase().contains("gpt") ->
+                    "https://api.openai.com/v1/chat/completions"
+                trimmed.lowercase().contains("groq") -> GROQ_ENDPOINT
+                else -> GROQ_ENDPOINT // OpenAI-compatible default
+            }
+            val model = when {
+                trimmed.lowercase().contains("claude") -> "claude-haiku-4-5"
+                trimmed.lowercase().contains("openai") || trimmed.lowercase().contains("gpt") -> "gpt-4o-mini"
+                trimmed.lowercase().contains("groq") -> GROQ_MODEL
+                else -> "gpt-4o-mini"
+            }
+            val providers = loadProviderList(context).map { it.copy(isActive = false) }.toMutableList()
+            providers.add(
+                AiProvider(
+                    id = "custom_${System.currentTimeMillis()}",
+                    name = trimmed,
+                    endpoint = endpoint,
+                    model = model,
+                    apiKey = apiKey,
+                    isActive = true
+                )
+            )
+            saveProviderList(context, providers)
+        }
+
+        private fun resolveEndpoint(active: AiProvider): String {
+            if (active.endpoint.isNotEmpty()) return active.endpoint
+            return when {
+                active.name.lowercase().contains("groq") -> GROQ_ENDPOINT
+                active.name.lowercase().contains("claude") -> "https://api.anthropic.com/v1/messages"
+                active.name.lowercase().contains("openai") -> "https://api.openai.com/v1/chat/completions"
+                else -> GROQ_ENDPOINT
+            }
+        }
+
+        private fun resolveModel(active: AiProvider): String {
+            if (active.model.isNotEmpty()) return active.model
+            return when {
+                active.name.lowercase().contains("groq") -> GROQ_MODEL
+                active.name.lowercase().contains("claude") -> "claude-haiku-4-5"
+                active.name.lowercase().contains("openai") -> "gpt-4o-mini"
+                else -> GROQ_MODEL
+            }
+        }
     }
 
     private lateinit var providerListLayout: LinearLayout
@@ -108,7 +256,7 @@ class AiProviderActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF0a0a0a.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
             setPadding(0, 0, 0, 0)
         }
 
@@ -116,7 +264,7 @@ class AiProviderActivity : Activity() {
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(0xFF1a1a1a.toInt())
+            setBackgroundColor(0xFF25252C.toInt())
             setPadding(32, 56, 32, 24)
         }
         TextView(this).apply {
@@ -130,7 +278,7 @@ class AiProviderActivity : Activity() {
             text = "  AI Reply Settings"
             textSize = 18f
             setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@AiProviderActivity)
             toolbar.addView(this)
         }
         root.addView(toolbar)
@@ -140,7 +288,7 @@ class AiProviderActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(32, 20, 32, 20)
-            setBackgroundColor(0xFF111111.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
         }
         val activeLabel = TextView(this).apply {
             val active = providers.find { it.isActive }
@@ -148,7 +296,7 @@ class AiProviderActivity : Activity() {
             else "No AI provider set up yet"
             textSize = 14f
             setTextColor(ACCENT)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@AiProviderActivity)
         }
         activeLayout.addView(activeLabel)
         root.addView(activeLayout)
@@ -165,7 +313,7 @@ class AiProviderActivity : Activity() {
             text = "My AI Providers"
             textSize = 13f
             setTextColor(MUTED)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@AiProviderActivity)
             setPadding(8, 16, 8, 12)
             scrollContent.addView(this)
         }
@@ -185,7 +333,7 @@ class AiProviderActivity : Activity() {
                 text = "+ Add AI Provider"
                 textSize = 15f
                 setTextColor(ACCENT)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = UiKit.headingTypeface(this@AiProviderActivity)
                 addView(this)
             }
             scrollContent.addView(this)
@@ -197,6 +345,12 @@ class AiProviderActivity : Activity() {
         ))
 
         setContentView(root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(0, bars.top, 0, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
         renderProviderList()
     }
 
@@ -207,7 +361,7 @@ class AiProviderActivity : Activity() {
             TextView(this).apply {
                 text = "No providers yet.\nTap + Add AI Provider to get started."
                 textSize = 14f
-                setTextColor(0xFF666666.toInt())
+                setTextColor(0xFFA39BB0.toInt())
                 gravity = Gravity.CENTER
                 setPadding(32, 48, 32, 48)
                 providerListLayout.addView(this)
@@ -240,7 +394,7 @@ class AiProviderActivity : Activity() {
                 text = "${info.emoji}  ${provider.name}"
                 textSize = 16f
                 setTextColor(Color.WHITE)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = UiKit.headingTypeface(this@AiProviderActivity)
                 layoutParams = LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
                 )
@@ -252,7 +406,7 @@ class AiProviderActivity : Activity() {
                 textSize = 10f
                 setTextColor(if (info.badge == "Free") 0xFF4CAF50.toInt() else 0xFFFFB74D.toInt())
                 background = GradientDrawable().apply {
-                    setColor(0xFF222222.toInt())
+                    setColor(0xFF2E2A3A.toInt())
                     cornerRadius = 32f
                 }
                 setPadding(12, 4, 12, 4)
@@ -339,7 +493,7 @@ class AiProviderActivity : Activity() {
             TextView(this).apply {
                 text = maskedKey
                 textSize = 12f
-                setTextColor(0xFF555555.toInt())
+                setTextColor(0xFFA39BB0.toInt())
                 typeface = Typeface.MONOSPACE
                 setPadding(0, 8, 0, 0)
                 card.addView(this)
@@ -367,7 +521,7 @@ class AiProviderActivity : Activity() {
             text = if (existingProvider != null) "Edit AI Provider" else "Add AI Provider"
             textSize = 18f
             setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@AiProviderActivity)
             setPadding(0, 0, 0, dp(16))
             content.addView(this)
         }
@@ -382,17 +536,20 @@ class AiProviderActivity : Activity() {
 
         val hintText = TextView(this).apply {
             textSize = 13f
-            setTextColor(0xFFAAAAAA.toInt())
+            setTextColor(0xFFE8E4EF.toInt())
             setPadding(0, dp(16), 0, dp(8))
         }
 
         val nameInput = EditText(this).apply {
-            setHintTextColor(0xFF555555.toInt())
+            setHintTextColor(0xFFA39BB0.toInt())
             setTextColor(Color.WHITE)
             textSize = 15f
             setPadding(0, dp(8), 0, dp(8))
             background = null
             setText(existingProvider?.name ?: PROVIDER_OPTIONS.first { it.key == initialKey }.title)
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
+            }
         }
 
         val keyLinkText = TextView(this).apply {
@@ -407,21 +564,27 @@ class AiProviderActivity : Activity() {
         }
         val customEndpointInput = EditText(this).apply {
             hint = "https://..."
-            setHintTextColor(0xFF555555.toInt())
+            setHintTextColor(0xFFA39BB0.toInt())
             setTextColor(Color.WHITE)
             textSize = 14f
             setPadding(0, dp(8), 0, dp(8))
             background = null
             setText(existingProvider?.endpoint ?: "")
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
+            }
         }
         val customModelInput = EditText(this).apply {
             hint = "Your model name"
-            setHintTextColor(0xFF555555.toInt())
+            setHintTextColor(0xFFA39BB0.toInt())
             setTextColor(Color.WHITE)
             textSize = 14f
             setPadding(0, dp(8), 0, dp(8))
             background = null
             setText(existingProvider?.model ?: "")
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
+            }
         }
 
         val cardViews = mutableMapOf<String, LinearLayout>()
@@ -487,7 +650,7 @@ class AiProviderActivity : Activity() {
         var keyVisible = false
         val keyInput = EditText(this).apply {
             hint = "Paste your key here"
-            setHintTextColor(0xFF555555.toInt())
+            setHintTextColor(0xFFA39BB0.toInt())
             setTextColor(Color.WHITE)
             textSize = 14f
             setPadding(0, dp(8), 0, dp(8))
@@ -496,6 +659,9 @@ class AiProviderActivity : Activity() {
                 android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             setText(existingProvider?.apiKey ?: "")
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
+            }
         }
         val eyeBtn = TextView(this).apply {
             text = "👁"
@@ -659,7 +825,7 @@ class AiProviderActivity : Activity() {
                 text = info.title
                 textSize = 14f
                 setTextColor(Color.WHITE)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = UiKit.headingTypeface(this@AiProviderActivity)
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, 0)
                 addView(this)
@@ -680,7 +846,7 @@ class AiProviderActivity : Activity() {
     }
 
     private fun selectorCardBackground(selected: Boolean) = GradientDrawable().apply {
-        setColor(if (selected) CARD_SELECTED else 0xFF2a2a2a.toInt())
+        setColor(if (selected) CARD_SELECTED else 0xFF2E2A3A.toInt())
         cornerRadius = dp(12).toFloat()
         setStroke(if (selected) 2 else 1, if (selected) ACCENT else STROKE)
     }
@@ -704,6 +870,22 @@ class AiProviderActivity : Activity() {
 
     private fun providerEmoji(provider: AiProvider): String = providerInfoFor(provider).emoji
 
+    private fun scrollFieldIntoView(scroll: ScrollView, field: View) {
+        field.post {
+            val rect = android.graphics.Rect(0, 0, field.width, field.height + dp(48))
+            field.requestRectangleOnScreen(rect, true)
+        }
+        scroll.post {
+            val loc = IntArray(2)
+            field.getLocationOnScreen(loc)
+            val scrollLoc = IntArray(2)
+            scroll.getLocationOnScreen(scrollLoc)
+            val relativeTop = loc[1] - scrollLoc[1]
+            val target = (scroll.scrollY + relativeTop - dp(24)).coerceAtLeast(0)
+            scroll.smoothScrollTo(0, target)
+        }
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun setActiveProvider(providerId: String) {
@@ -716,28 +898,10 @@ class AiProviderActivity : Activity() {
     }
 
     private fun loadProviders() {
-        val prefs = getSharedPreferences("ai_providers", MODE_PRIVATE)
-        val json = prefs.getString("providers", null)
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         activeProviderId = prefs.getString("active_id", "") ?: ""
-
-        if (json != null) {
-            try {
-                val arr = org.json.JSONArray(json)
-                providers = (0 until arr.length()).map { i ->
-                    val obj = arr.getJSONObject(i)
-                    AiProvider(
-                        id = obj.getString("id"),
-                        name = obj.getString("name"),
-                        endpoint = obj.getString("endpoint"),
-                        model = obj.getString("model"),
-                        apiKey = obj.getString("apiKey"),
-                        isActive = obj.getBoolean("isActive")
-                    )
-                }.toMutableList()
-            } catch (e: Exception) {
-                providers = mutableListOf()
-            }
-        } else {
+        providers = loadProviderList(this)
+        if (providers.isEmpty()) {
             migrateExistingKeys()
         }
     }
@@ -774,72 +938,18 @@ class AiProviderActivity : Activity() {
     }
 
     private fun saveProviders() {
-        val arr = org.json.JSONArray()
-        providers.forEach { p ->
-            arr.put(org.json.JSONObject().apply {
-                put("id", p.id)
-                put("name", p.name)
-                put("endpoint", p.endpoint)
-                put("model", p.model)
-                put("apiKey", p.apiKey)
-                put("isActive", p.isActive)
-            })
-        }
-        getSharedPreferences("ai_providers", MODE_PRIVATE)
-            .edit()
-            .putString("providers", arr.toString())
-            .putString("active_id", providers.find { it.isActive }?.id ?: "")
-            .apply()
-
-        val active = providers.find { it.isActive }
-        if (active != null) {
-            val endpoint = if (active.endpoint.isEmpty()) {
-                when {
-                    active.name.lowercase().contains("groq") -> GROQ_ENDPOINT
-                    active.name.lowercase().contains("claude") ->
-                        "https://api.anthropic.com/v1/messages"
-                    active.name.lowercase().contains("openai") ->
-                        "https://api.openai.com/v1/chat/completions"
-                    else -> GROQ_ENDPOINT
-                }
-            } else active.endpoint
-
-            if (endpoint.isNotEmpty() && !endpoint.startsWith("https://")) {
-                Toast.makeText(this, "Invalid endpoint URL - must start with https://", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            val model = if (active.model.isEmpty()) {
-                when {
-                    active.name.lowercase().contains("groq") -> "llama-3.1-8b-instant"
-                    active.name.lowercase().contains("claude") -> "claude-haiku-4-5"
-                    active.name.lowercase().contains("openai") -> "gpt-4o-mini"
-                    else -> "llama-3.1-8b-instant"
-                }
-            } else active.model
-
-            Logger.d("Saving active provider: ${active.name} endpoint: $endpoint model: $model")
-
-            SettingsManager.setActiveAiProvider(
-                this,
-                endpoint,
-                model,
-                active.apiKey
-            )
-        } else {
-            SettingsManager.setActiveAiProvider(this, "", "", "")
-        }
+        saveProviderList(this, providers)
     }
 
     private fun divider() = android.view.View(this).apply {
-        setBackgroundColor(0xFF222222.toInt())
+        setBackgroundColor(0xFF2E2A3A.toInt())
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1
         )
     }
 
     private fun thinDivider() = android.view.View(this).apply {
-        setBackgroundColor(0xFF333333.toInt())
+        setBackgroundColor(0xFF3A3548.toInt())
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1
         ).apply { setMargins(0, 4, 0, 4) }

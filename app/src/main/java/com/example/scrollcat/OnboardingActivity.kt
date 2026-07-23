@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -13,10 +14,13 @@ import android.provider.Settings
 import android.content.res.ColorStateList
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.CompoundButton
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
@@ -40,14 +44,27 @@ class OnboardingActivity : Activity() {
 
     companion object {
         private const val PREFS = "scrollcat_prefs"
-        private const val ACCENT = 0xFFD97706.toInt()
-        private const val BG = 0xFFFFF8F0.toInt()
-        private const val CARD = 0xFFFFFFFF.toInt()
-        private const val STROKE = 0x558C7A68
-        private const val TEXT = 0xFF241A12.toInt()
-        private const val MUTED = 0xFF6F5F50.toInt()
-        private const val INPUT_BG = 0xFFFFFFFF.toInt()
-        private const val HINT_COLOR = 0xFF8C7A68.toInt()
+        private const val ACCENT = 0xFFB39DDB.toInt()
+        private const val BG = 0xFF1A1A1E.toInt()
+        private const val CARD = 0xFF25252C.toInt()
+        private const val STROKE = 0x556B6578
+        private const val TEXT = 0xFFF5F3F7.toInt()
+        private const val MUTED = 0xFFA39BB0.toInt()
+        private const val INPUT_BG = 0xFF2E2A3A.toInt()
+        private const val HINT_COLOR = 0xFFA39BB0.toInt()
+        private const val ACCENT_SOFT = 0xFF4A3F6B.toInt()
+        private const val ONBOARDING_STEPS = 4
+        /** Meet ScrollCat — idle/curious. */
+        private const val HERO_WELCOME = 84
+        /** Summon the Cat — alert/excited. */
+        private const val HERO_SUMMON = 63
+        /** Notification access — happy/content. */
+        private const val HERO_PERMISSIONS = 105
+        /** Connect AI — neutral/waiting. */
+        private const val HERO_CONNECT_AI = 69
+        /** Final "A couple more things" — same as welcome. */
+        private const val HERO_FINAL = 84
+        private const val HERO_SIZE_DP = 148
 
         private const val CREATOR_RATE_CARD =
             "Hey! Thanks for reaching out 💕 For collabs and pricing, send me your brief and I'll share my rate card within 24h!"
@@ -87,9 +104,36 @@ class OnboardingActivity : Activity() {
     private var userType = "personal"
     private var editMode = false
     private var currentScreen = 1
-    private var demoReplyCompleted = false
     private val demoHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private lateinit var container: ScrollView
+
+    private fun hasOverlayPermission(): Boolean = Settings.canDrawOverlays(this)
+
+    private fun hasNotificationAccess(): Boolean = CatNotificationListener.instance != null
+
+    /** Both permissions already granted — skip demo/grant screen straight to Connect AI. */
+    private fun shouldSkipDemoGrantScreen(): Boolean =
+        hasOverlayPermission() && hasNotificationAccess()
+
+    private fun isDemoCompleted(): Boolean =
+        SettingsManager.isOnboardingDemoCompleted(this)
+
+    /** Pick the right onboarding step after recreate, resume, or permission changes. */
+    private fun resumeOnboardingFlow() {
+        if (shouldSkipDemoGrantScreen()) {
+            showScreen3()
+            return
+        }
+        val step = loadOnboardingStep()
+        currentScreen = step
+        when (step) {
+            1 -> if (isDemoCompleted()) showScreen2() else showScreen1()
+            2 -> showScreen2()
+            3 -> showScreen3()
+            4 -> showScreen4()
+            else -> showScreen1()
+        }
+    }
 
     private fun prefs(): SharedPreferences =
         getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -105,10 +149,20 @@ class OnboardingActivity : Activity() {
         prefs().edit().putBoolean(key, value).apply()
     }
 
+    private fun saveOnboardingStep(step: Int) {
+        prefs().edit().putInt("onboarding_step", step).apply()
+    }
+
+    private fun loadOnboardingStep(): Int =
+        prefs().getInt("onboarding_step", 1).coerceIn(1, ONBOARDING_STEPS)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         editMode = intent.getBooleanExtra("edit_mode", false)
-        container = ScrollView(this).apply { setBackgroundColor(BG) }
+        container = ScrollView(this).apply {
+            setBackgroundColor(BG)
+            isFillViewport = true
+        }
         setContentView(container)
 
         if (editMode) {
@@ -120,62 +174,208 @@ class OnboardingActivity : Activity() {
             }
             return
         }
-        showScreen1()
+        resumeOnboardingFlow()
     }
 
     override fun onResume() {
         super.onResume()
         if (editMode) return
-        when (currentScreen) {
-            1 -> showScreen1()
-            3 -> showScreen3()
-        }
+        resumeOnboardingFlow()
     }
 
-    private fun screenRoot(): LinearLayout {
+    /**
+     * Builds a full-height onboarding scaffold: progress dots on top, then a
+     * vertically centered content column so short screens don't leave a large void.
+     * Pass [centerVertically] = false for keyboard-heavy screens (e.g. Connect AI)
+     * so the ScrollView can scroll the focused field above the soft keyboard.
+     */
+    private fun screenRoot(step: Int = -1, centerVertically: Boolean = true): LinearLayout {
+        val outer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(BG)
+            setPadding(dp(24), dp(48), dp(24), dp(24))
+        }
+        container.removeAllViews()
+        container.addView(
+            outer,
+            android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                if (centerVertically) {
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                } else {
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                }
+            )
+        )
+        ViewCompat.setOnApplyWindowInsetsListener(outer) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(
+                dp(24),
+                bars.top + dp(16),
+                dp(24),
+                dp(24) + maxOf(bars.bottom, ime.bottom)
+            )
+            insets
+        }
+
+        if (step in 1..ONBOARDING_STEPS) {
+            outer.addView(progressDots(step))
+        }
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        if (centerVertically) {
+            val topSpacer = View(this)
+            outer.addView(
+                topSpacer,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            )
+            outer.addView(
+                content,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+            val bottomSpacer = View(this)
+            outer.addView(
+                bottomSpacer,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            )
+        } else {
+            outer.addView(
+                content,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        outer.tag = content
+        return content
+    }
+
+    /** Legacy edit-mode screens still use a simple non-centered root. */
+    private fun editScreenRoot(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 120, 48, 48)
+            setPadding(dp(24), dp(48), dp(24), dp(24))
             setBackgroundColor(BG)
         }
         container.removeAllViews()
         container.addView(root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(48, bars.top + 72, 48, 48 + bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(
+                dp(24),
+                bars.top + dp(24),
+                dp(24),
+                dp(24) + maxOf(bars.bottom, ime.bottom)
+            )
             insets
         }
         return root
+    }
+
+    private fun progressDots(currentStep: Int): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(20))
+            for (i in 1..ONBOARDING_STEPS) {
+                val active = i == currentStep
+                val size = if (active) dp(10) else dp(8)
+                addView(View(this@OnboardingActivity).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        if (active) {
+                            setColor(ACCENT)
+                        } else {
+                            setColor(Color.TRANSPARENT)
+                            setStroke(dp(1), 0x886B6578.toInt())
+                        }
+                    }
+                }, LinearLayout.LayoutParams(size, size).apply {
+                    marginStart = dp(5)
+                    marginEnd = dp(5)
+                })
+            }
+        }
     }
 
     private fun progressLabel(step: Int, total: Int) = TextView(this).apply {
         text = "Step $step of $total"
         textSize = 13f
         setTextColor(ACCENT)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = UiKit.headingTypeface(this@OnboardingActivity)
         setPadding(0, 0, 0, 16)
+    }
+
+    private fun heroIllustration(frameIndex: Int, sizeDp: Int = HERO_SIZE_DP): ImageView {
+        val size = dp(sizeDp)
+        return ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            contentDescription = "ScrollCat"
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(20)
+                topMargin = dp(4)
+            }
+            try {
+                assets.open("sprites/%04d.webp".format(frameIndex)).use { stream ->
+                    setImageBitmap(BitmapFactory.decodeStream(stream))
+                }
+            } catch (_: Exception) {
+                // Fallback: keep empty rather than showing a stray cropped deco
+            }
+        }
+    }
+
+    private fun dismissFloatingCat() {
+        demoHandler.removeCallbacksAndMessages(null)
+        try {
+            startService(
+                Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_DISMISS)
+            )
+        } catch (_: Exception) { }
     }
 
     private fun title(text: String) = TextView(this).apply {
         this.text = text
         textSize = 24f
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = UiKit.headingTypeface(this@OnboardingActivity)
         setTextColor(TEXT)
-        setPadding(0, 0, 0, 16)
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(0, 0, 0, dp(12))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
     }
 
     private fun subtitle(text: String) = TextView(this).apply {
         this.text = text
         textSize = 16f
         setTextColor(MUTED)
-        setPadding(0, 0, 0, 32)
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(0, 0, 0, dp(20))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
     }
 
     private fun fieldLabel(text: String) = TextView(this).apply {
         this.text = text
         textSize = 14f
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(0xFFCCCCCC.toInt())
+        setTextColor(MUTED)
         setPadding(0, 24, 0, 8)
     }
 
@@ -205,6 +405,9 @@ class OnboardingActivity : Activity() {
         }
         val pad = dp(24)
         setPadding(pad, pad, pad, pad)
+        setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) scrollFieldIntoView(v)
+        }
     }
 
     private fun outlinedEditText(label: String, placeholder: String, lines: Int = 1, value: String = ""): Pair<TextInputLayout, EditText> {
@@ -219,12 +422,24 @@ class OnboardingActivity : Activity() {
                 setSingleLine(false)
             } else {
                 setSingleLine(true)
+                maxLines = 1
+                minHeight = 0
             }
             background = null
-            setPadding(0, 0, 0, 0)
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(v)
+            }
         }
         val layout = TextInputLayout(
-            ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox)
+            ContextThemeWrapper(
+                this,
+                if (lines > 1) {
+                    com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox
+                } else {
+                    com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox_Dense
+                }
+            )
         ).apply {
             hint = label
             placeholderText = placeholder
@@ -233,9 +448,79 @@ class OnboardingActivity : Activity() {
             setBoxStrokeColorStateList(ColorStateList.valueOf(ACCENT))
             defaultHintTextColor = ColorStateList.valueOf(MUTED)
             setHintTextColor(ColorStateList.valueOf(MUTED))
-            addView(input)
+            addView(
+                input,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        layout.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        return layout to input
+    }
+
+    /** Compact single-line outlined field used on the Connect AI screen. */
+    private fun compactKeyField(hint: String): Pair<TextInputLayout, TextInputEditText> {
+        val input = TextInputEditText(this).apply {
+            this.hint = hint
+            setHintTextColor(HINT_COLOR)
+            setTextColor(TEXT)
+            textSize = 14f
+            setSingleLine(true)
+            maxLines = 1
+            minHeight = 0
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            background = null
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(v)
+            }
+        }
+        val layout = TextInputLayout(
+            ContextThemeWrapper(
+                this,
+                com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox_Dense
+            )
+        ).apply {
+            this.hint = hint
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+            setBoxBackgroundColor(CARD)
+            setBoxStrokeColorStateList(ColorStateList.valueOf(ACCENT))
+            defaultHintTextColor = ColorStateList.valueOf(MUTED)
+            setHintTextColor(ColorStateList.valueOf(MUTED))
+            addView(
+                input,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         }
         return layout to input
+    }
+
+    private fun scrollFieldIntoView(field: View) {
+        field.post {
+            val rect = android.graphics.Rect(0, 0, field.width, field.height + dp(48))
+            field.requestRectangleOnScreen(rect, true)
+        }
+        if (::container.isInitialized) {
+            container.post {
+                val loc = IntArray(2)
+                field.getLocationOnScreen(loc)
+                val containerLoc = IntArray(2)
+                container.getLocationOnScreen(containerLoc)
+                val relativeTop = loc[1] - containerLoc[1]
+                val target = (container.scrollY + relativeTop - dp(24)).coerceAtLeast(0)
+                container.smoothScrollTo(0, target)
+            }
+        }
     }
 
     private fun addOutlinedField(root: LinearLayout, label: String, placeholder: String, lines: Int = 1, value: String = ""): EditText {
@@ -254,6 +539,9 @@ class OnboardingActivity : Activity() {
             threshold = 0
             background = null
             setOnClickListener { showDropDown() }
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(v)
+            }
         }
         val layout = TextInputLayout(
             ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox)
@@ -283,7 +571,7 @@ class OnboardingActivity : Activity() {
             isChecked = checked
             chipBackgroundColor = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(0xFFFFE0B2.toInt(), CARD)
+                intArrayOf(ACCENT_SOFT, CARD)
             )
             chipStrokeColor = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
@@ -317,12 +605,41 @@ class OnboardingActivity : Activity() {
         textSize = 14f
         isAllCaps = false
         setTextColor(TEXT)
-        backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFE0B2.toInt())
+        backgroundTintList = android.content.res.ColorStateList.valueOf(ACCENT_SOFT)
         cornerRadius = dp(24)
         minHeight = dp(52)
         insetTop = 0
         insetBottom = 0
         setPadding(24, 20, 24, 20)
+        setOnClickListener { onClick() }
+    }
+
+    /** Light outlined helper for setup steps — visually below primary Connect. */
+    private fun outlinedHelperButton(label: String, onClick: () -> Unit) = MaterialButton(
+        ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_Button_OutlinedButton)
+    ).apply {
+        text = label
+        textSize = 13f
+        isAllCaps = false
+        setTextColor(ACCENT)
+        strokeColor = ColorStateList.valueOf(ACCENT)
+        strokeWidth = dp(1)
+        backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+        cornerRadius = dp(20)
+        minHeight = dp(40)
+        insetTop = 0
+        insetBottom = 0
+        setPadding(dp(16), dp(10), dp(16), dp(10))
+        setOnClickListener { onClick() }
+    }
+
+    private fun accentTextLink(label: String, onClick: () -> Unit) = TextView(this).apply {
+        text = label
+        textSize = 13f
+        setTextColor(ACCENT)
+        paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+        gravity = Gravity.CENTER
+        setPadding(0, dp(12), 0, dp(4))
         setOnClickListener { onClick() }
     }
 
@@ -339,7 +656,8 @@ class OnboardingActivity : Activity() {
         root: LinearLayout,
         onBack: (() -> Unit)?,
         onNext: () -> Unit,
-        onSkip: () -> Unit
+        onSkip: (() -> Unit)? = null,
+        nextLabel: String = "Next"
     ) {
         if (onBack != null) {
             val row = LinearLayout(this).apply {
@@ -349,7 +667,7 @@ class OnboardingActivity : Activity() {
             row.addView(secondaryButton("Back", onBack), LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             ).apply { marginEnd = 8 })
-            row.addView(primaryButton("Next", onNext), LinearLayout.LayoutParams(
+            row.addView(primaryButton(nextLabel, onNext), LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             ).apply { marginStart = 8 })
             root.addView(row, LinearLayout.LayoutParams(
@@ -357,12 +675,14 @@ class OnboardingActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, 32, 0, 0) })
         } else {
-            root.addView(primaryButton("Next", onNext), LinearLayout.LayoutParams(
+            root.addView(primaryButton(nextLabel, onNext), LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, 32, 0, 0) })
         }
-        root.addView(skipLink(onSkip))
+        if (onSkip != null) {
+            root.addView(skipLink(onSkip))
+        }
     }
 
     private class StyleSelections {
@@ -404,7 +724,7 @@ class OnboardingActivity : Activity() {
                 text = label
                 textSize = 16f
                 setTextColor(TEXT)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = UiKit.headingTypeface(this@OnboardingActivity)
             })
             content.addView(TextView(this).apply {
                 text = desc
@@ -441,7 +761,7 @@ class OnboardingActivity : Activity() {
                 cornerRadius = dp(24)
                 strokeWidth = dp(1)
                 strokeColor = android.content.res.ColorStateList.valueOf(if (key == selectedKey) ACCENT else STROKE)
-                backgroundTintList = android.content.res.ColorStateList.valueOf(if (key == selectedKey) 0xFFFFE0B2.toInt() else CARD)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(if (key == selectedKey) ACCENT_SOFT else CARD)
                 setTextColor(if (key == selectedKey) TEXT else MUTED)
                 setPadding(24, 18, 24, 18)
                 setOnClickListener {
@@ -449,7 +769,7 @@ class OnboardingActivity : Activity() {
                     chips.forEachIndexed { i, c ->
                         val k = options[i].second
                         c.setTextColor(if (k == key) TEXT else MUTED)
-                        c.backgroundTintList = android.content.res.ColorStateList.valueOf(if (k == key) 0xFFFFE0B2.toInt() else CARD)
+                        c.backgroundTintList = android.content.res.ColorStateList.valueOf(if (k == key) ACCENT_SOFT else CARD)
                         c.strokeColor = android.content.res.ColorStateList.valueOf(if (k == key) ACCENT else STROKE)
                     }
                 }
@@ -470,29 +790,109 @@ class OnboardingActivity : Activity() {
             isSingleSelection = true
             isSelectionRequired = true
         }
-        val langViews = mutableListOf<Chip>()
+        val predefined = LANGUAGE_OPTIONS.filter { it != "Other" }
+        val isCustomSaved = selections.primaryLanguage !in predefined
+        var selectedChip = if (isCustomSaved) "Other" else selections.primaryLanguage
         var summary: TextView? = null
+
         fun summaryText(): String {
-            return if (selections.matchLanguage) {
+            val base = if (selections.matchLanguage) {
                 "AI will reply in the message's language"
             } else {
                 "AI will reply in ${selections.primaryLanguage}"
             }
+            return "$base. It may occasionally make mistakes."
         }
-        LANGUAGE_OPTIONS.forEach { lang ->
-            val chip = filterChip(lang, lang == selections.primaryLanguage) { checked ->
-                if (checked) {
-                    selections.primaryLanguage = lang
+
+        val (customLangLayout, customLangInput) = outlinedEditText(
+            label = "Enter language name",
+            placeholder = "e.g. German, Japanese",
+            value = if (isCustomSaved) selections.primaryLanguage else ""
+        )
+        customLangLayout.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        customLangInput.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+        customLangInput.setSingleLine(true)
+
+        fun confirmCustomLanguage() {
+            val typed = customLangInput.text?.toString()?.trim().orEmpty()
+            if (typed.isBlank()) {
+                Toast.makeText(this, "Enter a language name", Toast.LENGTH_SHORT).show()
+                return
+            }
+            selections.primaryLanguage = typed
+            SettingsManager.setPrimaryLanguage(this, typed)
+            summary?.text = summaryText()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(customLangInput.windowToken, 0)
+            Toast.makeText(this, "Language set to $typed", Toast.LENGTH_SHORT).show()
+        }
+
+        customLangInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                confirmCustomLanguage()
+                true
+            } else {
+                false
+            }
+        }
+        customLangInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (selectedChip == "Other") {
+                    selections.primaryLanguage = s?.toString()?.trim().orEmpty().ifBlank { "Other" }
                     summary?.text = summaryText()
                 }
             }
-            langViews.add(chip)
+        })
+
+        val addLangBtn = MaterialButton(this).apply {
+            text = "Add"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(TEXT)
+            backgroundTintList = ColorStateList.valueOf(ACCENT_SOFT)
+            cornerRadius = dp(20)
+            minHeight = dp(48)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(8) }
+            setOnClickListener { confirmCustomLanguage() }
+        }
+
+        val customLangRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = if (selectedChip == "Other") View.VISIBLE else View.GONE
+        }
+        customLangRow.addView(customLangLayout)
+        customLangRow.addView(addLangBtn)
+
+        LANGUAGE_OPTIONS.forEach { lang ->
+            val chip = filterChip(lang, lang == selectedChip) { checked ->
+                if (!checked) return@filterChip
+                selectedChip = lang
+                if (lang == "Other") {
+                    customLangRow.visibility = View.VISIBLE
+                    selections.primaryLanguage =
+                        customLangInput.text?.toString()?.trim().orEmpty().ifBlank { "Other" }
+                } else {
+                    customLangRow.visibility = View.GONE
+                    selections.primaryLanguage = lang
+                }
+                summary?.text = summaryText()
+            }
             langGroup.addView(chip, ChipGroup.LayoutParams(
                 ChipGroup.LayoutParams.WRAP_CONTENT,
                 ChipGroup.LayoutParams.WRAP_CONTENT
             ))
         }
         root.addView(langGroup, fieldMarginParams())
+        root.addView(customLangRow, fieldMarginParams())
 
         val toggleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -526,8 +926,8 @@ class OnboardingActivity : Activity() {
         savePrefString("writing_style", selections.writingStyle)
         savePrefString("emoji_usage", selections.emojiUsage)
         savePrefString("reply_length", selections.replyLength)
-        savePrefString("primary_language", selections.primaryLanguage)
-        savePrefBool("match_language", selections.matchLanguage)
+        SettingsManager.setPrimaryLanguage(this, selections.primaryLanguage)
+        SettingsManager.setMatchLanguageEnabled(this, selections.matchLanguage)
     }
 
     private fun loadStyleSelections(): StyleSelections {
@@ -535,8 +935,8 @@ class OnboardingActivity : Activity() {
             writingStyle = getPrefString("writing_style", "casual")
             emojiUsage = getPrefString("emoji_usage", "sometimes")
             replyLength = getPrefString("reply_length", "short")
-            primaryLanguage = getPrefString("primary_language", "English")
-            matchLanguage = prefs().getBoolean("match_language", true)
+            primaryLanguage = SettingsManager.getPrimaryLanguage(this@OnboardingActivity)
+            matchLanguage = SettingsManager.isMatchLanguageEnabled(this@OnboardingActivity)
         }
     }
 
@@ -561,20 +961,69 @@ class OnboardingActivity : Activity() {
         finish()
     }
 
-    private fun permissionRow(label: String, granted: Boolean, onClick: () -> Unit): MaterialCardView {
+
+    private fun tipCard(text: String): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = dp(14).toFloat()
+            cardElevation = 0f
+            strokeWidth = dp(1)
+            strokeColor = STROKE
+            setCardBackgroundColor(CARD)
+        }
+        card.addView(TextView(this).apply {
+            this.text = text
+            textSize = 15f
+            setTextColor(TEXT)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        })
+        card.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, dp(12)) }
+        return card
+    }
+
+    private fun permissionRow(
+        emoji: String,
+        label: String,
+        granted: Boolean,
+        onClick: () -> Unit
+    ): MaterialCardView {
         val card = MaterialCardView(this).apply {
             radius = dp(16).toFloat()
             cardElevation = dp(2).toFloat()
             strokeWidth = dp(1)
             strokeColor = if (granted) ACCENT else STROKE
-            setCardBackgroundColor(if (granted) 0xFFFFE0B2.toInt() else CARD)
+            setCardBackgroundColor(if (granted) ACCENT_SOFT else CARD)
             setOnClickListener { if (!granted) onClick() }
         }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(28, 28, 28, 28)
+            setPadding(dp(16), dp(16), dp(18), dp(16))
         }
+
+        val iconSize = dp(48)
+        val iconWrap = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                marginEnd = dp(14)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x55B39DDB)
+            }
+        }
+        iconWrap.addView(TextView(this).apply {
+            text = emoji
+            textSize = 22f
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        })
+        row.addView(iconWrap)
+
         row.addView(TextView(this).apply {
             text = label
             textSize = 15f
@@ -595,26 +1044,23 @@ class OnboardingActivity : Activity() {
 
     private fun showScreen1() {
         currentScreen = 1
-        val root = screenRoot()
-        root.addView(TextView(this).apply {
-            text = "🐱"
-            textSize = 72f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 24)
-        })
-        root.addView(title("Meet ScrollCat 🐱"))
+        saveOnboardingStep(1)
+        dismissFloatingCat()
+        val root = screenRoot(1)
+        root.addView(heroIllustration(HERO_WELCOME))
+        root.addView(title("Meet ScrollCat"))
         root.addView(subtitle(
             "Your floating cat companion. It scrolls for you, watches your " +
                 "notifications, and helps you reply to DMs without leaving what you're doing."
         ))
 
         val overlayOk = Settings.canDrawOverlays(this)
-        root.addView(permissionRow("🪟 Display over other apps", overlayOk) {
+        root.addView(permissionRow("🪟", "Display over other apps", overlayOk) {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 10, 0, 24) })
+        ).apply { setMargins(0, dp(4), 0, dp(20)) })
 
         val next = primaryButton("Next") { showScreen2() }
         next.isEnabled = overlayOk
@@ -626,16 +1072,29 @@ class OnboardingActivity : Activity() {
                 textSize = 13f
                 setTextColor(MUTED)
                 gravity = Gravity.CENTER
-                setPadding(0, 16, 0, 0)
+                setPadding(0, dp(16), 0, 0)
             })
         }
     }
 
-    // ── Screen 2: Summon + Demo ──
+    // ── Screen 2: Summon + Demo + Notification Access ──
 
     private fun showScreen2() {
         currentScreen = 2
-        val root = screenRoot()
+        saveOnboardingStep(2)
+        // Permissions already granted — skip demo/grant UI entirely.
+        if (shouldSkipDemoGrantScreen()) {
+            showScreen3()
+            return
+        }
+
+        val demoDone = isDemoCompleted()
+        // After a completed demo the floating overlay cat peeks over the UI — dismiss it
+        // so only the deliberate hero illustration remains. Summon brings it back.
+        if (demoDone) dismissFloatingCat()
+
+        val root = screenRoot(2)
+        root.addView(heroIllustration(HERO_SUMMON))
         root.addView(title("Summon the Cat"))
         root.addView(subtitle(
             "Summon your AI cat companion — we'll send a test message right after so you can see how it works."
@@ -643,24 +1102,44 @@ class OnboardingActivity : Activity() {
 
         root.addView(primaryButton("Summon the Cat 🐱") {
             summonCatThenStartDemo()
-        })
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, dp(4), 0, 0) })
 
-        if (demoReplyCompleted) {
+        if (demoDone) {
             root.addView(TextView(this).apply {
                 text = "Want to try the demo again? Tap Summon the Cat again."
                 textSize = 13f
                 setTextColor(MUTED)
                 gravity = Gravity.CENTER
-                setPadding(0, 28, 0, 8)
+                setPadding(0, dp(28), 0, dp(16))
             })
-            root.addView(primaryButton("Next") { showScreen3() })
+            root.addView(title("Loved that? Grant access for real Smart Replies"))
+            root.addView(subtitle(
+                "Notification access lets the cat spot DMs and suggest replies. " +
+                    "You can enable Accessibility later in Settings if you want scroll gestures."
+            ))
+            root.addView(primaryButton("Grant Access") {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, dp(4), 0, 0) })
+            root.addView(TextView(this).apply {
+                text = "Return here after granting — we'll continue automatically."
+                textSize = 13f
+                setTextColor(MUTED)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(16), 0, 0)
+            })
         } else {
             root.addView(TextView(this).apply {
                 text = "After the badge appears, tap the cat to try a reply"
                 textSize = 13f
                 setTextColor(MUTED)
                 gravity = Gravity.CENTER
-                setPadding(0, 28, 0, 0)
+                setPadding(0, dp(28), 0, 0)
             })
         }
     }
@@ -685,8 +1164,10 @@ class OnboardingActivity : Activity() {
                 onDemoPanelShown = null,
                 onDemoReplySent = {
                     runOnUiThread {
-                        demoReplyCompleted = true
-                        if (currentScreen == 2) showScreen2()
+                        // Flag is persisted in ReplyPanel; refresh UI if still on this step.
+                        if (currentScreen == 2 || !isFinishing) {
+                            showScreen2()
+                        }
                     }
                 }
             )
@@ -698,117 +1179,118 @@ class OnboardingActivity : Activity() {
         }, 3000L)
     }
 
-    // ── Screen 3: Real permissions ──
+    // ── Screen 3: Connect AI ──
 
     private fun showScreen3() {
         currentScreen = 3
-        val root = screenRoot()
-        root.addView(title("Loved that? Let's make it work on your real messages."))
-        root.addView(subtitle(
-            "Accessibility lets the cat scroll. Notification access lets it spot DMs and suggest replies."
-        ))
-
-        val a11yOk = CatAccessibilityService.instance != null
-        val notifOk = CatNotificationListener.instance != null
-
-        root.addView(permissionRow("♿ Accessibility (gestures)", a11yOk) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 10, 0, 10) })
-
-        root.addView(permissionRow("🔔 Notification access (DMs)", notifOk) {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 10, 0, 10) })
-
-        val both = a11yOk && notifOk
-        val next = primaryButton("Next") { showScreen4() }
-        next.isEnabled = both
-        next.alpha = if (both) 1f else 0.45f
-        root.addView(next, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 32, 0, 0) })
-        if (!both) {
-            root.addView(TextView(this).apply {
-                text = "Grant both permissions to continue (then return here)"
-                textSize = 13f
-                setTextColor(MUTED)
-                gravity = Gravity.CENTER
-                setPadding(0, 16, 0, 0)
-            })
-        }
-    }
-
-    // ── Screen 4: Connect Groq ──
-
-    private fun showScreen4() {
-        currentScreen = 4
-        val root = screenRoot()
+        saveOnboardingStep(3)
+        dismissFloatingCat()
+        // Top-aligned + scrollable so the soft keyboard doesn't cover input fields
+        val root = screenRoot(3, centerVertically = false)
+        root.addView(heroIllustration(HERO_CONNECT_AI, sizeDp = 100))
         root.addView(title("Connect AI for Smart Replies"))
         root.addView(subtitle(
-            "We need an API key for instant AI replies. Already have one? Paste it below. " +
-                "Don't have one? Get a free key from Groq — no credit card needed."
+            "Get a free API key from Groq to unlock instant AI replies."
         ))
 
-        root.addView(secondaryButton("Step 1: Sign in to Groq") {
+        var useGroq = true
+
+        val groqHelperSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        groqHelperSection.addView(outlinedHelperButton("Step 1: Sign in to Groq") {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com")))
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 8, 0, 8) })
-
-        root.addView(secondaryButton("Step 2: Create your API key") {
+        ).apply { setMargins(0, 0, 0, dp(8)) })
+        groqHelperSection.addView(outlinedHelperButton("Step 2: Create your API key") {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys")))
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 8, 0, 8) })
-
-        root.addView(TextView(this).apply {
+        ).apply { setMargins(0, 0, 0, dp(8)) })
+        groqHelperSection.addView(TextView(this).apply {
             text = "Click Generate Key, then paste it below."
             textSize = 14f
             setTextColor(MUTED)
-            setPadding(0, 8, 0, 16)
+            setPadding(0, dp(4), 0, dp(8))
         })
+        root.addView(groqHelperSection)
 
-        val keyInput = TextInputEditText(this).apply {
-            hint = "Paste your API key here"
-            setHintTextColor(HINT_COLOR)
-            setTextColor(TEXT)
-            textSize = 15f
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            background = null
-            setPadding(0, 0, 0, 0)
+        val customFieldsSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
         }
-        val keyLayout = TextInputLayout(
-            ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox)
-        ).apply {
-            hint = "Paste your API key here"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
-            setBoxBackgroundColor(CARD)
-            setBoxStrokeColorStateList(ColorStateList.valueOf(ACCENT))
-            defaultHintTextColor = ColorStateList.valueOf(MUTED)
-            setHintTextColor(ColorStateList.valueOf(MUTED))
-            addView(keyInput)
+        val (nameLayout, nameInput) = outlinedEditText(
+            "Provider name",
+            "e.g. OpenAI, Claude, My custom endpoint"
+        )
+        nameInput.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) scrollFieldIntoView(v)
         }
+        customFieldsSection.addView(nameLayout, fieldMarginParams())
+        root.addView(customFieldsSection)
+
+        val (keyLayout, keyInput) = compactKeyField("Paste your API key here")
         root.addView(keyLayout, fieldMarginParams())
 
+        val providerToggleLink = accentTextLink(
+            "Already have an API key from another provider?"
+        ) { }
+
+        fun showGroqFlow() {
+            useGroq = true
+            groqHelperSection.visibility = View.VISIBLE
+            customFieldsSection.visibility = View.GONE
+            providerToggleLink.text = "Already have an API key from another provider?"
+        }
+
+        fun showCustomFlow() {
+            useGroq = false
+            groqHelperSection.visibility = View.GONE
+            customFieldsSection.visibility = View.VISIBLE
+            providerToggleLink.text = "Use Groq instead"
+            scrollFieldIntoView(nameInput)
+        }
+
+        providerToggleLink.setOnClickListener {
+            if (useGroq) showCustomFlow() else showGroqFlow()
+        }
+        root.addView(providerToggleLink)
+
         root.addView(primaryButton("Connect") {
-            val key = keyInput.text?.toString()?.trim().orEmpty()
-            if (key.isEmpty()) {
-                Toast.makeText(this, "Paste your Groq API key first", Toast.LENGTH_SHORT).show()
-                return@primaryButton
+            if (useGroq) {
+                val key = keyInput.text?.toString()?.trim().orEmpty()
+                if (key.isEmpty()) {
+                    Toast.makeText(this, "Paste your Groq API key first", Toast.LENGTH_SHORT).show()
+                    return@primaryButton
+                }
+                AiProviderActivity.saveGroqApiKey(this, key)
+                Toast.makeText(this, "Groq connected!", Toast.LENGTH_SHORT).show()
+            } else {
+                val name = nameInput.text?.toString()?.trim().orEmpty()
+                val key = keyInput.text?.toString()?.trim().orEmpty()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Enter a provider name", Toast.LENGTH_SHORT).show()
+                    return@primaryButton
+                }
+                if (key.isEmpty()) {
+                    Toast.makeText(this, "Paste your API key first", Toast.LENGTH_SHORT).show()
+                    return@primaryButton
+                }
+                AiProviderActivity.saveCustomNamedProvider(this, name, key)
+                Toast.makeText(this, "Provider connected!", Toast.LENGTH_SHORT).show()
             }
-            saveGroqKey(key)
-            Toast.makeText(this, "Groq connected!", Toast.LENGTH_SHORT).show()
-            showScreen5()
+            showScreen4()
+        })
+
+        root.addView(TextView(this).apply {
+            text = "We recommend not skipping — you'll miss Smart Replies, our best feature."
+            textSize = 13f
+            setTextColor(ACCENT)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(16), 0, dp(4))
         })
 
         root.addView(MaterialButton(this).apply {
@@ -817,81 +1299,39 @@ class OnboardingActivity : Activity() {
             isAllCaps = false
             setTextColor(MUTED)
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            setOnClickListener { showScreen5() }
+            setOnClickListener { showScreen4() }
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 8, 0, 0) })
+        ).apply { setMargins(0, dp(4), 0, 0) })
     }
 
-    private fun saveGroqKey(key: String) {
-        ApiKeyStore.setGroqApiKey(this, key)
-        SettingsManager.setActiveAiProvider(
-            this,
-            "https://api.groq.com/openai/v1/chat/completions",
-            "llama-3.1-8b-instant",
-            key
-        )
-        // Keep providers list in sync with AiProviderActivity
-        try {
-            val prefs = getSharedPreferences("ai_providers", MODE_PRIVATE)
-            val arr = org.json.JSONArray(prefs.getString("providers", "[]") ?: "[]")
-            var found = false
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                if (obj.optString("id") == "groq_default" ||
-                    obj.optString("name").lowercase().contains("groq")
-                ) {
-                    obj.put("apiKey", key)
-                    obj.put("isActive", true)
-                    obj.put("endpoint", "https://api.groq.com/openai/v1/chat/completions")
-                    obj.put("model", "llama-3.1-8b-instant")
-                    found = true
-                } else {
-                    obj.put("isActive", false)
-                }
-            }
-            if (!found) {
-                arr.put(org.json.JSONObject().apply {
-                    put("id", "groq_default")
-                    put("name", "Groq")
-                    put("endpoint", "https://api.groq.com/openai/v1/chat/completions")
-                    put("model", "llama-3.1-8b-instant")
-                    put("apiKey", key)
-                    put("isActive", true)
-                })
-            }
-            prefs.edit()
-                .putString("providers", arr.toString())
-                .putString("active_id", "groq_default")
-                .apply()
-        } catch (_: Exception) { }
-    }
+    // ── Screen 4: Done (+ quick feature notes) ──
 
-    // ── Screen 5: Done ──
-
-    private fun showScreen5() {
-        currentScreen = 5
+    private fun showScreen4() {
+        currentScreen = 4
+        saveOnboardingStep(4)
+        dismissFloatingCat()
         ReplyStore.clearDemo()
         OverlayService.instance?.clearOnboardingDemoCallback()
-        val root = screenRoot()
+        val root = screenRoot(4)
+        root.addView(heroIllustration(HERO_FINAL))
+        root.addView(title("A couple more things"))
+        root.addView(tipCard("Auto-Reply Rules: instantly reply to specific keywords, no AI needed."))
+        root.addView(tipCard("Smart Notifications: flag messages from specific people or keywords so they're always shown first."))
         root.addView(TextView(this).apply {
-            text = "🎉"
-            textSize = 72f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 24)
+            text = "Both can be set up anytime later in Settings / Smart Notifications — not required now."
+            textSize = 13f
+            setTextColor(MUTED)
+            setPadding(0, 0, 0, 32)
         })
-        root.addView(title("You're all set!"))
-        root.addView(subtitle(
-            "Find Auto-Reply Rules, Smart Notifications, and My AI Settings anytime from the dashboard. " +
-                "You can personalize how AI sounds like you under My AI Settings."
-        ))
         root.addView(primaryButton("Get Started") {
             SettingsManager.setOnboardingComplete(this, true)
+            prefs().edit().remove("onboarding_step").apply()
             if (Settings.canDrawOverlays(this)) {
                 startForegroundService(
-            Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_SUMMON)
-        )
+                    Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_SUMMON)
+                )
             }
             startActivity(Intent(this, MainActivity::class.java))
             finish()
@@ -902,7 +1342,7 @@ class OnboardingActivity : Activity() {
 
     private fun showScreen3Creator() {
         currentScreen = 3
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.addView(progressLabel(1, 4))
         root.addView(title("Set up your creator profile"))
         root.addView(subtitle("Used so AI replies sound like you."))
@@ -937,13 +1377,13 @@ class OnboardingActivity : Activity() {
                 SettingsManager.setRateCardMessage(this, rateInput.text.toString().trim())
                 showScreen3BCreatorWritingStyle()
             },
-            onSkip = { showScreen3BCreatorWritingStyle() }
+            onSkip = if (editMode) null else ({ showScreen3BCreatorWritingStyle() })
         )
     }
 
     private fun showScreen3BCreatorWritingStyle() {
         currentScreen = 31
-        val root = screenRoot()
+        val root = editScreenRoot()
         val selections = loadStyleSelections()
         root.addView(progressLabel(2, 4))
         root.addView(title("How do you write?"))
@@ -955,13 +1395,13 @@ class OnboardingActivity : Activity() {
                 saveStyleSelections(selections)
                 showScreen3CCreatorContent()
             },
-            onSkip = { showScreen3CCreatorContent() }
+            onSkip = if (editMode) null else ({ showScreen3CCreatorContent() })
         )
     }
 
     private fun showScreen3CCreatorContent() {
         currentScreen = 32
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.addView(progressLabel(3, 4))
         root.addView(title("Tell AI about your content"))
         root.addView(subtitle("The more it knows, the better it replies"))
@@ -1017,16 +1457,16 @@ class OnboardingActivity : Activity() {
                 savePrefString("platforms", allPlatforms.joinToString(", "))
                 showScreen3DCreatorLanguage()
             },
-            onSkip = {
+            onSkip = if (editMode) null else ({
                 savePrefString("custom_platform", customPlatformInput.text.toString().trim())
                 showScreen3DCreatorLanguage()
-            }
+            })
         )
     }
 
     private fun showScreen3DCreatorLanguage() {
         currentScreen = 33
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.gravity = Gravity.CENTER_VERTICAL
         root.minimumHeight = (resources.displayMetrics.heightPixels - dp(160)).coerceAtLeast(0)
         val selections = loadStyleSelections()
@@ -1039,7 +1479,8 @@ class OnboardingActivity : Activity() {
                 saveStyleSelections(selections)
                 finishEditOrPermissions()
             },
-            onSkip = { finishEditOrPermissions() }
+            onSkip = if (editMode) null else ({ finishEditOrPermissions() }),
+            nextLabel = if (editMode) "Save" else "Next"
         )
     }
 
@@ -1047,7 +1488,7 @@ class OnboardingActivity : Activity() {
 
     private fun showScreen3Business() {
         currentScreen = 3
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.addView(progressLabel(1, 4))
         root.addView(title("Set up your business profile"))
         root.addView(subtitle("Used so AI replies represent your business well."))
@@ -1076,13 +1517,13 @@ class OnboardingActivity : Activity() {
                 SettingsManager.setRateCardMessage(this, replyInput.text.toString().trim())
                 showScreen3BBusinessDetails()
             },
-            onSkip = { showScreen3BBusinessDetails() }
+            onSkip = if (editMode) null else ({ showScreen3BBusinessDetails() })
         )
     }
 
     private fun showScreen3BBusinessDetails() {
         currentScreen = 31
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.addView(progressLabel(2, 4))
         root.addView(title("Tell us about your business"))
 
@@ -1106,13 +1547,13 @@ class OnboardingActivity : Activity() {
                 savePrefString("response_promise", promiseInput.text.toString().trim())
                 showScreen3BBusinessServices()
             },
-            onSkip = { showScreen3BBusinessServices() }
+            onSkip = if (editMode) null else ({ showScreen3BBusinessServices() })
         )
     }
 
     private fun showScreen3BBusinessServices() {
         currentScreen = 32
-        val root = screenRoot()
+        val root = editScreenRoot()
         root.addView(progressLabel(3, 4))
         root.addView(title("What do you offer?"))
 
@@ -1145,13 +1586,13 @@ class OnboardingActivity : Activity() {
                 savePrefString("never_say", neverSayInput.text.toString().trim())
                 showScreen3DBusinessCommunication()
             },
-            onSkip = { showScreen3DBusinessCommunication() }
+            onSkip = if (editMode) null else ({ showScreen3DBusinessCommunication() })
         )
     }
 
     private fun showScreen3DBusinessCommunication() {
         currentScreen = 33
-        val root = screenRoot()
+        val root = editScreenRoot()
         val selections = loadStyleSelections()
         root.addView(progressLabel(4, 4))
         root.addView(title("Communication Style"))
@@ -1163,7 +1604,8 @@ class OnboardingActivity : Activity() {
                 saveStyleSelections(selections)
                 finishEditOrPermissions()
             },
-            onSkip = { finishEditOrPermissions() }
+            onSkip = if (editMode) null else ({ finishEditOrPermissions() }),
+            nextLabel = if (editMode) "Save" else "Next"
         )
     }
 
@@ -1171,9 +1613,8 @@ class OnboardingActivity : Activity() {
 
     private fun showScreen3BPersonalStyle() {
         currentScreen = 31
-        val root = screenRoot()
+        val root = editScreenRoot()
         val selections = loadStyleSelections()
-        root.addView(progressLabel(1, 1))
         root.addView(title("Your Style"))
         root.addView(subtitle("Help AI match how you naturally reply"))
         addStyleEmojiLengthLanguage(root, selections, includeLanguage = true)
@@ -1183,7 +1624,8 @@ class OnboardingActivity : Activity() {
                 saveStyleSelections(selections)
                 finishEditOrPermissions()
             },
-            onSkip = { finishEditOrPermissions() }
+            onSkip = if (editMode) null else ({ finishEditOrPermissions() }),
+            nextLabel = if (editMode) "Save" else "Next"
         )
     }
 

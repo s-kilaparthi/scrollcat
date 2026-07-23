@@ -31,11 +31,12 @@ class AiSettingsActivity : Activity() {
         setContentView(scrollView)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             v.setPadding(
                 UiKit.dp(this, 24),
                 bars.top + UiKit.dp(this, 16),
                 UiKit.dp(this, 24),
-                UiKit.dp(this, 24) + bars.bottom
+                UiKit.dp(this, 24) + maxOf(bars.bottom, ime.bottom)
             )
             insets
         }

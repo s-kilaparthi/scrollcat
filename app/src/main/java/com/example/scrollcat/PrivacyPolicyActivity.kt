@@ -18,7 +18,7 @@ class PrivacyPolicyActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 56, 32, 32)
-            setBackgroundColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0xFF1A1A1E.toInt())
         }
 
         val toolbar = LinearLayout(this).apply {
@@ -29,19 +29,21 @@ class PrivacyPolicyActivity : Activity() {
         toolbar.addView(TextView(this).apply {
             text = "←"
             textSize = 22f
+            setTextColor(0xFFF5F3F7.toInt())
             setOnClickListener { finish() }
         })
         toolbar.addView(TextView(this).apply {
             text = "  Privacy Policy"
             textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = UiKit.headingTypeface(this@PrivacyPolicyActivity)
+            setTextColor(0xFFF5F3F7.toInt())
         })
         root.addView(toolbar)
 
         root.addView(TextView(this).apply {
             text = POLICY_TEXT
             textSize = 14f
-            setTextColor(0xFF333344.toInt())
+            setTextColor(0xFFE8E4EF.toInt())
             setLineSpacing(6f, 1f)
         })
 

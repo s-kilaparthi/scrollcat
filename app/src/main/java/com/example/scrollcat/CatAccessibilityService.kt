@@ -83,6 +83,7 @@ class CatAccessibilityService : AccessibilityService() {
                     handler.postDelayed({
                         isGestureInProgress = false
                         OverlayService.instance?.setTouchable(true)
+
                     }, 50)
                 }
             }, null)

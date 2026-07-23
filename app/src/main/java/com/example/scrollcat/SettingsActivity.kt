@@ -1,10 +1,14 @@
 package com.example.scrollcat
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.ScrollView
@@ -18,6 +22,15 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 
 class SettingsActivity : Activity() {
 
+    private var accessibilityBadge: TextView? = null
+    private var setupOverlayBadge: TextView? = null
+    private var setupAccessibilityBadge: TextView? = null
+    private var setupNotificationBadge: TextView? = null
+    private var gestureHint: TextView? = null
+    private var gestureOptionsContainer: LinearLayout? = null
+    private var gesturesExpandedManually = false
+    private val gestureSwitchRows = mutableListOf<Pair<View, SwitchMaterial>>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -27,6 +40,7 @@ class SettingsActivity : Activity() {
         addReplyTextSize(root)
         addMusicAndGestures(root)
         addAppReactions(root)
+        addSetupSteps(root)
         addPrivacyLink(root)
 
         val scrollView = ScrollView(this).apply {
@@ -44,6 +58,14 @@ class SettingsActivity : Activity() {
             )
             insets
         }
+        refreshGestureAccessibilityState()
+        refreshSetupPermissionBadges()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshGestureAccessibilityState()
+        refreshSetupPermissionBadges()
     }
 
     private fun addToolbar(root: LinearLayout) {
@@ -217,26 +239,161 @@ class SettingsActivity : Activity() {
     }
 
     private fun addMusicAndGestures(root: LinearLayout) {
-        UiKit.section(root, "Music Dance", null) {
-            addSwitchRow("Cat dances when music is playing", SettingsManager.isMusicDanceEnabled(this@SettingsActivity)) { checked ->
-                SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
-                if (!checked) OverlayService.instance?.onMusicStopped()
-            }
-        }
+        UiKit.section(root) {
+            addView(UiKit.sectionTitle(this@SettingsActivity, "Gestures").apply {
+                setOnClickListener { toggleGesturesExpanded() }
+            })
+            addView(UiKit.body(
+                this@SettingsActivity,
+                "Music dance and cat gestures. Gestures need Accessibility.",
+                muted = true
+            ))
 
-        UiKit.section(root, "Gestures", "Choose which cat gestures are enabled.") {
-            listOf(
-                "tap_scroll" to "Single tap → scroll",
-                "push_scroll" to "Push up/down → scroll",
-                "swipe_back" to "Swipe right → back button",
-                "swipe_voice" to "Swipe left → voice assistant",
-                "double_tap_mode" to "Double tap → toggle Feed/Reels"
-            ).forEach { (key, label) ->
-                addSwitchRow(label, SettingsManager.getGestureEnabled(this@SettingsActivity, key)) { checked ->
-                    SettingsManager.setGestureEnabled(this@SettingsActivity, key, checked)
+            val a11yFrame = FrameLayout(this@SettingsActivity)
+            val a11yButton = UiKit.tonalButton(
+                this@SettingsActivity,
+                "Enable Accessibility Service for Gestures"
+            ) {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }.apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                setPadding(
+                    UiKit.dp(this@SettingsActivity, 18),
+                    paddingTop,
+                    UiKit.dp(this@SettingsActivity, 112),
+                    paddingBottom
+                )
+            }
+            a11yFrame.addView(
+                a11yButton,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+            val badge = TextView(this@SettingsActivity).apply {
+                text = "Enabled"
+                textSize = 12f
+                setTextColor(0xFFFFFFFF.toInt())
+                gravity = Gravity.CENTER
+                setPadding(
+                    UiKit.dp(this@SettingsActivity, 10),
+                    UiKit.dp(this@SettingsActivity, 4),
+                    UiKit.dp(this@SettingsActivity, 10),
+                    UiKit.dp(this@SettingsActivity, 4)
+                )
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFF15803D.toInt())
+                    cornerRadius = UiKit.dp(this@SettingsActivity, 16).toFloat()
+                }
+                visibility = View.GONE
+            }
+            a11yFrame.addView(
+                badge,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.END or Gravity.CENTER_VERTICAL
+                ).apply { marginEnd = UiKit.dp(this@SettingsActivity, 14) }
+            )
+            a11yFrame.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, UiKit.dp(this@SettingsActivity, 8))
+            }
+            accessibilityBadge = badge
+            addView(a11yFrame)
+
+            gestureHint = TextView(this@SettingsActivity).apply {
+                text = "Enable Accessibility above to use gestures"
+                textSize = 13f
+                setTextColor(UiKit.mutedColor(this@SettingsActivity))
+                setPadding(0, 0, 0, UiKit.dp(this@SettingsActivity, 8))
+                visibility = View.GONE
+            }
+
+            val optionsContainer = LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+            gestureOptionsContainer = optionsContainer
+
+            optionsContainer.apply {
+                addView(gestureHint)
+                addSwitchRow(
+                    "Cat dances when music is playing",
+                    SettingsManager.isMusicDanceEnabled(this@SettingsActivity)
+                ) { checked ->
+                    SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
+                    if (!checked) OverlayService.instance?.onMusicStopped()
+                }
+
+                listOf(
+                    "tap_scroll" to "Single tap → scroll",
+                    "push_scroll" to "Push up/down → scroll",
+                    "swipe_back" to "Swipe right → back button",
+                    "swipe_voice" to "Swipe left → Recent apps",
+                    "double_tap_mode" to "Double tap → toggle Feed/Reels"
+                ).forEach { (key, label) ->
+                    val (row, sw) = addGestureSwitchRow(
+                        label,
+                        SettingsManager.getGestureEnabled(this@SettingsActivity, key)
+                    ) { checked ->
+                        SettingsManager.setGestureEnabled(this@SettingsActivity, key, checked)
+                    }
+                    gestureSwitchRows.add(row to sw)
                 }
             }
+            addView(optionsContainer)
         }
+    }
+
+    private fun toggleGesturesExpanded() {
+        if (CatAccessibilityService.instance != null) return
+        gesturesExpandedManually = !gesturesExpandedManually
+        updateGestureOptionsVisibility()
+    }
+
+    private fun updateGestureOptionsVisibility() {
+        val a11yOk = CatAccessibilityService.instance != null
+        val showOptions = a11yOk || gesturesExpandedManually
+        gestureOptionsContainer?.visibility = if (showOptions) View.VISIBLE else View.GONE
+        accessibilityBadge?.visibility = if (a11yOk) View.VISIBLE else View.GONE
+        gestureHint?.visibility = if (showOptions && !a11yOk) View.VISIBLE else View.GONE
+        gestureSwitchRows.forEach { (row, sw) ->
+            row.alpha = if (a11yOk) 1f else 0.45f
+            sw.isEnabled = a11yOk
+        }
+    }
+
+    private fun refreshGestureAccessibilityState() {
+        updateGestureOptionsVisibility()
+    }
+
+    private fun LinearLayout.addGestureSwitchRow(
+        label: String,
+        checked: Boolean,
+        onChecked: (Boolean) -> Unit
+    ): Pair<View, SwitchMaterial> {
+        val row = LinearLayout(this@SettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, UiKit.dp(this@SettingsActivity, 8), 0, UiKit.dp(this@SettingsActivity, 8))
+        }
+        row.addView(TextView(this@SettingsActivity).apply {
+            text = label
+            textSize = 15f
+            setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        val sw = SwitchMaterial(this@SettingsActivity).apply {
+            isChecked = checked
+            setOnCheckedChangeListener { _, value -> onChecked(value) }
+        }
+        row.addView(sw)
+        addView(row)
+        return row to sw
     }
 
     private fun LinearLayout.addSwitchRow(
@@ -331,7 +488,7 @@ class SettingsActivity : Activity() {
                 row.addView(TextView(this@SettingsActivity).apply {
                     text = category
                     textSize = 15f
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    typeface = UiKit.headingTypeface(this@SettingsActivity)
                     setTextColor(UiKit.onSurfaceColor(this@SettingsActivity))
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 })
@@ -360,6 +517,86 @@ class SettingsActivity : Activity() {
             }
             addView(optionsContainer)
         }
+    }
+
+    private fun addSetupSteps(root: LinearLayout) {
+        UiKit.section(root, "Setup Steps", "Grant permissions needed for the cat and smart replies.") {
+            val overlayButton = setupButton("Grant Overlay Permission") {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            setupOverlayBadge = overlayButton.second
+            addView(overlayButton.first)
+
+            val accessibilityButton = setupButton("Enable Accessibility Service") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            setupAccessibilityBadge = accessibilityButton.second
+            addView(accessibilityButton.first)
+
+            val notificationButton = setupButton("Enable Notification Access") {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+            setupNotificationBadge = notificationButton.second
+            addView(notificationButton.first)
+        }
+    }
+
+    private fun setupButton(label: String, onClick: () -> Unit): Pair<FrameLayout, TextView> {
+        val frame = FrameLayout(this)
+        val button = UiKit.primaryButton(this, label, onClick).apply {
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(
+                UiKit.dp(this@SettingsActivity, 18),
+                paddingTop,
+                UiKit.dp(this@SettingsActivity, 112),
+                paddingBottom
+            )
+        }
+        frame.addView(button, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ))
+        val badge = TextView(this).apply {
+            text = "Enabled"
+            textSize = 12f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setPadding(
+                UiKit.dp(this@SettingsActivity, 10),
+                UiKit.dp(this@SettingsActivity, 4),
+                UiKit.dp(this@SettingsActivity, 10),
+                UiKit.dp(this@SettingsActivity, 4)
+            )
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF15803D.toInt())
+                cornerRadius = UiKit.dp(this@SettingsActivity, 16).toFloat()
+            }
+            visibility = View.GONE
+        }
+        frame.addView(badge, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.END or Gravity.CENTER_VERTICAL
+        ).apply { marginEnd = UiKit.dp(this@SettingsActivity, 14) })
+        frame.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, UiKit.dp(this@SettingsActivity, 6), 0, UiKit.dp(this@SettingsActivity, 6)) }
+        return frame to badge
+    }
+
+    private fun refreshSetupPermissionBadges() {
+        setupOverlayBadge?.visibility =
+            if (Settings.canDrawOverlays(this)) View.VISIBLE else View.GONE
+        setupAccessibilityBadge?.visibility =
+            if (CatAccessibilityService.instance != null) View.VISIBLE else View.GONE
+        setupNotificationBadge?.visibility =
+            if (CatNotificationListener.instance != null) View.VISIBLE else View.GONE
     }
 
     private fun addPrivacyLink(root: LinearLayout) {
