@@ -2,13 +2,14 @@ package com.example.scrollcat
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieDrawable
 
 /**
  * Launcher activity: shows the cat for 2 seconds, then routes to
@@ -43,11 +44,18 @@ class SplashActivity : Activity() {
             setBackgroundColor(0xFF1A1A1E.toInt())
         }
 
-        root.addView(TextView(this).apply {
-            text = "🐱"
-            textSize = 82f
-            gravity = Gravity.CENTER
-        })
+        val size = UiKit.dp(this, 160)
+        root.addView(
+            LottieAnimationView(this).apply {
+                id = R.id.splashLottie
+                setAnimation("cat_paw_loading.lottie")
+                repeatCount = LottieDrawable.INFINITE
+                playAnimation()
+            },
+            LinearLayout.LayoutParams(size, size).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
 
         root.addView(TextView(this).apply {
             text = "ScrollCat"

@@ -41,21 +41,64 @@ class ScreenTranslator(private val context: Context) {
             }
     }
 
-    private fun translate(text: String, fromLanguage: String, onResult: (String?) -> Unit) {
-        val targetLanguage = TranslateLanguage.ENGLISH
+    /**
+     * Translate [text] from [sourceLanguageName] → [targetLanguageName]
+     * (display names like "Telugu" / "English", or BCP-47 tags).
+     * Downloads the ML Kit model if needed. Invokes [onResult] with translated
+     * text, or null on failure / unsupported pair.
+     */
+    fun translateBetween(
+        text: String,
+        sourceLanguageName: String,
+        targetLanguageName: String,
+        onResult: (String?) -> Unit
+    ) {
+        val cleanText = text.trim()
+        if (cleanText.isEmpty()) {
+            onResult(null)
+            return
+        }
+        if (sourceLanguageName.equals(targetLanguageName, ignoreCase = true)) {
+            onResult(cleanText)
+            return
+        }
+
+        val sourceTag = SettingsManager.languageNameToMlKitTag(sourceLanguageName)
+        val targetTag = SettingsManager.languageNameToMlKitTag(targetLanguageName)
+        if (sourceTag == null || targetTag == null) {
+            Log.w(TAG, "Unsupported translate pair: $sourceLanguageName → $targetLanguageName")
+            onResult(null)
+            return
+        }
+        if (sourceTag == targetTag) {
+            onResult(cleanText)
+            return
+        }
+
         val sourceLanguage = try {
-            TranslateLanguage.fromLanguageTag(fromLanguage) ?: run {
-                Log.w(TAG, "Unsupported language: $fromLanguage")
+            TranslateLanguage.fromLanguageTag(sourceTag) ?: run {
+                Log.w(TAG, "Unsupported source language tag: $sourceTag")
                 onResult(null)
                 return
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Language tag error: ${e.message}")
+            Log.e(TAG, "Source language tag error: ${e.message}")
+            onResult(null)
+            return
+        }
+        val targetLanguage = try {
+            TranslateLanguage.fromLanguageTag(targetTag) ?: run {
+                Log.w(TAG, "Unsupported target language tag: $targetTag")
+                onResult(null)
+                return
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Target language tag error: ${e.message}")
             onResult(null)
             return
         }
 
-        val cacheKey = "$fromLanguage-en"
+        val cacheKey = "$sourceTag-$targetTag"
         val translator = translatorCache.getOrPut(cacheKey) {
             val options = TranslatorOptions.Builder()
                 .setSourceLanguage(sourceLanguage)
@@ -64,12 +107,11 @@ class ScreenTranslator(private val context: Context) {
             Translation.getClient(options)
         }
 
-        // Download model if needed then translate
         translator.downloadModelIfNeeded()
             .addOnSuccessListener {
-                translator.translate(text)
+                translator.translate(cleanText)
                     .addOnSuccessListener { translatedText ->
-                        Log.d(TAG, "Translated: $translatedText")
+                        Log.d(TAG, "Translated ($sourceTag→$targetTag): $translatedText")
                         onResult(translatedText)
                     }
                     .addOnFailureListener { e ->
@@ -81,6 +123,10 @@ class ScreenTranslator(private val context: Context) {
                 Log.e(TAG, "Model download failed: ${e.message}")
                 onResult(null)
             }
+    }
+
+    private fun translate(text: String, fromLanguage: String, onResult: (String?) -> Unit) {
+        translateBetween(text, fromLanguage, "en", onResult)
     }
 
     fun close() {

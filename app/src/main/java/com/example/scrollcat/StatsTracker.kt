@@ -73,7 +73,8 @@ object StatsTracker {
         prefs(context).getInt(KEY_TOTAL, 0)
 
     fun getMinutesSavedToday(context: Context): Int {
-        val replies = getRepliesSentToday(context) + getAutoRepliesToday(context)
+        // Share Stats / "AI cat replied" — AI sends only, not keyword auto-replies.
+        val replies = getRepliesSentToday(context)
         return (replies * MINUTES_SAVED_PER_REPLY).toInt()
     }
 }

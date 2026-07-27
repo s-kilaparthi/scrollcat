@@ -231,6 +231,7 @@ class NotificationSettingsActivity : Activity() {
             "Apps",
             "Tap to select which apps the cat watches. Leave all off = watch everything."
         ) {
+            addView(financeSecurityNote())
             addView(UiKit.sectionTitle(this@NotificationSettingsActivity, "Popular Apps"))
             appChipLayout = FlexboxLayout(this@NotificationSettingsActivity).apply {
                 setPadding(0, UiKit.dp(this@NotificationSettingsActivity, 8), 0, 0)
@@ -250,6 +251,37 @@ class NotificationSettingsActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = UiKit.dp(this@NotificationSettingsActivity, 8) })
         }
+    }
+
+    private fun financeSecurityNote(): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@NotificationSettingsActivity, 14).toFloat()
+            cardElevation = 0f
+            strokeWidth = 1
+            strokeColor = 0xFFB39DDB.toInt()
+            setCardBackgroundColor(0xFF2E2A3A.toInt())
+            isClickable = false
+            isFocusable = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = UiKit.dp(this@NotificationSettingsActivity, 12)
+            }
+        }
+        card.addView(TextView(this).apply {
+            text =
+                "\uD83D\uDD12 For your security, ScrollCat never reads banking, payment, or finance app notifications — this can't be changed."
+            textSize = 13f
+            setTextColor(0xFFF5F3F7.toInt())
+            setPadding(
+                UiKit.dp(this@NotificationSettingsActivity, 16),
+                UiKit.dp(this@NotificationSettingsActivity, 14),
+                UiKit.dp(this@NotificationSettingsActivity, 16),
+                UiKit.dp(this@NotificationSettingsActivity, 14)
+            )
+        })
+        return card
     }
 
     private fun addPeopleSection(root: LinearLayout) {

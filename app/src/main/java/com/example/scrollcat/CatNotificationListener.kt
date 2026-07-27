@@ -16,6 +16,27 @@ class CatNotificationListener : NotificationListenerService() {
             "com.example.scrollcat",
             "com.example.scrollcat.debug"
         )
+        private const val GMAIL_PACKAGE = "com.google.android.gm"
+        // Hardcoded permanent block — never process banking/payment/finance apps,
+        // regardless of the user's Apps filter settings. Best-effort, not exhaustive.
+        private val EXCLUDED_FINANCE_APPS = setOf(
+            "com.chase.sig.android",
+            "com.infonow.bofa",
+            "com.wf.wellsfargomobile",
+            "com.citi.citimobile",
+            "com.usbank.mobilebanking",
+            "com.paypal.android.p2pmobile",
+            "com.venmo",
+            "com.squareup.cash",
+            "com.coinbase.android",
+            "com.binance.dev",
+            "com.capitalone.mobile",
+            "com.chime.mobile",
+            "com.robinhood.android",
+            "com.fidelity.android",
+            "com.schwab.mobile",
+            "com.zellepay.zelle"
+        )
     }
 
     private val lastNotificationTime = mutableMapOf<String, Long>()
@@ -39,6 +60,9 @@ class CatNotificationListener : NotificationListenerService() {
             "$packageName:$notificationId"
         }
     }
+
+    private fun isGmail(packageName: String): Boolean =
+        packageName.equals(GMAIL_PACKAGE, ignoreCase = true)
 
     private fun isIgnoredChat(senderName: String): Boolean {
         val normalizedSender = normalizeSenderName(senderName).lowercase()
@@ -71,6 +95,13 @@ class CatNotificationListener : NotificationListenerService() {
         if (pkg == "android") return
         if (pkg == "com.android.systemui") return
 
+        // Permanent finance/banking exclusion — runs before Apps filter so it
+        // cannot be bypassed by an empty allow-list or a mistaken include.
+        if (EXCLUDED_FINANCE_APPS.any { it.equals(pkg, ignoreCase = true) }) {
+            Log.d(TAG, "Skipping excluded finance app: $pkg")
+            return
+        }
+
         // Apps filter: empty list = watch everything; otherwise only selected packages
         val selectedApps = SettingsManager.getWatchedApps(this)
         val isAllowed = selectedApps.isEmpty() ||
@@ -78,44 +109,70 @@ class CatNotificationListener : NotificationListenerService() {
         Logger.d("App filter check for $pkg - selectedApps: $selectedApps, allowed: $isAllowed")
         if (!isAllowed) return
 
-        // Prevent duplicate processing of the same notification update
+        // Capture replyable messages first so same-notification updates (new DM text
+        // on the same sbn.key) can append to the per-sender queue. Key debounce only
+        // applies to the non-replyable badge path below.
         val now = System.currentTimeMillis()
-        val lastKeyTime = processedKeys[notificationKey] ?: 0L
-        if (now - lastKeyTime < DEBOUNCE_MS) return
-        processedKeys[notificationKey] = now
         pruneProcessedKeys(now)
 
-        // Capture replyable messages (DMs with a RemoteInput reply action)
-        // BEFORE app-level debouncing, so a second message from a different
-        // person in the same app is never lost.
         val replyable = ReplyStore.capture(sbn)
         if (replyable != null) {
+            processedKeys[notificationKey] = now
             val senderName = replyable.sender
-            if (!replyable.hasRemoteInput) {
+            // Gmail: keep for panel preview (Reply in app only) even without RemoteInput.
+            // Other apps without RemoteInput can't be replied to from the panel — drop them.
+            if (!replyable.hasRemoteInput && !isGmail(pkg)) {
                 Logger.d("Skipping non-replyable notification from $senderName via $pkg (no RemoteInput)")
-                ReplyStore.remove(replyable.notificationKey)
+                ReplyStore.removeEntry(replyable.entryId)
                 return
             }
             if (isIgnoredChat(senderName)) {
                 Log.d(TAG, "Skipping ignored chat: $senderName")
-                ReplyStore.remove(replyable.notificationKey)
+                ReplyStore.removeEntry(replyable.entryId)
                 return
             }
 
             Log.d(TAG, "Replyable message from ${replyable.sender} via $pkg")
+            // Proactive on-device warmup if engine was idle-unloaded
+            if (!OnDeviceAiEngine.isReady()) {
+                Thread {
+                    OnDeviceAiEngine.ensureInitialized(this@CatNotificationListener)
+                }.start()
+            }
             val messageText = replyable.message
             val priority = SettingsManager.matchesPersonOrKeyword(this, pkg, "$senderName $messageText")
             ReplyStore.markPriority(replyable.notificationKey, priority)
 
+            // Gmail: never auto-reply and never generate AI suggestions / burn Groq calls.
+            // Still badge so the user can open the panel and use Reply in app / Ignore.
+            if (isGmail(pkg)) {
+                Log.d(TAG, "Gmail — skipping AI reply generation and auto-reply for $senderName")
+                updateReplyableBadge(buildSenderKey(pkg, sbn.id, senderName))
+                return
+            }
+
             // Auto-reply rules: if an enabled rule's keywords match, the cat
             // answers immediately without user interaction.
-            val rule = AutoReplyManager.findMatch(this, messageText, replyable.sender)
-            if (rule != null) {
-                Log.i(TAG, "Auto-reply rule matched for ${replyable.sender}: ${rule.triggers}")
-                val sent = ReplySender.send(this, replyable, rule.reply)
+            val match = AutoReplyManager.findMatch(this, messageText, replyable.sender)
+            if (match != null) {
+                Log.i(
+                    TAG,
+                    "Auto-reply rule matched for ${replyable.sender}: ${match.matchedKeyword}"
+                )
+                val sent = ReplySender.send(
+                    this,
+                    replyable,
+                    match.rule.reply,
+                    recordAsAiReply = false
+                )
                 if (sent) {
-                    ReplyStore.remove(replyable.notificationKey)
-                    StatsTracker.recordAutoReply(this)
+                    AutoReplyManager.logTrackerEntry(
+                        context = this,
+                        packageName = pkg,
+                        sender = replyable.sender,
+                        message = match.rule.reply
+                    )
+                    ReplyStore.removeEntry(replyable.entryId)
                     OverlayService.instance?.showCatMessage("Auto-replied to ${replyable.sender} ✓")
                     return // handled — no badge needed
                 }
@@ -129,27 +186,39 @@ class CatNotificationListener : NotificationListenerService() {
             if (powerManager.isInteractive) {
                 val pending = ReplyStore.getAndClearBuffer(senderKey)
                 val combinedText = AiReplyGenerator.mergeMessageTexts(pending, messageText)
-                handleInteractiveMessage(pkg, senderName, senderKey, combinedText, now)
+                handleInteractiveMessage(
+                    packageName = pkg,
+                    senderName = senderName,
+                    senderKey = senderKey,
+                    entryId = replyable.entryId,
+                    conversationKey = replyable.conversationKey,
+                    messageText = combinedText,
+                    now = now
+                )
             } else {
                 ReplyStore.bufferMessage(senderKey, messageText)
             }
             return
         }
 
+        // Prevent duplicate processing of the same non-replyable notification update
+        val lastKeyTime = processedKeys[notificationKey] ?: 0L
+        if (now - lastKeyTime < DEBOUNCE_MS) return
+        processedKeys[notificationKey] = now
+
         // Debounce badge/filter processing per app
         val lastTime = lastNotificationTime[pkg] ?: 0L
         if (now - lastTime < DEBOUNCE_MS) return
         lastNotificationTime[pkg] = now
 
-        // Extract full notification text
+        // Extract full notification text (prefer expanded body over short EXTRA_TEXT)
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
         val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
-        val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+        val body = ReplyStore.extractMessageBody(extras)
 
-        // Combine all text for matching
-        val fullText = "$title $text $bigText".trim()
+        // Combine title + best available body for keyword / person matching
+        val fullText = "$title $body".trim()
 
         Log.d(TAG, "Full notification from $pkg: $fullText | keywords: ${SettingsManager.getWatchedKeywords(this)}")
 
@@ -163,35 +232,43 @@ class CatNotificationListener : NotificationListenerService() {
         packageName: String,
         notificationId: Int,
         senderName: String,
-        messageText: String
+        messageText: String,
+        entryId: String
     ): List<String>? {
         val senderKey = buildSenderKey(packageName, notificationId, senderName)
         replyPanelOpenedAt[senderKey] = System.currentTimeMillis()
-        return ReplyStore.getStoredReplies(senderKey)
+        return ReplyStore.getStoredReplies(entryId)
     }
 
+    /**
+     * Clears chips for one queue entry. Call **after** [ReplyStore.removeEntry] so
+     * conversation emptiness is accurate. Leaves panelSeen state intact when more
+     * messages remain for this sender.
+     */
     fun clearPregeneratedReplies(
         packageName: String,
         notificationId: Int,
         senderName: String,
-        messageText: String
+        messageText: String,
+        entryId: String,
+        conversationKey: String
     ) {
         val senderKey = buildSenderKey(packageName, notificationId, senderName)
-        ReplyStore.clearStoredReplies(senderKey)
-        clearInteractiveState(senderKey)
+        ReplyStore.clearStoredReplies(entryId)
+        if (ReplyStore.countForConversation(conversationKey) == 0) {
+            clearInteractiveState(senderKey)
+        }
     }
 
     private fun updateReplyableBadge(senderKey: String) {
-        val isNewPendingSender = pendingBadgeSenderKeys.add(senderKey)
-        if (isNewPendingSender) {
-            OverlayService.instance?.incrementBadge()
-        }
-        // Always sync an open reply panel — badge may not increment for an already-tracked
-        // senderKey, but ReplyStore still changed and other senders may need the ↓ indicator.
+        pendingBadgeSenderKeys.add(senderKey)
+        // Badge = total pending messages (not unique senders)
+        val totalMessages = ReplyStore.count()
+        OverlayService.instance?.setBadgeCount(totalMessages)
         OverlayService.instance?.onReplyablesChanged()
         android.util.Log.d(
             "ScrollCat",
-            "Badge count after update for $senderKey: ${pendingBadgeSenderKeys.size}, total pending senders: ${pendingBadgeSenderKeys.size}"
+            "Badge count after update for $senderKey: $totalMessages pending message(s)"
         )
     }
 
@@ -204,13 +281,15 @@ class CatNotificationListener : NotificationListenerService() {
         packageName: String,
         senderName: String,
         senderKey: String,
+        entryId: String,
+        conversationKey: String,
         messageText: String,
         now: Long
     ) {
         val panelAlreadyOpened = replyPanelOpenedAt.containsKey(senderKey)
         android.util.Log.d(
             "ScrollCat",
-            "Interactive merge check for $senderKey - panelSeen: $panelAlreadyOpened"
+            "Interactive merge check for $senderKey - panelSeen: $panelAlreadyOpened entryId=$entryId"
         )
 
         if (!panelAlreadyOpened) {
@@ -218,28 +297,56 @@ class CatNotificationListener : NotificationListenerService() {
             val messages = interactiveMessageBuffers.getOrPut(senderKey) { mutableListOf() }
             messages.add(ReplyStore.BufferedMessage(messageText, now))
             cancelActiveInteractiveGenerations(senderKey)
-            ReplyStore.clearStoredReplies(senderKey)
 
             val mergedMessages = messages.toList()
             val mergedText = AiReplyGenerator.mergeMessageTexts(mergedMessages)
             Logger.d("Interactive merged generation for $senderKey with ${mergedMessages.size} message(s): $mergedText")
-            startInteractiveGeneration(packageName, senderName, senderKey, mergedText)
+            // Store on all queued entries for this conversation (pre-panel merge)
+            startInteractiveGeneration(
+                packageName = packageName,
+                senderName = senderName,
+                senderKey = senderKey,
+                entryId = entryId,
+                conversationKey = conversationKey,
+                messageText = mergedText,
+                storeForWholeConversation = true
+            )
             return
         }
 
-        android.util.Log.d("ScrollCat", "Interactive merge: generating separately for $senderKey (panel already seen)")
-        cancelActiveInteractiveGenerations(senderKey)
-        ReplyStore.clearStoredReplies(senderKey)
-        interactiveMessageBuffers[senderKey] = mutableListOf(ReplyStore.BufferedMessage(messageText, now))
-        startInteractiveGeneration(packageName, senderName, senderKey, messageText)
+        // Panel already open for this sender: generate for this message alone and
+        // APPEND as its own queue entry (already done in ReplyStore.capture) —
+        // do not clear/overwrite chips for earlier unviewed entries.
+        android.util.Log.d(
+            "ScrollCat",
+            "Interactive merge: generating separately for $senderKey entryId=$entryId (panel already seen)"
+        )
+        interactiveMessageBuffers[senderKey] =
+            mutableListOf(ReplyStore.BufferedMessage(messageText, now))
+        startInteractiveGeneration(
+            packageName = packageName,
+            senderName = senderName,
+            senderKey = senderKey,
+            entryId = entryId,
+            conversationKey = conversationKey,
+            messageText = messageText,
+            storeForWholeConversation = false
+        )
     }
 
     private fun startInteractiveGeneration(
         packageName: String,
         senderName: String,
         senderKey: String,
-        messageText: String
+        entryId: String,
+        conversationKey: String,
+        messageText: String,
+        storeForWholeConversation: Boolean
     ) {
+        if (packageName.equals(GMAIL_PACKAGE, ignoreCase = true)) {
+            Log.d(TAG, "Gmail — refusing AI reply generation for $senderKey")
+            return
+        }
         val token = ++nextInteractiveGenerationToken
         activeInteractiveGenerationTokens.getOrPut(senderKey) { mutableSetOf() }.add(token)
 
@@ -252,7 +359,17 @@ class CatNotificationListener : NotificationListenerService() {
                 Logger.d("Ignoring cancelled interactive reply generation for $senderKey")
                 return@generateReplies
             }
-            ReplyStore.storeReplies(senderKey, replies)
+            // Full replacement of chips for this entry / conversation — never merge
+            val fullReplies = replies.toList()
+            android.util.Log.d(
+                "ScrollCat",
+                "Interactive gen storing ${fullReplies.size} replies for entryId=$entryId: $fullReplies"
+            )
+            if (storeForWholeConversation) {
+                ReplyStore.storeRepliesForConversation(conversationKey, fullReplies)
+            } else {
+                ReplyStore.storeReplies(entryId, fullReplies)
+            }
         }
     }
 
@@ -268,10 +385,11 @@ class CatNotificationListener : NotificationListenerService() {
         replyPanelOpenedAt.remove(senderKey)
         activeInteractiveGenerationTokens.remove(senderKey)
         pendingBadgeSenderKeys.remove(senderKey)
-        OverlayService.instance?.setBadgeCount(pendingBadgeSenderKeys.size)
+        val totalMessages = ReplyStore.count()
+        OverlayService.instance?.setBadgeCount(totalMessages)
         android.util.Log.d(
             "ScrollCat",
-            "Badge count after update for $senderKey: ${pendingBadgeSenderKeys.size}, total pending senders: ${pendingBadgeSenderKeys.size}"
+            "Badge count after clearInteractiveState for $senderKey: $totalMessages pending message(s)"
         )
     }
 
@@ -280,12 +398,37 @@ class CatNotificationListener : NotificationListenerService() {
             super.onNotificationRemoved(sbn)
             return
         }
-        val entry = ReplyStore.getByKey(sbn.key)
-        if (entry != null) {
-            clearPregeneratedReplies(entry.packageName, entry.notificationId, entry.sender, entry.message)
+        val key = sbn.key
+        val panelOpen = OverlayService.instance?.isReplyPanelShowing() == true
+        val stillQueuedForKey = ReplyStore.countForNotificationKey(key) > 0
+
+        // Replying (or Ignore) often cancels the OS notification. Multiple queue
+        // entries can share one notificationKey (e.g. WhatsApp chat updates).
+        // While the reply panel is open, do not wipe remaining unhandled entries.
+        if (panelOpen && stillQueuedForKey) {
+            Log.d(
+                TAG,
+                "Notification removed ($key) but preserving " +
+                    "${ReplyStore.countForNotificationKey(key)} queued entr(y/ies) — panel open"
+            )
+            OverlayService.instance?.setBadgeCount(ReplyStore.count())
+            OverlayService.instance?.onReplyablesChanged()
+            processedKeys.remove(key)
+            super.onNotificationRemoved(sbn)
+            return
         }
-        ReplyStore.remove(sbn.key)
-        processedKeys.remove(sbn.key)
+
+        val entry = ReplyStore.getByKey(key)
+        ReplyStore.remove(key)
+        if (entry != null) {
+            val senderKey = buildSenderKey(entry.packageName, entry.notificationId, entry.sender)
+            if (ReplyStore.countForConversation(entry.conversationKey) == 0) {
+                clearInteractiveState(senderKey)
+            } else {
+                OverlayService.instance?.setBadgeCount(ReplyStore.count())
+            }
+        }
+        processedKeys.remove(key)
         super.onNotificationRemoved(sbn)
     }
 

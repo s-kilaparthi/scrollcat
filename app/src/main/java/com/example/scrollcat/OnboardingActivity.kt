@@ -99,6 +99,10 @@ class OnboardingActivity : Activity() {
         private val PLATFORM_OPTIONS = listOf(
             "Instagram", "TikTok", "YouTube", "Twitter", "LinkedIn"
         )
+
+        private const val PREF_AI_PATH = "onboarding_ai_path"
+        private const val AI_PATH_ON_DEVICE = "on_device"
+        private const val AI_PATH_CLOUD = "cloud"
     }
 
     private var userType = "personal"
@@ -1079,7 +1083,7 @@ class OnboardingActivity : Activity() {
 
     // ── Screen 2: Summon + Demo + Notification Access ──
 
-    private fun showScreen2() {
+    private fun showScreen2(skipCatDismiss: Boolean = false) {
         currentScreen = 2
         saveOnboardingStep(2)
         // Permissions already granted — skip demo/grant UI entirely.
@@ -1091,7 +1095,8 @@ class OnboardingActivity : Activity() {
         val demoDone = isDemoCompleted()
         // After a completed demo the floating overlay cat peeks over the UI — dismiss it
         // so only the deliberate hero illustration remains. Summon brings it back.
-        if (demoDone) dismissFloatingCat()
+        // When arriving via dismissAnimated's completion callback, the cat is already gone.
+        if (demoDone && !skipCatDismiss) dismissFloatingCat()
 
         val root = screenRoot(2)
         root.addView(heroIllustration(HERO_SUMMON))
@@ -1163,10 +1168,28 @@ class OnboardingActivity : Activity() {
             svc.seedOnboardingDemo(
                 onDemoPanelShown = null,
                 onDemoReplySent = {
-                    runOnUiThread {
-                        // Flag is persisted in ReplyPanel; refresh UI if still on this step.
-                        if (currentScreen == 2 || !isFinishing) {
-                            showScreen2()
+                    // Don't rebuild Grant Access yet — wait until the cat's fade-out
+                    // finishes rendering (OverlayService notifies from onAnimationEnd).
+                    val overlay = OverlayService.instance
+                    if (overlay != null) {
+                        overlay.dismissAnimated {
+                            android.util.Log.d(
+                                "ScrollCat",
+                                "Onboarding transitioning to Grant Access screen NOW"
+                            )
+                            if (!isFinishing && currentScreen == 2) {
+                                showScreen2(skipCatDismiss = true)
+                            }
+                        }
+                    } else {
+                        runOnUiThread {
+                            android.util.Log.d(
+                                "ScrollCat",
+                                "Onboarding transitioning to Grant Access screen NOW"
+                            )
+                            if (!isFinishing && currentScreen == 2) {
+                                showScreen2()
+                            }
                         }
                     }
                 }
@@ -1179,19 +1202,175 @@ class OnboardingActivity : Activity() {
         }, 3000L)
     }
 
-    // ── Screen 3: Connect AI ──
+    // ── Screen 3: AI path choice (high-RAM) → Connect AI ──
+
+    private fun loadAiPathChoice(): String =
+        prefs().getString(PREF_AI_PATH, "").orEmpty()
+
+    private fun saveAiPathChoice(path: String) {
+        prefs().edit().putString(PREF_AI_PATH, path).apply()
+    }
 
     private fun showScreen3() {
         currentScreen = 3
         saveOnboardingStep(3)
         dismissFloatingCat()
+
+        val highRam = DeviceCapabilityChecker.isHighRamDevice()
+        val choice = loadAiPathChoice()
+        if (highRam && choice.isEmpty()) {
+            showAiPathChoiceScreen()
+        } else {
+            showConnectAiScreen(asOptionalBackup = choice == AI_PATH_ON_DEVICE)
+        }
+    }
+
+    /** ≥7GB: pick On-Device (default) vs Groq before the Connect AI step. */
+    private fun showAiPathChoiceScreen() {
+        val root = screenRoot(3)
+        root.addView(heroIllustration(HERO_CONNECT_AI, sizeDp = 100))
+        root.addView(title("How should ScrollCat reply?"))
+        root.addView(subtitle(
+            "On high-memory phones you can run AI privately on-device, or use Groq in the cloud."
+        ))
+
+        var selected = AI_PATH_ON_DEVICE
+        val cards = mutableListOf<MaterialCardView>()
+
+        data class PathOption(val key: String, val label: String, val desc: String)
+        val options = listOf(
+            PathOption(
+                AI_PATH_ON_DEVICE,
+                "On-Device AI",
+                "Your messages never leave your phone — completely private. Might slow down other apps a little."
+            ),
+            PathOption(
+                AI_PATH_CLOUD,
+                "Groq (Cloud AI)",
+                "Sends your messages to generate replies. Lighter and faster on your phone."
+            )
+        )
+
+        fun refreshCardStrokes() {
+            cards.forEachIndexed { i, card ->
+                val selectedCard = options[i].key == selected
+                card.strokeWidth = if (selectedCard) dp(2) else dp(1)
+                card.strokeColor = if (selectedCard) ACCENT else STROKE
+            }
+        }
+
+        options.forEach { opt ->
+            val card = MaterialCardView(this).apply {
+                radius = dp(16).toFloat()
+                cardElevation = dp(2).toFloat()
+                strokeWidth = if (opt.key == selected) dp(2) else dp(1)
+                strokeColor = if (opt.key == selected) ACCENT else STROKE
+                setCardBackgroundColor(CARD)
+                setOnClickListener {
+                    selected = opt.key
+                    refreshCardStrokes()
+                }
+            }
+            val content = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(18), dp(20), dp(18))
+            }
+            content.addView(TextView(this).apply {
+                text = opt.label
+                textSize = 16f
+                setTextColor(TEXT)
+                typeface = UiKit.headingTypeface(this@OnboardingActivity)
+            })
+            content.addView(TextView(this).apply {
+                text = opt.desc
+                textSize = 13f
+                setTextColor(MUTED)
+                setPadding(0, dp(6), 0, 0)
+            })
+            card.addView(content)
+            cards.add(card)
+            root.addView(card, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, dp(12)) })
+        }
+
+        root.addView(primaryButton("Continue") {
+            saveAiPathChoice(selected)
+            if (selected == AI_PATH_ON_DEVICE) {
+                SettingsManager.setPrimaryAiProvider(this, SettingsManager.PRIMARY_AI_ON_DEVICE)
+                startBackgroundOnDeviceDownload()
+                showConnectAiScreen(asOptionalBackup = true)
+            } else {
+                showConnectAiScreen(asOptionalBackup = false)
+            }
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, dp(8), 0, 0) })
+    }
+
+    /** Kick off E2B model download without blocking onboarding; progress lives in AI Settings. */
+    private fun startBackgroundOnDeviceDownload() {
+        if (ModelDownloadManager.modelFileExists(this)) {
+            android.util.Log.d("ScrollCat", "Onboarding: on-device model already present")
+            return
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "Onboarding: starting background on-device model download (non-blocking)"
+        )
+        Toast.makeText(
+            this,
+            "Downloading On-Device AI in the background…",
+            Toast.LENGTH_SHORT
+        ).show()
+        val appCtx = applicationContext
+        ModelDownloadManager.downloadModel(
+            appCtx,
+            onProgress = { percent, _, _ ->
+                android.util.Log.d("ScrollCat", "Onboarding model download: $percent%")
+            },
+            onComplete = { success ->
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Onboarding model download finished success=$success"
+                )
+                if (!success) return@downloadModel
+                // Warm the engine once the file lands — same path AI Settings uses.
+                val tier = DeviceCapabilityChecker.selectModelTier(appCtx)
+                    ?: DeviceCapabilityChecker.tierForModelFile(
+                        appCtx,
+                        DeviceCapabilityChecker.MODEL_E2B_FILE
+                    )
+                val initTier = tier.copy(
+                    modelPath = OnDeviceAiEngine.defaultModelPath(appCtx),
+                    modelFileName = DeviceCapabilityChecker.MODEL_E2B_FILE
+                )
+                OnDeviceAiEngine.initialize(appCtx, initTier, forceReload = true)
+            }
+        )
+    }
+
+    /**
+     * Existing Groq / custom-provider Connect AI screen.
+     * [asOptionalBackup] reframes copy when the user already chose On-Device AI.
+     */
+    private fun showConnectAiScreen(asOptionalBackup: Boolean) {
         // Top-aligned + scrollable so the soft keyboard doesn't cover input fields
         val root = screenRoot(3, centerVertically = false)
         root.addView(heroIllustration(HERO_CONNECT_AI, sizeDp = 100))
-        root.addView(title("Connect AI for Smart Replies"))
-        root.addView(subtitle(
-            "Get a free API key from Groq to unlock instant AI replies."
-        ))
+        if (asOptionalBackup) {
+            root.addView(title("Set up a backup AI (optional)"))
+            root.addView(subtitle(
+                "If on-device AI has trouble on your phone, Groq will step in automatically so replies never break."
+            ))
+        } else {
+            root.addView(title("Connect AI for Smart Replies"))
+            root.addView(subtitle(
+                "Get a free API key from Groq to unlock instant AI replies."
+            ))
+        }
 
         var useGroq = true
 
@@ -1286,7 +1465,11 @@ class OnboardingActivity : Activity() {
         })
 
         root.addView(TextView(this).apply {
-            text = "We recommend not skipping — you'll miss Smart Replies, our best feature."
+            text = if (asOptionalBackup) {
+                "You can skip this — on-device AI will handle replies when ready."
+            } else {
+                "We recommend not skipping — you'll miss Smart Replies, our best feature."
+            }
             textSize = 13f
             setTextColor(ACCENT)
             gravity = Gravity.CENTER
@@ -1317,10 +1500,20 @@ class OnboardingActivity : Activity() {
         val root = screenRoot(4)
         root.addView(heroIllustration(HERO_FINAL))
         root.addView(title("A couple more things"))
-        root.addView(tipCard("Auto-Reply Rules: instantly reply to specific keywords, no AI needed."))
-        root.addView(tipCard("Smart Notifications: flag messages from specific people or keywords so they're always shown first."))
+        root.addView(tipCard(
+            "Auto-Reply Rules: instantly reply to specific keywords, no AI needed — check the Auto Reply Tracker anytime to see who your cat has replied to."
+        ))
+        root.addView(tipCard(
+            "Smart Notifications: flag messages from specific people or keywords so they're always shown first."
+        ))
+        root.addView(tipCard(
+            "Your privacy is protected: ScrollCat never reads banking, payment, or finance app notifications."
+        ))
+        root.addView(tipCard(
+            "Move your cat anytime: press and hold, then drag it to a new spot on your screen."
+        ))
         root.addView(TextView(this).apply {
-            text = "Both can be set up anytime later in Settings / Smart Notifications — not required now."
+            text = "You can set these up anytime from the dashboard — not required now."
             textSize = 13f
             setTextColor(MUTED)
             setPadding(0, 0, 0, 32)

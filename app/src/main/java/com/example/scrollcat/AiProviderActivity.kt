@@ -2,6 +2,7 @@ package com.example.scrollcat
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -12,6 +13,8 @@ import android.view.View
 import android.widget.*
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 
 class AiProviderActivity : Activity() {
 
@@ -248,6 +251,7 @@ class AiProviderActivity : Activity() {
     private lateinit var providerListLayout: LinearLayout
     private var providers = mutableListOf<AiProvider>()
     private var activeProviderId: String = ""
+    private var activeLabelView: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -291,13 +295,11 @@ class AiProviderActivity : Activity() {
             setBackgroundColor(0xFF1A1A1E.toInt())
         }
         val activeLabel = TextView(this).apply {
-            val active = providers.find { it.isActive }
-            text = if (active != null) "Active: ${providerEmoji(active)} ${active.name}"
-            else "No AI provider set up yet"
             textSize = 14f
             setTextColor(ACCENT)
             typeface = UiKit.headingTypeface(this@AiProviderActivity)
         }
+        activeLabelView = activeLabel
         activeLayout.addView(activeLabel)
         root.addView(activeLayout)
 
@@ -310,11 +312,18 @@ class AiProviderActivity : Activity() {
         }
 
         TextView(this).apply {
-            text = "My AI Providers"
+            text = "Primary reply engine"
             textSize = 13f
             setTextColor(MUTED)
             typeface = UiKit.headingTypeface(this@AiProviderActivity)
-            setPadding(8, 16, 8, 12)
+            setPadding(8, 16, 8, 4)
+            scrollContent.addView(this)
+        }
+        TextView(this).apply {
+            text = "Pick which engine generates replies first. Others stay available as fallback when on-device is primary."
+            textSize = 12f
+            setTextColor(MUTED)
+            setPadding(8, 0, 8, 12)
             scrollContent.addView(this)
         }
 
@@ -354,10 +363,36 @@ class AiProviderActivity : Activity() {
         renderProviderList()
     }
 
+    private fun refreshActiveLabel() {
+        val primary = SettingsManager.getPrimaryAiProvider(this)
+        activeLabelView?.text = when {
+            primary == SettingsManager.PRIMARY_AI_ON_DEVICE &&
+                ModelDownloadManager.modelFileExists(this) ->
+                "Primary: 📱 On-Device AI (Gemma 4)"
+            primary.isNotEmpty() -> {
+                val match = providers.find {
+                    SettingsManager.primaryKeyForCloudProvider(it.name, it.endpoint) == primary
+                } ?: providers.find { it.isActive }
+                if (match != null) "Primary: ${providerEmoji(match)} ${match.name}"
+                else "Primary: $primary"
+            }
+            else -> "No AI provider set up yet"
+        }
+    }
+
     private fun renderProviderList() {
         providerListLayout.removeAllViews()
+        refreshActiveLabel()
 
-        if (providers.isEmpty()) {
+        val modelDownloaded = ModelDownloadManager.modelFileExists(this)
+        val showOnDeviceOption = DeviceCapabilityChecker.checkOnDeviceAiViability(this) ||
+            modelDownloaded
+
+        if (showOnDeviceOption) {
+            providerListLayout.addView(buildOnDevicePrimaryCard(modelDownloaded))
+        }
+
+        if (providers.isEmpty() && !modelDownloaded) {
             TextView(this).apply {
                 text = "No providers yet.\nTap + Add AI Provider to get started."
                 textSize = 14f
@@ -369,138 +404,364 @@ class AiProviderActivity : Activity() {
             return
         }
 
+        if (providers.isNotEmpty()) {
+            TextView(this).apply {
+                text = "Cloud providers"
+                textSize = 13f
+                setTextColor(MUTED)
+                typeface = UiKit.headingTypeface(this@AiProviderActivity)
+                setPadding(8, 20, 8, 12)
+                providerListLayout.addView(this)
+            }
+        }
+
+        val primary = SettingsManager.getPrimaryAiProvider(this)
+
         providers.forEach { provider ->
             val info = providerInfoFor(provider)
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(20, 18, 20, 18)
-                background = GradientDrawable().apply {
-                    setColor(CARD)
-                    cornerRadius = 16f
-                    if (provider.isActive) setStroke(2, ACCENT) else setStroke(1, STROKE)
-                }
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 0, 12) }
-            }
-
-            val topRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-            TextView(this).apply {
-                text = "${info.emoji}  ${provider.name}"
-                textSize = 16f
-                setTextColor(Color.WHITE)
-                typeface = UiKit.headingTypeface(this@AiProviderActivity)
-                layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                )
-                topRow.addView(this)
-            }
-
-            TextView(this).apply {
-                text = " ${info.badge} "
-                textSize = 10f
-                setTextColor(if (info.badge == "Free") 0xFF4CAF50.toInt() else 0xFFFFB74D.toInt())
-                background = GradientDrawable().apply {
-                    setColor(0xFF2E2A3A.toInt())
-                    cornerRadius = 32f
-                }
-                setPadding(12, 4, 12, 4)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { marginEnd = 8 }
-                topRow.addView(this)
-            }
-
-            if (provider.isActive) {
-                TextView(this).apply {
-                    text = " Active "
-                    textSize = 11f
-                    setTextColor(ACCENT)
-                    background = GradientDrawable().apply {
-                        setColor(CARD_SELECTED)
-                        cornerRadius = 32f
-                        setStroke(1, ACCENT)
-                    }
-                    setPadding(14, 6, 14, 6)
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { marginEnd = 6 }
-                    topRow.addView(this)
-                }
-            } else {
-                TextView(this).apply {
-                    text = "Use"
-                    textSize = 12f
-                    setTextColor(ACCENT)
-                    setPadding(14, 8, 14, 8)
-                    background = GradientDrawable().apply {
-                        setColor(CARD_SELECTED)
-                        cornerRadius = 32f
-                    }
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { marginEnd = 6 }
-                    setOnClickListener { setActiveProvider(provider.id) }
-                    topRow.addView(this)
-                }
-            }
-
-            TextView(this).apply {
-                text = "Edit"
-                textSize = 12f
-                setTextColor(MUTED)
-                setPadding(10, 8, 10, 8)
-                setOnClickListener { showAddProviderDialog(existingProvider = provider) }
-                topRow.addView(this)
-            }
-
-            TextView(this).apply {
-                text = "Delete"
-                textSize = 12f
-                setTextColor(0xFFCC6666.toInt())
-                setPadding(8, 8, 0, 8)
-                setOnClickListener {
-                    android.app.AlertDialog.Builder(this@AiProviderActivity)
-                        .setTitle("Remove ${provider.name}?")
-                        .setMessage("This will remove this AI provider from ScrollCat.")
-                        .setPositiveButton("Remove") { _, _ ->
-                            providers.remove(provider)
-                            if (provider.isActive && providers.isNotEmpty()) {
-                                providers[0] = providers[0].copy(isActive = true)
-                            }
-                            saveProviders()
-                            renderProviderList()
-                        }
-                        .setNegativeButton("Cancel", null)
-                        .show()
-                }
-                topRow.addView(this)
-            }
-
-            card.addView(topRow)
+            val providerKey = SettingsManager.primaryKeyForCloudProvider(provider.name, provider.endpoint)
+            val selectedAsPrimary = primary != SettingsManager.PRIMARY_AI_ON_DEVICE &&
+                primary == providerKey &&
+                (provider.isActive || providers.count {
+                    SettingsManager.primaryKeyForCloudProvider(it.name, it.endpoint) == providerKey
+                } == 1)
 
             val maskedKey = if (provider.apiKey.length > 8)
                 provider.apiKey.take(4) + "••••••••" + provider.apiKey.takeLast(4)
             else "••••••••"
-            TextView(this).apply {
-                text = maskedKey
-                textSize = 12f
-                setTextColor(0xFFA39BB0.toInt())
-                typeface = Typeface.MONOSPACE
-                setPadding(0, 8, 0, 0)
-                card.addView(this)
+
+            val badges = mutableListOf(
+                BadgeSpec(
+                    label = info.badge,
+                    textColor = if (info.badge == "Free") 0xFF4CAF50.toInt() else 0xFFFFB74D.toInt()
+                )
+            )
+            if (selectedAsPrimary) {
+                badges.add(
+                    BadgeSpec(
+                        label = "Primary",
+                        textColor = ACCENT,
+                        outlined = true
+                    )
+                )
             }
 
-            providerListLayout.addView(card)
+            providerListLayout.addView(
+                buildProviderCard(
+                    title = "${info.emoji}  ${provider.name}",
+                    badges = badges,
+                    isPrimary = selectedAsPrimary,
+                    enabled = true,
+                    subtitle = null,
+                    maskedApiKey = maskedKey,
+                    onUse = { selectPrimaryCloudProvider(provider) },
+                    onEdit = { showAddProviderDialog(existingProvider = provider) },
+                    onDelete = {
+                        android.app.AlertDialog.Builder(this@AiProviderActivity)
+                            .setTitle("Remove ${provider.name}?")
+                            .setMessage("This will remove this AI provider from ScrollCat.")
+                            .setPositiveButton("Remove") { _, _ ->
+                                val wasPrimary = selectedAsPrimary
+                                providers.remove(provider)
+                                if (provider.isActive && providers.isNotEmpty()) {
+                                    providers[0] = providers[0].copy(isActive = true)
+                                }
+                                saveProviders()
+                                if (wasPrimary && providers.isNotEmpty()) {
+                                    selectPrimaryCloudProvider(providers.first())
+                                } else if (wasPrimary &&
+                                    ModelDownloadManager.modelFileExists(this@AiProviderActivity)
+                                ) {
+                                    selectPrimaryOnDevice()
+                                } else {
+                                    renderProviderList()
+                                }
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                )
+            )
         }
+    }
+
+    private data class BadgeSpec(
+        val label: String,
+        val textColor: Int,
+        val outlined: Boolean = false
+    )
+
+    /**
+     * Spacious MaterialCardView layout shared by On-Device and cloud providers:
+     * Row1 header+badges · Row2 Use/Primary pill · Row3 masked key · Row4 Edit/Delete.
+     */
+    private fun buildProviderCard(
+        title: String,
+        badges: List<BadgeSpec>,
+        isPrimary: Boolean,
+        enabled: Boolean,
+        subtitle: String?,
+        maskedApiKey: String?,
+        onUse: (() -> Unit)?,
+        onEdit: (() -> Unit)?,
+        onDelete: (() -> Unit)?
+    ): MaterialCardView {
+        val pad = dp(18)
+        val rowGap = dp(12)
+
+        return MaterialCardView(this).apply {
+            radius = dp(16).toFloat()
+            cardElevation = 0f
+            setCardBackgroundColor(CARD)
+            strokeWidth = if (isPrimary) dp(2) else dp(1)
+            strokeColor = when {
+                isPrimary -> ACCENT
+                enabled -> STROKE
+                else -> 0xFF3A3548.toInt()
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, dp(14)) }
+            alpha = if (enabled) 1f else 0.55f
+
+            val content = LinearLayout(this@AiProviderActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(pad, pad, pad, pad)
+            }
+
+            // Row 1 — icon + name | badges
+            val header = LinearLayout(this@AiProviderActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            header.addView(TextView(this@AiProviderActivity).apply {
+                text = title
+                textSize = 16f
+                setTextColor(if (enabled) Color.WHITE else MUTED)
+                typeface = UiKit.headingTypeface(this@AiProviderActivity)
+                layoutParams = LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                ).apply { marginEnd = dp(8) }
+            })
+            val badgeRow = LinearLayout(this@AiProviderActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            }
+            badges.forEachIndexed { index, badge ->
+                badgeRow.addView(makeBadgeChip(badge).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        if (index > 0) marginStart = dp(6)
+                    }
+                })
+            }
+            header.addView(badgeRow)
+            content.addView(header)
+
+            if (!subtitle.isNullOrBlank()) {
+                content.addView(TextView(this@AiProviderActivity).apply {
+                    text = subtitle
+                    textSize = 12f
+                    setTextColor(MUTED)
+                    setPadding(0, dp(8), 0, 0)
+                })
+            }
+
+            // Row 2 — Use / Primary pill
+            val useLabel = if (isPrimary) "Primary" else "Use"
+            val useButton = MaterialButton(this@AiProviderActivity).apply {
+                text = useLabel
+                textSize = 14f
+                isAllCaps = false
+                cornerRadius = dp(24)
+                minHeight = dp(52)
+                insetTop = 0
+                insetBottom = 0
+                setPadding(dp(32), dp(14), dp(32), dp(14))
+                if (isPrimary) {
+                    isClickable = false
+                    isFocusable = false
+                    backgroundTintList = ColorStateList.valueOf(CARD_SELECTED)
+                    setTextColor(ACCENT)
+                    strokeWidth = dp(1)
+                    strokeColor = ColorStateList.valueOf(ACCENT)
+                } else if (enabled && onUse != null) {
+                    backgroundTintList = ColorStateList.valueOf(ACCENT)
+                    setTextColor(Color.WHITE)
+                    setOnClickListener { onUse() }
+                } else {
+                    isEnabled = false
+                    backgroundTintList = ColorStateList.valueOf(0xFF3A3548.toInt())
+                    setTextColor(MUTED)
+                }
+            }
+            content.addView(
+                useButton,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = rowGap }
+            )
+
+            // Row 3 — masked API key (cloud only)
+            if (!maskedApiKey.isNullOrBlank()) {
+                content.addView(TextView(this@AiProviderActivity).apply {
+                    text = maskedApiKey
+                    textSize = 12f
+                    setTextColor(MUTED)
+                    typeface = Typeface.MONOSPACE
+                    gravity = Gravity.START
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = rowGap }
+                })
+            }
+
+            // Row 4 — Edit / Delete
+            if (onEdit != null || onDelete != null) {
+                val actions = LinearLayout(this@AiProviderActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = dp(14) }
+                }
+                if (onEdit != null) {
+                    actions.addView(TextView(this@AiProviderActivity).apply {
+                        text = "Edit"
+                        textSize = 14f
+                        setTextColor(MUTED)
+                        setPadding(0, dp(8), dp(20), dp(4))
+                        setOnClickListener { onEdit() }
+                    })
+                }
+                if (onDelete != null) {
+                    actions.addView(TextView(this@AiProviderActivity).apply {
+                        text = "Delete"
+                        textSize = 14f
+                        setTextColor(0xFFCC6666.toInt())
+                        setPadding(0, dp(8), 0, dp(4))
+                        setOnClickListener { onDelete() }
+                    })
+                }
+                content.addView(actions)
+            }
+
+            addView(content)
+        }
+    }
+
+    private fun makeBadgeChip(badge: BadgeSpec): TextView {
+        return TextView(this).apply {
+            text = " ${badge.label} "
+            textSize = 10f
+            setTextColor(badge.textColor)
+            background = GradientDrawable().apply {
+                setColor(0xFF2E2A3A.toInt())
+                cornerRadius = dp(32).toFloat()
+                if (badge.outlined) setStroke(dp(1), badge.textColor)
+            }
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+        }
+    }
+
+    private fun buildOnDevicePrimaryCard(modelDownloaded: Boolean): MaterialCardView {
+        val primary = SettingsManager.getPrimaryAiProvider(this)
+        val isPrimary = modelDownloaded && primary == SettingsManager.PRIMARY_AI_ON_DEVICE
+
+        val badges = mutableListOf(
+            BadgeSpec(label = "Recommended", textColor = 0xFF4CAF50.toInt())
+        )
+        if (isPrimary) {
+            badges.add(BadgeSpec(label = "Primary", textColor = ACCENT, outlined = true))
+        }
+
+        val card = buildProviderCard(
+            title = "📱  On-Device AI (Gemma 4)",
+            badges = badges,
+            isPrimary = isPrimary,
+            enabled = modelDownloaded,
+            subtitle = if (modelDownloaded) {
+                "Private on-phone replies. Cloud providers stay as automatic fallback."
+            } else {
+                "Download in My AI Settings first."
+            },
+            maskedApiKey = null,
+            onUse = if (modelDownloaded) {
+                { selectPrimaryOnDevice() }
+            } else {
+                null
+            },
+            onEdit = null,
+            onDelete = null
+        )
+
+        if (!modelDownloaded) {
+            card.setOnClickListener {
+                Toast.makeText(
+                    this,
+                    "Download On-Device AI in My AI Settings first",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+        return card
+    }
+
+    /** Make on-device the primary engine and re-initialize if needed. */
+    private fun selectPrimaryOnDevice() {
+        if (!ModelDownloadManager.modelFileExists(this)) {
+            Toast.makeText(this, "Download the model in My AI Settings first", Toast.LENGTH_SHORT)
+                .show()
+            return
+        }
+        SettingsManager.setPrimaryAiProvider(this, SettingsManager.PRIMARY_AI_ON_DEVICE)
+        Toast.makeText(this, "Primary: On-Device AI", Toast.LENGTH_SHORT).show()
+        renderProviderList()
+        Thread {
+            val ok = OnDeviceAiEngine.ensureInitialized(this)
+            android.util.Log.d(
+                "ScrollCat",
+                "AiProvider: selected on-device primary — initialize success=$ok"
+            )
+            runOnUiThread {
+                if (!ok) {
+                    Toast.makeText(
+                        this,
+                        "On-device selected, but engine failed to load",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                refreshActiveLabel()
+            }
+        }.start()
+    }
+
+    /**
+     * Make a cloud provider primary: persist selection, mark it active for API config,
+     * and immediately unload on-device from memory (file stays on disk).
+     */
+    private fun selectPrimaryCloudProvider(provider: AiProvider) {
+        val key = SettingsManager.primaryKeyForCloudProvider(provider.name, provider.endpoint)
+        SettingsManager.setPrimaryAiProvider(this, key)
+        providers = providers.map {
+            it.copy(isActive = it.id == provider.id)
+        }.toMutableList()
+        saveProviders()
+        Toast.makeText(this, "Primary: ${provider.name}", Toast.LENGTH_SHORT).show()
+        renderProviderList()
+        Thread {
+            OnDeviceAiEngine.shutdown()
+            android.util.Log.d(
+                "ScrollCat",
+                "AiProvider: primary=$key — on-device engine shut down (file kept)"
+            )
+        }.start()
     }
 
     private fun showAddProviderDialog(existingProvider: AiProvider? = null) {
@@ -889,12 +1150,8 @@ class AiProviderActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun setActiveProvider(providerId: String) {
-        providers = providers.map {
-            it.copy(isActive = it.id == providerId)
-        }.toMutableList()
-        saveProviders()
-        renderProviderList()
-        Toast.makeText(this, "AI provider switched!", Toast.LENGTH_SHORT).show()
+        val provider = providers.find { it.id == providerId } ?: return
+        selectPrimaryCloudProvider(provider)
     }
 
     private fun loadProviders() {

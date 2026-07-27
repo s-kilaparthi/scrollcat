@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.UUID
 
 /**
  * Keyword-triggered auto-reply rules, persisted as JSON in SharedPreferences.
@@ -15,7 +17,9 @@ object AutoReplyManager {
     private const val TAG = "ScrollCat"
     private const val PREFS_NAME = "scrollcat_auto_reply"
     private const val KEY_RULES = "rules_json"
+    private const val KEY_TRACKER = "tracker_json"
     const val MAX_RULES = 10
+    private const val TRACKER_RETENTION_MS = 14L * 24 * 60 * 60 * 1000
 
     data class Rule(
         // Comma-separated keywords as typed by the user, e.g. "price, cost, rate"
@@ -27,6 +31,21 @@ object AutoReplyManager {
             .map { it.trim().lowercase() }
             .filter { it.isNotEmpty() }
     }
+
+    data class Match(
+        val rule: Rule,
+        val matchedKeyword: String
+    )
+
+    data class TrackerEntry(
+        val id: String,
+        val packageName: String,
+        val timestamp: Long,
+        val sender: String,
+        /** The auto-reply message text that was actually sent. */
+        val message: String,
+        val cleared: Boolean = false
+    )
 
     fun getRules(context: Context): MutableList<Rule> {
         val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -66,17 +85,121 @@ object AutoReplyManager {
 
     /**
      * Returns the first enabled rule whose trigger keywords appear in
-     * [messageText], or null if nothing matches.
+     * [messageText], plus the specific keyword that matched, or null.
      */
-    fun findMatch(context: Context, messageText: String, senderName: String? = null): Rule? {
+    fun findMatch(context: Context, messageText: String, senderName: String? = null): Match? {
         // Never auto-reply to our own sent messages
         if (senderName == "You" || senderName.isNullOrBlank()) return null
 
         val text = messageText.lowercase()
-        return getRules(context).firstOrNull { rule ->
-            rule.enabled &&
-                rule.reply.isNotBlank() &&
-                rule.triggerList().any { keyword -> text.contains(keyword) }
+        for (rule in getRules(context)) {
+            if (!rule.enabled || rule.reply.isBlank()) continue
+            val keyword = rule.triggerList().firstOrNull { text.contains(it) } ?: continue
+            return Match(rule = rule, matchedKeyword = keyword)
         }
+        return null
+    }
+
+    /** All tracker entries after purging anything older than 14 days. */
+    fun getTrackerEntries(context: Context): List<TrackerEntry> {
+        val entries = loadTrackerEntries(context)
+        val purged = purgeExpired(entries)
+        if (purged.size != entries.size) saveTrackerEntries(context, purged)
+        return purged
+    }
+
+    /** Uncleared entries only (default tracker list / dashboard badge). */
+    fun getPendingTrackerEntries(context: Context): List<TrackerEntry> =
+        getTrackerEntries(context).filter { !it.cleared }
+
+    /** Count of auto-replies logged with a timestamp on the current calendar day. */
+    fun getAutoRepliesTriggeredToday(context: Context): Int {
+        val now = System.currentTimeMillis()
+        return getTrackerEntries(context).count { isSameCalendarDay(it.timestamp, now) }
+    }
+
+    private fun isSameCalendarDay(aMs: Long, bMs: Long): Boolean {
+        val calA = Calendar.getInstance().apply { timeInMillis = aMs }
+        val calB = Calendar.getInstance().apply { timeInMillis = bMs }
+        return calA.get(Calendar.YEAR) == calB.get(Calendar.YEAR) &&
+            calA.get(Calendar.DAY_OF_YEAR) == calB.get(Calendar.DAY_OF_YEAR)
+    }
+    fun logTrackerEntry(
+        context: Context,
+        packageName: String,
+        sender: String,
+        message: String,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        val entries = purgeExpired(loadTrackerEntries(context)).toMutableList()
+        entries.add(
+            0,
+            TrackerEntry(
+                id = UUID.randomUUID().toString(),
+                packageName = packageName,
+                timestamp = timestamp,
+                sender = sender,
+                message = message,
+                cleared = false
+            )
+        )
+        saveTrackerEntries(context, entries)
+    }
+
+    fun clearTrackerEntry(context: Context, entryId: String) {
+        val entries = purgeExpired(loadTrackerEntries(context)).map { entry ->
+            if (entry.id == entryId) entry.copy(cleared = true) else entry
+        }
+        saveTrackerEntries(context, entries)
+    }
+
+    private fun loadTrackerEntries(context: Context): List<TrackerEntry> {
+        val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_TRACKER, null) ?: return emptyList()
+        return try {
+            val array = JSONArray(json)
+            val entries = mutableListOf<TrackerEntry>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                // Prefer "message"; fall back to legacy "keyword" field if present
+                val message = obj.optString("message")
+                    .ifBlank { obj.optString("keyword", "") }
+                entries.add(
+                    TrackerEntry(
+                        id = obj.optString("id").ifBlank { UUID.randomUUID().toString() },
+                        packageName = obj.optString("packageName", ""),
+                        timestamp = obj.optLong("timestamp", 0L),
+                        sender = obj.optString("sender", ""),
+                        message = message,
+                        cleared = obj.optBoolean("cleared", obj.optBoolean("handled", false))
+                    )
+                )
+            }
+            entries
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse auto-reply tracker: ${e.message}")
+            emptyList()
+        }
+    }
+
+    private fun purgeExpired(entries: List<TrackerEntry>): List<TrackerEntry> {
+        val cutoff = System.currentTimeMillis() - TRACKER_RETENTION_MS
+        return entries.filter { it.timestamp >= cutoff }
+    }
+
+    private fun saveTrackerEntries(context: Context, entries: List<TrackerEntry>) {
+        val array = JSONArray()
+        entries.forEach { entry ->
+            array.put(JSONObject().apply {
+                put("id", entry.id)
+                put("packageName", entry.packageName)
+                put("timestamp", entry.timestamp)
+                put("sender", entry.sender)
+                put("message", entry.message)
+                put("cleared", entry.cleared)
+            })
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_TRACKER, array.toString()).apply()
     }
 }

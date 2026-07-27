@@ -1,12 +1,13 @@
 package com.example.scrollcat
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -60,7 +61,11 @@ class OverlayService : Service() {
         const val DOCK_VISIBILITY_MS = 10_000L
         const val INITIAL_SETTLE_DOCK_MS = 10_000L
         const val MOVE_MODE_TIMEOUT_MS = 10_000L
+        /** Debounce before docking after an editable field loses focus (avoids form-tab flicker). */
+        const val TEXT_FOCUS_HIDE_DEBOUNCE_MS = 400L
         var DISTANCE_TRIGGER_THRESHOLD_LIVE = 70
+        /** Continuous screen-off before on-device engine idle teardown. */
+        private const val ON_DEVICE_IDLE_TEARDOWN_MS = 5 * 60 * 1000L
     }
 
     private lateinit var windowManager: WindowManager
@@ -84,20 +89,74 @@ class OverlayService : Service() {
     private var isVolumeMode = false
     private var lastVolumeY = 0f
     private val VOLUME_STEP_PX = 30f // px to drag per volume step
-    private val screenReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    pauseBackgroundWork()
-                    Logger.d("Screen off - background work paused")
-                }
-                Intent.ACTION_SCREEN_ON -> {
-                    resumeBackgroundWork()
-                    Logger.d("Screen on - background work resumed")
-                }
-            }
+    private val idleHandler = Handler(Looper.getMainLooper())
+    @Volatile private var screenOffSinceElapsedMs = 0L
+    private val idleTeardownRunnable = Runnable { maybeIdleTeardownOnDeviceAi() }
+
+    private val screenStateReceiver = ScreenStateReceiver(
+        onScreenOn = {
+            cancelOnDeviceIdleTimer()
+            AiReplyGenerator.flushAllBuffers(applicationContext)
+            resumeBackgroundWork()
+            Logger.d("Screen on - background work resumed")
+            maybeInitOnDeviceAi()
+        },
+        onScreenOff = {
+            pauseBackgroundWork()
+            Logger.d("Screen off - background work paused")
+            scheduleOnDeviceIdleTeardown()
+        }
+    )
+
+    private fun scheduleOnDeviceIdleTeardown() {
+        screenOffSinceElapsedMs = android.os.SystemClock.elapsedRealtime()
+        idleHandler.removeCallbacks(idleTeardownRunnable)
+        idleHandler.postDelayed(idleTeardownRunnable, ON_DEVICE_IDLE_TEARDOWN_MS)
+    }
+
+    private fun cancelOnDeviceIdleTimer() {
+        screenOffSinceElapsedMs = 0L
+        idleHandler.removeCallbacks(idleTeardownRunnable)
+    }
+
+    private fun maybeIdleTeardownOnDeviceAi() {
+        val since = screenOffSinceElapsedMs
+        val elapsed = if (since <= 0L) 0L else android.os.SystemClock.elapsedRealtime() - since
+        val minutes = elapsed / 60_000L
+        val pendingCount = ReplyStore.count()
+        val stillOff = since > 0L &&
+            !(getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive
+        val tearingDown = stillOff &&
+            elapsed >= ON_DEVICE_IDLE_TEARDOWN_MS &&
+            pendingCount == 0 &&
+            !OnDeviceAiEngine.isGenerating() &&
+            OnDeviceAiEngine.isReady()
+        android.util.Log.d(
+            "ScrollCat",
+            "Idle timer: screen off for ${minutes}min, pending=$pendingCount, " +
+                "tearing down: $tearingDown"
+        )
+        if (tearingDown) {
+            OnDeviceAiEngine.releaseForIdle()
         }
     }
+
+    private fun releaseOnDeviceAiForMemoryPressure(reason: String) {
+        if (OnDeviceAiEngine.isGenerating()) {
+            android.util.Log.d(
+                "ScrollCat",
+                "onTrimMemory($reason): skip engine teardown — generation in progress"
+            )
+            return
+        }
+        if (!OnDeviceAiEngine.isReady()) return
+        android.util.Log.d(
+            "ScrollCat",
+            "onTrimMemory($reason): releasing on-device engine"
+        )
+        OnDeviceAiEngine.releaseForIdle()
+    }
+
     private var layoutParams: WindowManager.LayoutParams? = null
     private var isDestroyed = false
     private var catTouchListener: CatTouchListener? = null
@@ -170,6 +229,15 @@ class OverlayService : Service() {
     private var isEdgeDocked = false
     /** True while waiting for the post-summon settle-into-dock (not the post-message re-dock timer). */
     private var awaitingInitialDock = false
+    /**
+     * Cat is held undocked because a focused editable field is active (Accessibility
+     * focus-tracking). No 10s dock timer while this is true — stays visible until focus loss.
+     */
+    private var heldByTextFocus = false
+    private var isDismissing = false
+    private var dismissFadeAnimator: Animator? = null
+    /** Invoked once after the dismiss fade finishes (or immediately if fade is skipped). */
+    private var onDismissFadeCompleted: (() -> Unit)? = null
     private var dockAnimator: ValueAnimator? = null
     private val dockHandler = Handler(Looper.getMainLooper())
     private val dockVisibilityRunnable = Runnable {
@@ -178,13 +246,24 @@ class OverlayService : Service() {
             Logger.d("Dock visibility timer fired but reply panel is open — skipping re-dock")
             return@Runnable
         }
+        // Focus-held visibility wins over the notification 10s timer.
+        if (isHeldByEditableFocus()) {
+            Logger.d("Dock visibility timer fired but text field focused — keeping undocked")
+            return@Runnable
+        }
         if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
             dockToEdge(animate = true)
         }
     }
+    private val textFocusHideRunnable = Runnable { completeTextFocusHide() }
     private val initialSettleDockRunnable = Runnable {
         if (replyPanel?.isShowing == true) {
             Logger.d("Initial settle dock skipped — reply panel open")
+            return@Runnable
+        }
+        if (isHeldByEditableFocus()) {
+            awaitingInitialDock = false
+            Logger.d("Initial settle dock skipped — text field focused")
             return@Runnable
         }
         if (SettingsManager.isEdgeDockingMode(this) && awaitingInitialDock && !isEdgeDocked) {
@@ -203,10 +282,6 @@ class OverlayService : Service() {
     private var closeZoneParams: WindowManager.LayoutParams? = null
     private var closeZoneHighlighted = false
 
-    private val screenStateReceiver = ScreenStateReceiver(
-        onScreenOn = { AiReplyGenerator.flushAllBuffers(applicationContext) }
-    )
-
     override fun onCreate() {
         super.onCreate()
         android.util.Log.d(
@@ -215,10 +290,17 @@ class OverlayService : Service() {
                 "containerAttached=${isViewAttached(containerView)} catView=$catView " +
                 "isEdgeDocked=$isEdgeDocked"
         )
+        DeviceIdleMonitor.register(this)
         val screenStateFilter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
         }
-        registerReceiver(screenStateReceiver, screenStateFilter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenStateReceiver, screenStateFilter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(screenStateReceiver, screenStateFilter)
+        }
         instance = this
         isDestroyed = false
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -236,19 +318,31 @@ class OverlayService : Service() {
         } else {
             catAnimator?.setIdleSleepEnabled(true)
         }
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SCREEN_ON)
-        }
-        registerReceiver(screenReceiver, filter)
         musicDetector = MusicDetector(this)
         musicDetector?.start()
         screenTranslator = ScreenTranslator(this)
+        maybeInitOnDeviceAi()
         android.util.Log.d(
             "ScrollCat",
             "Summon/onCreate done - containerAttached=${isViewAttached(containerView)} " +
                 "alpha=${catView?.alpha} visibility=${containerView?.visibility}"
         )
+    }
+
+    /** Non-blocking: load on-device model if viable and already downloaded for this RAM tier. */
+    private fun maybeInitOnDeviceAi() {
+        Thread {
+            try {
+                val ok = OnDeviceAiEngine.ensureInitialized(this)
+                android.util.Log.d(
+                    "ScrollCat",
+                    if (ok) "On-device AI engine ready (warmup/init)"
+                    else "On-device AI engine not loaded (missing model, tier, or memory)"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ScrollCat", "On-device AI init error: ${e.message}", e)
+            }
+        }.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -266,7 +360,7 @@ class OverlayService : Service() {
                     "containerAttached=${isViewAttached(containerView)} catView=$catView " +
                     "isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha}"
             )
-            dismissAndStop()
+            dismissAndStop(animated = true)
             return START_NOT_STICKY
         }
         // Re-summon while service still alive: re-attach cat if the view was lost
@@ -274,18 +368,106 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
+    /**
+     * Fade the cat out, then remove it / stop the service. [onComplete] runs on the
+     * main thread after the fade's onAnimationEnd (same moment as removeView) — use
+     * this to advance onboarding only once the dismiss is visually done.
+     */
+    fun dismissAnimated(onComplete: (() -> Unit)? = null) {
+        if (onComplete != null) {
+            onDismissFadeCompleted = onComplete
+        }
+        if (isDismissing) {
+            // Fade already running; onComplete will fire when it finishes.
+            return
+        }
+        dismissAndStop(animated = true)
+    }
+
     /** Tear down overlay and stop the service (used by Dismiss). */
-    private fun dismissAndStop() {
+    private fun dismissAndStop(animated: Boolean = true) {
+        if (isDismissing) return
+        isDismissing = true
         android.util.Log.d(
             "ScrollCat",
-            "dismissAndStop - removing cat from WindowManager, stopForeground+stopSelf"
+            "dismissAndStop - animated=$animated (fade will remove view only after animation end)"
         )
         cancelDockAnimator()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
         hideDragHandle()
         hideCloseZone()
+        // Prevent panel-dismiss from restarting the edge-dock timer mid-fade.
+        replyPanel?.onDismissed = null
         replyPanel?.dismiss()
+
+        val container = containerView
+        val canFade = animated && container != null && isViewAttached(container)
+        if (!canFade) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Fade skipped - animated=$animated attached=${isViewAttached(container)} container=$container"
+            )
+            finishDismissAndStop()
+            return
+        }
+
+        // Cancel prior animators; do NOT remove/hide the WindowManager view yet.
+        dismissFadeAnimator?.removeAllListeners()
+        dismissFadeAnimator?.cancel()
+        dismissFadeAnimator = null
+        container!!.animate().cancel()
+        catView?.animate()?.cancel()
+        catAnimator?.showStatic()
+
+        // Force a visible starting point — fade-out must go 1.0 → 0.0.
+        container.alpha = 1f
+        catView?.alpha = 1f
+        container.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
+
+        android.util.Log.d(
+            "ScrollCat",
+            "Fade pre-start — container.alpha=${container.alpha} cat.alpha=${catView?.alpha}"
+        )
+
+        // Post so a full-opacity frame can paint before the fade begins.
+        container.post {
+            if (isDestroyed || containerView !== container || !isViewAttached(container)) {
+                finishDismissAndStop()
+                return@post
+            }
+            container.alpha = 1f
+            catView?.alpha = 1f
+            android.util.Log.d("ScrollCat", "Fade animation started")
+            dismissFadeAnimator = ObjectAnimator.ofFloat(container, View.ALPHA, 1f, 0f).apply {
+                duration = 250L
+                addUpdateListener { animator ->
+                    android.util.Log.d(
+                        "ScrollCat",
+                        "Fade alpha value: ${container.alpha} (animatedValue=${animator.animatedValue})"
+                    )
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        android.util.Log.d("ScrollCat", "Fade animation completed")
+                        dismissFadeAnimator = null
+                        // ONLY place in this flow that removes the view / stops the service.
+                        if (!isDestroyed) finishDismissAndStop()
+                    }
+                })
+                start()
+            }
+        }
+    }
+
+    private fun finishDismissAndStop() {
+        dismissFadeAnimator?.removeAllListeners()
+        dismissFadeAnimator?.cancel()
+        dismissFadeAnimator = null
+        containerView?.animate()?.cancel()
+        catView?.animate()?.cancel()
+        // Sole removeView for the cat overlay in the dismiss flow.
         safeRemoveView(containerView)
         containerView = null
         catView = null
@@ -293,8 +475,19 @@ class OverlayService : Service() {
         layoutParams = null
         isEdgeDocked = false
         awaitingInitialDock = false
+
+        val completed = onDismissFadeCompleted
+        onDismissFadeCompleted = null
+
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+
+        // Notify after removeView so Grant Access only appears once the fade is done.
+        if (completed != null) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                completed.invoke()
+            }
+        }
     }
 
     /**
@@ -529,6 +722,8 @@ class OverlayService : Service() {
                                 } else {
                                     clearBadge()
                                 }
+                            } else if (!maybeShowVoiceDictation()) {
+                                // No pending + no focused field — undock only (existing behavior)
                             }
                         }
                         return true
@@ -701,7 +896,8 @@ class OverlayService : Service() {
                         if (dismissNow) {
                             Logger.d("Cat dropped on close zone — dismissing")
                             animateDismissIntoCloseZone {
-                                dismissAndStop()
+                                // Already faded/shrunk — skip a second fade.
+                                dismissAndStop(animated = false)
                             }
                             return true
                         }
@@ -803,14 +999,15 @@ class OverlayService : Service() {
 
     private fun handleAwakeCatTap() {
         noteCatInteraction()
+        // Pending messages always win over voice dictation.
+        val pending = ReplyStore.getAll()
+        if (pending.isNotEmpty()) {
+            showReplyPanel()
+            return
+        }
         if (badgeCount > 0) {
-            val pending = ReplyStore.getAll()
-            if (pending.isNotEmpty()) {
-                showReplyPanel()
-            } else {
-                Logger.d("clearBadge called from: handleAwakeCatTap - badge tap with no pending replies")
-                clearBadge()
-            }
+            Logger.d("clearBadge called from: handleAwakeCatTap - badge tap with no pending replies")
+            clearBadge()
             return
         }
 
@@ -819,9 +1016,38 @@ class OverlayService : Service() {
             return
         }
 
+        // No pending: optional voice dictation into a focused editable field (Accessibility only).
+        if (maybeShowVoiceDictation()) return
+
         CatAccessibilityService.instance?.performSwipe(up = true, long = isReelsMode)
             ?: showNoAccessibilityToast()
         animateTap()
+    }
+
+    /**
+     * If Accessibility is enabled and a focused editable field exists, open the
+     * minimal auto-listening dictation panel. Returns true when that panel was shown.
+     */
+    private fun maybeShowVoiceDictation(): Boolean {
+        val a11y = CatAccessibilityService.instance ?: return false
+        if (!a11y.hasFocusedEditableField()) return false
+        if (!RecordAudioPermissionActivity.isSpeechRecognitionAvailable(this)) {
+            Logger.d("Voice dictation skipped — speech recognition unavailable")
+            return false
+        }
+        showVoiceDictationPanel()
+        return true
+    }
+
+    fun showVoiceDictationPanel() {
+        val params = layoutParams ?: return
+        val catSize = SettingsManager.getCatSize(this)
+        animateTap()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        replyPanel?.showVoiceDictation(params.x, params.y, catSize)
+        Logger.d("Voice dictation panel shown — dock timer paused")
     }
 
     /** Reset the edge-dock visibility timer on any undocked interaction. */
@@ -830,9 +1056,110 @@ class OverlayService : Service() {
             startInitialSettleTimer()
             return
         }
+        // Focus-held: stay visible with no 10s countdown.
+        if (heldByTextFocus) {
+            cancelDockVisibilityTimer()
+            return
+        }
         if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
             resetDockVisibilityTimer()
         }
+    }
+
+    /**
+     * Called from [CatAccessibilityService] when a real editable field gains or loses focus.
+     * Only active when Accessibility is connected (caller is the a11y service) and edge-docking
+     * mode is on. Pending ReplyStore messages always take priority over focus-triggered show.
+     */
+    fun onEditableFocusChanged(focused: Boolean) {
+        if (isDestroyed) return
+        dockHandler.post {
+            if (isDestroyed) return@post
+            if (!SettingsManager.isEdgeDockingMode(this)) return@post
+
+            val pendingCount = ReplyStore.count()
+
+            if (focused) {
+                cancelTextFocusHide()
+                if (pendingCount > 0) {
+                    android.util.Log.d(
+                        "ScrollCat",
+                        "Focus-triggered cat visibility: field focused=true, pending messages=$pendingCount, action=skip-has-pending"
+                    )
+                    return@post
+                }
+                heldByTextFocus = true
+                cancelInitialSettleTimer()
+                awaitingInitialDock = false
+                if (isEdgeDocked) {
+                    // Same pop-out as new-message arrivals — but no 10s dock timer.
+                    undockToFloat(animate = true, startVisibilityTimer = false)
+                } else {
+                    // Already undocked (e.g. recent notification) — extend visibility, no re-anim.
+                    cancelDockVisibilityTimer()
+                }
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Focus-triggered cat visibility: field focused=true, pending messages=$pendingCount, action=show"
+                )
+            } else {
+                // Debounce hide so tabbing between nearby fields does not flicker.
+                dockHandler.removeCallbacks(textFocusHideRunnable)
+                dockHandler.postDelayed(textFocusHideRunnable, TEXT_FOCUS_HIDE_DEBOUNCE_MS)
+            }
+        }
+    }
+
+    private fun cancelTextFocusHide() {
+        dockHandler.removeCallbacks(textFocusHideRunnable)
+    }
+
+    private fun isHeldByEditableFocus(): Boolean {
+        if (heldByTextFocus) return true
+        if (CatAccessibilityService.instance?.hasFocusedEditableField() == true) {
+            heldByTextFocus = true
+            return true
+        }
+        return false
+    }
+
+    /** After debounce: dock if focus is still gone and nothing else should keep the cat out. */
+    private fun completeTextFocusHide() {
+        if (isDestroyed) return
+        val stillFocused = CatAccessibilityService.instance?.hasFocusedEditableField() == true
+        val pendingCount = ReplyStore.count()
+
+        if (stillFocused) {
+            heldByTextFocus = true
+            cancelDockVisibilityTimer()
+            android.util.Log.d(
+                "ScrollCat",
+                "Focus-triggered cat visibility: field focused=true, pending messages=$pendingCount, action=show"
+            )
+            return
+        }
+
+        heldByTextFocus = false
+
+        if (pendingCount > 0) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Focus-triggered cat visibility: field focused=false, pending messages=$pendingCount, action=skip-has-pending"
+            )
+            // Notification/pending owns visibility — resume normal 10s timer.
+            if (!isEdgeDocked) resetDockVisibilityTimer()
+            return
+        }
+
+        if (replyPanel?.isShowing == true) return
+
+        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+            dockToEdge(animate = true)
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "Focus-triggered cat visibility: field focused=false, pending messages=$pendingCount, action=hide"
+        )
     }
 
     private fun persistFloatPositionAndDockSide(x: Int, y: Int) {
@@ -880,7 +1207,7 @@ class OverlayService : Service() {
         Logger.d("Initial settle dock timer started (${INITIAL_SETTLE_DOCK_MS}ms)")
     }
 
-    private fun resetDockVisibilityTimer() {
+    private fun resetDockVisibilityTimer(forceDespiteTextFocus: Boolean = false) {
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
         awaitingInitialDock = false
@@ -889,14 +1216,25 @@ class OverlayService : Service() {
             Logger.d("Dock visibility timer not started — reply panel open")
             return
         }
+        // Focus-held: no countdown — stay undocked until the field loses focus.
+        // Notification pop-out may force a timer; dockVisibilityRunnable still respects live focus.
+        if (heldByTextFocus && !forceDespiteTextFocus) {
+            Logger.d("Dock visibility timer not started — held by text focus")
+            return
+        }
         dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
         Logger.d("Edge-dock visibility timer reset (${DOCK_VISIBILITY_MS}ms)")
     }
 
     /** Resume normal edge-dock countdown after the reply panel closes. */
     private fun onReplyPanelDismissed() {
-        if (isDestroyed) return
+        if (isDestroyed || isDismissing) return
         if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+            if (isHeldByEditableFocus()) {
+                cancelDockVisibilityTimer()
+                Logger.d("Reply panel closed — kept undocked (text field focused)")
+                return
+            }
             resetDockVisibilityTimer()
             Logger.d("Reply panel closed — dock visibility timer resumed")
         }
@@ -908,6 +1246,8 @@ class OverlayService : Service() {
 
     fun applyCatDisplayMode() {
         if (isDestroyed) return
+        heldByTextFocus = false
+        cancelTextFocusHide()
         if (SettingsManager.isEdgeDockingMode(this)) {
             catAnimator?.setIdleSleepEnabled(false)
             cancelInitialSettleTimer()
@@ -1014,7 +1354,7 @@ class OverlayService : Service() {
 
         if (!isEdgeDocked) {
             if (startVisibilityTimer && SettingsManager.isEdgeDockingMode(this)) {
-                resetDockVisibilityTimer()
+                resetDockVisibilityTimer(forceDespiteTextFocus = true)
             }
             onComplete?.invoke()
             return
@@ -1042,7 +1382,7 @@ class OverlayService : Service() {
             safeUpdateViewLayout(view, params)
             catAnimator?.showStatic()
             if (startVisibilityTimer && SettingsManager.isEdgeDockingMode(this)) {
-                resetDockVisibilityTimer()
+                resetDockVisibilityTimer(forceDespiteTextFocus = true)
             } else {
                 cancelDockVisibilityTimer()
             }
@@ -1081,10 +1421,12 @@ class OverlayService : Service() {
         if (!SettingsManager.isEdgeDockingMode(this)) return
         cancelInitialSettleTimer()
         awaitingInitialDock = false
+        // Notification priority: start/reset the normal 10s visibility timer.
+        // If already undocked (e.g. focus-held), do not restart the pop-out animation.
         if (isEdgeDocked) {
             undockToFloat(animate = true, startVisibilityTimer = true)
         } else {
-            resetDockVisibilityTimer()
+            resetDockVisibilityTimer(forceDespiteTextFocus = true)
         }
     }
 
@@ -1444,6 +1786,8 @@ class OverlayService : Service() {
         }
     }
 
+    fun isReplyPanelShowing(): Boolean = replyPanel?.isShowing == true
+
     fun updateBadgeAfterReply() {
         val remaining = ReplyStore.getAll().size
         if (remaining == 0) {
@@ -1486,6 +1830,7 @@ class OverlayService : Service() {
     fun clearOnboardingDemoCallback() {
         replyPanel?.onDemoPanelShown = null
         replyPanel?.onDemoReplySent = null
+        onDismissFadeCompleted = null
     }
 
     private fun updateBadge() {
@@ -1844,9 +2189,20 @@ class OverlayService : Service() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
-            android.util.Log.w("ScrollCat", "Trim memory level: $level")
-            catAnimator?.onLowMemory()
+        when (level) {
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> {
+                android.util.Log.w("ScrollCat", "Trim memory level: $level")
+                catAnimator?.onLowMemory()
+                releaseOnDeviceAiForMemoryPressure(level.toString())
+            }
+            else -> {
+                if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+                    android.util.Log.w("ScrollCat", "Trim memory level: $level")
+                    catAnimator?.onLowMemory()
+                }
+            }
         }
     }
 
@@ -1857,9 +2213,14 @@ class OverlayService : Service() {
                 "catView=$catView isEdgeDocked=$isEdgeDocked"
         )
         isDestroyed = true
+        dismissFadeAnimator?.removeAllListeners()
+        dismissFadeAnimator?.cancel()
+        dismissFadeAnimator = null
         cancelDockAnimator()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
+        cancelTextFocusHide()
+        heldByTextFocus = false
         catTouchListener?.cleanup()
         catTouchListener = null
         hideDragHandle()
@@ -1889,8 +2250,10 @@ class OverlayService : Service() {
         musicDetector = null
         screenTranslator?.close()
         screenTranslator = null
-        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
         try { unregisterReceiver(screenStateReceiver) } catch (e: Exception) { }
+        cancelOnDeviceIdleTimer()
+        DeviceIdleMonitor.unregister(this)
+        OnDeviceAiEngine.shutdown()
         instance = null
         super.onDestroy()
     }

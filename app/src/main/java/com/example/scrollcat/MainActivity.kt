@@ -14,7 +14,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 
 /**
@@ -23,10 +22,10 @@ import com.google.android.material.card.MaterialCardView
  */
 class MainActivity : Activity() {
 
-    private var btnUpgrade: MaterialButton? = null
-    private var btnShare: MaterialButton? = null
     private var aiKeyBanner: MaterialCardView? = null
     private var dashboardCatAnimator: CatAnimator? = null
+    private var repliesTodayCountView: TextView? = null
+    private var autoRepliesTodayCountView: TextView? = null
 
     companion object {
         private const val DASHBOARD_CAT_SIZE_DP = 148
@@ -150,6 +149,9 @@ class MainActivity : Activity() {
             UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "\uD83D\uDCCB Auto-Reply Rules") {
                 startActivity(Intent(this@MainActivity, AutoReplyActivity::class.java))
             })
+            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "Smart Voice") {
+                startActivity(Intent(this@MainActivity, SmartVoiceActivity::class.java))
+            })
             UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "My AI Settings") {
                 startActivity(Intent(this@MainActivity, AiSettingsActivity::class.java))
             })
@@ -161,16 +163,28 @@ class MainActivity : Activity() {
             })
         }
 
-        dashboardSection(root, "Plan & Sharing") {
-            btnUpgrade = UiKit.tonalButton(this@MainActivity, "\u2B50 Upgrade to Pro") {
-                startActivity(Intent(this@MainActivity, SubscriptionActivity::class.java))
-            }
-            UiKit.addButton(this, btnUpgrade!!)
-            btnShare = UiKit.tonalButton(this@MainActivity, "\uD83D\uDCE4 Share my stats") {
-                startActivity(Intent(this@MainActivity, ShareCardActivity::class.java))
-            }
-            UiKit.addButton(this, btnShare!!)
+        dashboardSection(root, "Smart Tracker") {
+            addTodayStatsRow(this)
         }
+
+        root.addView(TextView(this).apply {
+            text = "Enjoying ScrollCat? We'd love your feedback \uD83D\uDC3E"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFF5F3F7.toInt())
+            setPadding(
+                0,
+                UiKit.dp(this@MainActivity, 8),
+                0,
+                UiKit.dp(this@MainActivity, 4)
+            )
+        })
+        UiKit.addButton(
+            root,
+            UiKit.tonalButton(this, "Give Feedback") {
+                startActivity(Intent(this@MainActivity, FeedbackActivity::class.java))
+            }
+        )
 
         // Footer: privacy policy link + version
         root.addView(TextView(this).apply {
@@ -268,6 +282,109 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun addTodayStatsRow(parent: LinearLayout) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, UiKit.dp(this@MainActivity, 8), 0, UiKit.dp(this@MainActivity, 4))
+            }
+        }
+
+        val repliesBox = buildTodayStatBox(
+            topLabel = "AI cat replied to",
+            bottomLabel = "messages today",
+            onClick = {
+                startActivity(Intent(this@MainActivity, ShareCardActivity::class.java))
+            }
+        )
+        repliesTodayCountView = repliesBox.second
+        row.addView(
+            repliesBox.first,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = UiKit.dp(this@MainActivity, 6)
+            }
+        )
+
+        val autoBox = buildTodayStatBox(
+            topLabel = "AI cat auto-replied",
+            bottomLabel = "messages today",
+            onClick = {
+                startActivity(Intent(this@MainActivity, AutoReplyTrackerActivity::class.java))
+            }
+        )
+        autoRepliesTodayCountView = autoBox.second
+        row.addView(
+            autoBox.first,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = UiKit.dp(this@MainActivity, 6)
+            }
+        )
+
+        parent.addView(row)
+        refreshTodayStats()
+    }
+
+    private fun buildTodayStatBox(
+        topLabel: String,
+        bottomLabel: String,
+        onClick: () -> Unit
+    ): Pair<MaterialCardView, TextView> {
+        val card = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@MainActivity, 16).toFloat()
+            cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
+            strokeWidth = 1
+            strokeColor = 0x556B6578
+            setCardBackgroundColor(0xFF25252C.toInt())
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(
+                UiKit.dp(this@MainActivity, 12),
+                UiKit.dp(this@MainActivity, 16),
+                UiKit.dp(this@MainActivity, 12),
+                UiKit.dp(this@MainActivity, 16)
+            )
+        }
+        content.addView(TextView(this).apply {
+            text = topLabel
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFF5F3F7.toInt())
+        })
+        val countView = TextView(this).apply {
+            text = "0"
+            textSize = 32f
+            gravity = Gravity.CENTER
+            typeface = UiKit.headingTypeface(this@MainActivity)
+            setTextColor(UiKit.primaryColor(this@MainActivity))
+            setPadding(0, UiKit.dp(this@MainActivity, 6), 0, UiKit.dp(this@MainActivity, 6))
+        }
+        content.addView(countView)
+        content.addView(TextView(this).apply {
+            text = bottomLabel
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFF5F3F7.toInt())
+        })
+        card.addView(content)
+        return card to countView
+    }
+
+    private fun refreshTodayStats() {
+        // AI replies only — auto-replies are tracked separately via Auto Reply Tracker.
+        repliesTodayCountView?.text = StatsTracker.getRepliesSentToday(this).toString()
+        autoRepliesTodayCountView?.text =
+            AutoReplyManager.getAutoRepliesTriggeredToday(this).toString()
+    }
+
     private fun refreshAiKeyBanner() {
         val banner = aiKeyBanner ?: return
         val hasKey = SettingsManager.getActiveAiKey(this).isNotBlank()
@@ -277,13 +394,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         dashboardCatAnimator?.showFrame(DASHBOARD_REST_FRAME)
-
-        val isPro = BillingManager.getInstance(this).isPro()
-        btnUpgrade?.visibility = if (isPro) android.view.View.GONE else android.view.View.VISIBLE
-        btnShare?.visibility =
-            if (StatsTracker.getTotalRepliesSent(this) >= 5) android.view.View.VISIBLE
-            else android.view.View.GONE
         refreshAiKeyBanner()
+        refreshTodayStats()
         RateUsManager.maybeShowRatePrompt(this)
     }
 

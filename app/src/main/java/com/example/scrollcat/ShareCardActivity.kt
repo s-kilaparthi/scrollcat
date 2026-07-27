@@ -40,7 +40,7 @@ class ShareCardActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val replies = StatsTracker.getRepliesSentToday(this) + StatsTracker.getAutoRepliesToday(this)
+        val replies = StatsTracker.getRepliesSentToday(this)
         val minutes = StatsTracker.getMinutesSavedToday(this)
         cardBitmap = drawCard(replies, minutes)
 

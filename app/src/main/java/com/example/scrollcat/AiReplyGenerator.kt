@@ -24,10 +24,10 @@ import java.util.concurrent.TimeUnit
 /**
  * Generates 3 reply suggestions for an incoming message.
  *
- * AI chain (via ClaudeReplyGenerator entry point):
- * 1. Claude API (if user has key)
- * 2. Groq/Llama3 (if user has Groq key)
- * 3. Gemini Nano (on-device, if AICore available)
+ * AI chain:
+ * 1. On-device LiteRT-LM (if OnDeviceAiEngine.isReady())
+ * 2. Groq/Llama3 (bundled or user key)
+ * 3. Claude API (if user has key, after Groq failure)
  * 4. ML Kit Smart Reply
  * 5. Hardcoded fallback
  */
@@ -183,7 +183,18 @@ class AiReplyGenerator(private val context: Context) {
 
                 generateReplies(context, packageName, senderName, mergedText) { replies ->
                     Logger.d("Groq replies stored for $senderKey: $replies")
-                    ReplyStore.storeReplies(senderKey, replies)
+                    val targets = ReplyStore.getAll().filter { msg ->
+                        msg.packageName == packageName && (
+                            if (packageName == "com.whatsapp") {
+                                msg.sender.equals(senderName, ignoreCase = true)
+                            } else {
+                                msg.notificationId.toString() == senderName
+                            }
+                        )
+                    }
+                    targets.map { it.conversationKey }.distinct().forEach { conversationKey ->
+                        ReplyStore.storeRepliesForConversation(conversationKey, replies)
+                    }
                 }
             }
         }
@@ -260,18 +271,115 @@ class AiReplyGenerator(private val context: Context) {
 
 Generate 3 short reply options."""
         val providerName = providerNameFor(endpoint)
-        generateWithGroq(userMessage, endpoint, model, apiKey) { replies, error ->
-            if (replies.isNotEmpty()) {
-                onResult(replies.take(SUGGESTION_COUNT), "AI Provider")
-            } else {
-                if (providerName == "Groq") {
-                    Log.e(TAG, "Groq failed, falling back: ${error?.message ?: "empty response"}")
-                    fallbackAfterGroqFailure(userMessage, sender, message, onResult)
+        val primary = SettingsManager.getPrimaryAiProvider(context)
+        val primaryIsOnDevice = primary == SettingsManager.PRIMARY_AI_ON_DEVICE &&
+            ModelDownloadManager.modelFileExists(context)
+
+        fun tryLightweightFallback() {
+            Log.d(TAG, "Falling through to Smart Reply / hardcoded (no on-device re-enable)")
+            generateWithSmartReply(sender, message, onResult)
+        }
+
+        fun tryCloudProviders() {
+            generateWithGroq(userMessage, endpoint, model, apiKey) { replies, error ->
+                if (replies.isNotEmpty()) {
+                    val via = when (providerName) {
+                        "Groq" -> "groq"
+                        "Claude" -> "claude"
+                        else -> providerName.lowercase()
+                    }
+                    Log.d(TAG, "Reply generated via: $via")
+                    onResult(replies.take(SUGGESTION_COUNT), "AI Provider")
                 } else {
-                    Log.e(TAG, "$providerName failed, falling back: ${error?.message ?: "empty response"}")
-                    generateWithSmartReply(sender, message, onResult)
+                    if (primaryIsOnDevice && providerName == "Groq") {
+                        // On-device was primary and failed earlier; cloud also failed —
+                        // Claude secondary then Smart Reply (legacy when primary is on-device).
+                        Log.e(TAG, "Groq failed after on-device: ${error?.message ?: "empty response"}")
+                        fallbackAfterGroqFailure(userMessage, sender, message, onResult)
+                    } else {
+                        // Explicit cloud primary (or non-Groq): never re-enable on-device.
+                        Log.e(
+                            TAG,
+                            "$providerName failed, lightweight fallback: ${error?.message ?: "empty response"}"
+                        )
+                        tryLightweightFallback()
+                    }
                 }
             }
+        }
+
+        fun tryOnDeviceThenCloud() {
+            if (DeviceCapabilityChecker.shouldSkipOnDeviceForDoze(context)) {
+                Log.d(TAG, "Doze — skipping on-device primary, using cloud")
+                tryCloudProviders()
+                return
+            }
+            if (OnDeviceAiEngine.isReady()) {
+                Thread {
+                    try {
+                        val systemPrompt =
+                            UserProfileBuilder.buildSystemPrompt(context, userMessage.length)
+                        val languageLock =
+                            "CRITICAL: Detect the language of the user's message and reply ONLY in " +
+                                "that same language, not English (unless the message is already in English)."
+                        val raw = OnDeviceAiEngine.generateReply(
+                            systemPrompt = "$languageLock\n\n$systemPrompt\n\n$languageLock",
+                            userMessage = userMessage
+                        )
+                        val replies = if (raw != null) parseReplies(raw) else emptyList()
+                        if (replies.isNotEmpty()) {
+                            val fullReplies = replies.take(SUGGESTION_COUNT).toList()
+                            mainHandler.post {
+                                Log.d(TAG, "Reply generated via: on-device")
+                                onResult(fullReplies, "On-Device")
+                            }
+                        } else {
+                            Log.d(TAG, "On-device AI returned null/empty, falling through to cloud")
+                            tryCloudProviders()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "On-device AI failed, falling through to cloud: ${e.message}")
+                        tryCloudProviders()
+                    }
+                }.start()
+            } else {
+                Thread {
+                    try {
+                        OnDeviceAiEngine.ensureInitialized(context)
+                        if (OnDeviceAiEngine.isReady()) {
+                            val systemPrompt =
+                                UserProfileBuilder.buildSystemPrompt(context, userMessage.length)
+                            val languageLock =
+                                "CRITICAL: Detect the language of the user's message and reply ONLY in " +
+                                    "that same language, not English (unless the message is already in English)."
+                            val raw = OnDeviceAiEngine.generateReply(
+                                systemPrompt = "$languageLock\n\n$systemPrompt\n\n$languageLock",
+                                userMessage = userMessage
+                            )
+                            val replies = if (raw != null) parseReplies(raw) else emptyList()
+                            if (replies.isNotEmpty()) {
+                                val fullReplies = replies.take(SUGGESTION_COUNT).toList()
+                                mainHandler.post {
+                                    Log.d(TAG, "Reply generated via: on-device (after warmup)")
+                                    onResult(fullReplies, "On-Device")
+                                }
+                                return@Thread
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "On-device warmup/generate failed: ${e.message}")
+                    }
+                    tryCloudProviders()
+                }.start()
+            }
+        }
+
+        if (primaryIsOnDevice) {
+            tryOnDeviceThenCloud()
+        } else {
+            // Cloud (or nothing) is primary — never auto-start on-device.
+            Log.d(TAG, "Primary AI provider=$primary — cloud path only")
+            tryCloudProviders()
         }
     }
 
@@ -302,6 +410,7 @@ Generate 3 short reply options."""
             Log.d(TAG, "Using Claude fallback after Groq failure")
             generateWithGroq(userMessage, CLAUDE_ENDPOINT, CLAUDE_MODEL, claudeKey) { replies, error ->
                 if (replies.isNotEmpty()) {
+                    Log.d(TAG, "Reply generated via: claude")
                     onResult(replies.take(SUGGESTION_COUNT), "Claude")
                 } else {
                     Log.e(TAG, "Claude fallback failed, using Smart Reply: ${error?.message ?: "empty response"}")
@@ -441,15 +550,23 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
     }
 
     private fun parseReplies(content: String): List<String> {
-        val cleaned = content
-            .trim()
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
+        val cleanedResponse = stripMarkdownCodeFences(content)
+        android.util.Log.d(
+            "ScrollCat",
+            "Cleaned on-device response before parsing: $cleanedResponse"
+        )
+
+        val jsonCandidate = extractJsonArrayCandidate(cleanedResponse)
+        if (jsonCandidate == null) {
+            Log.d(
+                TAG,
+                "parseReplies: no JSON array after fence strip — treating as failed generation"
+            )
+            return emptyList()
+        }
 
         return try {
-            val arr = JSONArray(cleaned)
+            val arr = JSONArray(jsonCandidate)
             val replies = mutableListOf<String>()
             for (i in 0 until arr.length()) {
                 val item = arr.get(i)
@@ -474,21 +591,62 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                     }
                 }
             }
-            replies.filter { it.isNotEmpty() && it.length > 2 }.take(3)
-                .let { sanitizeParsedReplies(it) }
+            val parsed = replies.filter { it.isNotEmpty() && it.length > 2 }.take(3)
+            if (parsed.isEmpty()) {
+                Log.d(TAG, "parseReplies: JSON array had no usable reply strings")
+                emptyList()
+            } else {
+                sanitizeParsedReplies(parsed)
+            }
         } catch (e: Exception) {
-            cleaned.split("\n")
-                .map { it.trim()
-                    .removePrefix("-")
-                    .removePrefix("•")
-                    .removePrefix("1.").removePrefix("2.").removePrefix("3.")
-                    .removeSurrounding("\"")
-                    .trim()
-                }
-                .filter { it.isNotEmpty() && it.length > 3 && !it.startsWith("{") }
-                .take(3)
-                .let { sanitizeParsedReplies(it) }
+            Log.d(
+                TAG,
+                "parseReplies: invalid JSON after fence strip (${e.message}) — " +
+                    "failing generation for Groq fallback"
+            )
+            emptyList()
         }
+    }
+
+    /**
+     * Removes leading/trailing markdown fences such as ```json / ```python / ```.
+     */
+    private fun stripMarkdownCodeFences(raw: String): String {
+        var text = raw.trim()
+        if (text.isEmpty()) return text
+
+        // Opening fence on first line: ``` or ```json / ```python / etc.
+        val openFence = Regex(
+            "^```[a-zA-Z0-9_+.-]*\\s*\\r?\\n?",
+            setOf(RegexOption.IGNORE_CASE)
+        )
+        text = text.replaceFirst(openFence, "")
+
+        // Closing fence at end (optional preceding newline)
+        val closeFence = Regex("\\r?\\n?```[ \\t]*$")
+        text = text.replace(closeFence, "")
+
+        return text.trim()
+    }
+
+    /**
+     * Returns a string that looks like a JSON array, or null if none can be found.
+     * Does not invent replies from free-form / Python garbage.
+     */
+    private fun extractJsonArrayCandidate(cleaned: String): String? {
+        val trimmed = cleaned.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.startsWith("[")) {
+            return trimmed
+        }
+        val start = trimmed.indexOf('[')
+        val end = trimmed.lastIndexOf(']')
+        if (start < 0 || end <= start) return null
+        val slice = trimmed.substring(start, end + 1).trim()
+        // Reject slices that clearly aren't JSON arrays of strings/objects
+        // (e.g. Python list-like garbage without quotes is still attempted by JSONArray
+        // and will fail in the caller — that's fine).
+        return slice.ifEmpty { null }
     }
 
     private val danglingEndWords = setOf(
@@ -518,6 +676,16 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                 valid.add(reply)
             }
         }
+        // Never pad non-Latin (e.g. Telugu) results with English fallbacks — that looked
+        // like "only chip 0 updated, chips 1–2 still stale English from before".
+        val sourceHasNonLatin = replies.any { reply -> reply.any { it.code > 0x7F } }
+        if (sourceHasNonLatin) {
+            if (valid.isEmpty()) {
+                // Keep originals rather than inventing English chips
+                return replies.filter { it.isNotBlank() }.take(SUGGESTION_COUNT)
+            }
+            return valid.take(SUGGESTION_COUNT)
+        }
         var fallbackIndex = 0
         while (valid.size < SUGGESTION_COUNT && fallbackIndex < fallbackReplies.size) {
             val fallback = fallbackReplies[fallbackIndex++]
@@ -530,12 +698,17 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         val trimmed = reply.trim()
         if (trimmed.isEmpty()) return true
 
+        // Non-Latin scripts (Telugu, Hindi, etc.): don't apply English fragment heuristics
+        if (trimmed.any { it.code > 0x7F }) {
+            return trimmed.length < 2
+        }
+
         val words = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (words.isEmpty()) return true
 
         val lastWord = words.last()
             .lowercase()
-            .trimEnd('.', '!', '?', ',', ';', ':', '"', '\'', '…')
+            .trimEnd('.', '!', '?', ',', ';', ':', '"', '\'', '…', '।', '॥')
 
         // e.g. "to", "a plan" — too short and ends on a function word
         if (words.size < 3 && lastWord in danglingEndWords) return true
@@ -544,7 +717,9 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         if (words.size <= 4 && lastWord in setOf("be", "is")) return true
 
         val lastChar = trimmed.last()
-        val endsLikeSentence = lastChar.isLetterOrDigit() || lastChar in ".!?"
+        val endsLikeSentence = lastChar.isLetterOrDigit() ||
+            lastChar.isLetter() ||
+            lastChar in ".!?…।॥"
         return !endsLikeSentence
     }
 
@@ -689,15 +864,20 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                     }
                 mainHandler.post {
                     if (suggestions.isNotEmpty()) {
+                        Log.d(TAG, "Reply generated via: mlkit")
                         onResult(suggestions, "Smart Reply")
                     } else {
+                        Log.d(TAG, "Reply generated via: hardcoded")
                         onResult(HARDCODED_FALLBACK, "Fallback")
                     }
                 }
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Smart Reply failed: ${e.message}")
-                mainHandler.post { onResult(HARDCODED_FALLBACK, "Fallback") }
+                mainHandler.post {
+                    Log.d(TAG, "Reply generated via: hardcoded")
+                    onResult(HARDCODED_FALLBACK, "Fallback")
+                }
             }
     }
 
@@ -724,10 +904,19 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
                 appendLine(nanoStatus)
                 appendLine()
                 appendLine("📡 Active engine:")
+                val primary = SettingsManager.getPrimaryAiProvider(context)
                 append(
                     when {
+                        primary == SettingsManager.PRIMARY_AI_ON_DEVICE ->
+                            "→ On-Device AI (Gemma 4)"
+                        primary == SettingsManager.PRIMARY_AI_GROQ -> "→ Groq"
+                        primary == SettingsManager.PRIMARY_AI_CLAUDE -> "→ Claude"
+                        primary == SettingsManager.PRIMARY_AI_OPENAI -> "→ OpenAI"
+                        primary == SettingsManager.PRIMARY_AI_CUSTOM ->
+                            "→ ${SettingsManager.getActiveAiModel(context)} (custom)"
                         hasClaudeKey -> "→ Claude API (premium)"
-                        hasActiveProvider -> "→ ${SettingsManager.getActiveAiModel(context)} (configured)"
+                        hasActiveProvider ->
+                            "→ ${SettingsManager.getActiveAiModel(context)} (configured)"
                         hasGroqKey -> "→ Groq/Llama3 (free)"
                         else -> "→ Fallback replies"
                     }

@@ -18,6 +18,15 @@ object UserProfileBuilder {
         val primaryLanguage = prefs.getString("primary_language", "English") ?: "English"
 
         return buildString {
+            if (matchLanguage) {
+                append(
+                    "CRITICAL: Detect the language of the user's message and reply ONLY in that " +
+                        "same language, not English (unless the message is already in English). "
+                )
+            } else {
+                append("CRITICAL: Reply in $primaryLanguage only — do not switch languages. ")
+            }
+
             append("You are a smart reply assistant. ")
             append("Generate exactly 3 short reply options for the message. ")
             append("ABSOLUTE RULES - NEVER BREAK THESE: ")
@@ -93,9 +102,12 @@ object UserProfileBuilder {
             }
 
             if (matchLanguage) {
-                append("Reply in same language as the message. ")
+                append(
+                    "CRITICAL REMINDER: Detect the language of the user's message and reply ONLY " +
+                        "in that same language, not English. "
+                )
             } else {
-                append("Reply in $primaryLanguage only. ")
+                append("CRITICAL REMINDER: Reply in $primaryLanguage only. ")
             }
 
             append("CRITICAL RULES: ")

@@ -19,8 +19,17 @@ object ReplySender {
     /**
      * Fills the reply action's RemoteInput with [replyText] and fires it.
      * Returns true if the PendingIntent was sent successfully.
+     *
+     * @param recordAsAiReply when true (default), increments the Share Stats
+     *   "AI cat replied" counter. Pass false for keyword auto-replies so they
+     *   only count toward Auto Reply Tracker via [AutoReplyManager.logTrackerEntry].
      */
-    fun send(context: Context, message: ReplyStore.ReplyableMessage, replyText: String): Boolean {
+    fun send(
+        context: Context,
+        message: ReplyStore.ReplyableMessage,
+        replyText: String,
+        recordAsAiReply: Boolean = true
+    ): Boolean {
         val remoteInputs = message.remoteInputs
         val actionIntent = message.actionIntent
         if (remoteInputs.isEmpty() || actionIntent == null) {
@@ -42,12 +51,25 @@ object ReplySender {
             Log.i(TAG, "Reply sent to ${message.sender} via ${message.packageName}")
             ReplyStore.trackSentReply(replyText)
             RateUsManager.recordReplySent(context)
-            StatsTracker.recordReplySent(context)
-            // Dismiss the notification we just replied to so it doesn't linger
-            try {
-                CatNotificationListener.instance?.cancelNotification(message.notificationKey)
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not cancel notification: ${e.message}")
+            if (recordAsAiReply) {
+                StatsTracker.recordReplySent(context)
+            }
+            // Dismiss the shade only when nothing else in the queue still needs this
+            // notification key (same-sender queued messages often share one key).
+            val siblingsRemain = ReplyStore.countForNotificationKey(message.notificationKey) > 0
+            if (!siblingsRemain) {
+                try {
+                    CatNotificationListener.instance?.cancelNotification(message.notificationKey)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not cancel notification: ${e.message}")
+                }
+            } else {
+                Log.d(
+                    TAG,
+                    "Skipping notification cancel — " +
+                        "${ReplyStore.countForNotificationKey(message.notificationKey)} " +
+                        "queued entr(y/ies) still use key=${message.notificationKey}"
+                )
             }
             true
         } catch (e: PendingIntent.CanceledException) {

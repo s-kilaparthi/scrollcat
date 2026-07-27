@@ -1,7 +1,9 @@
 package com.example.scrollcat
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Color
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -12,6 +14,8 @@ import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -33,10 +37,14 @@ class ReplyPanel(
 
     companion object {
         private const val PANEL_WIDTH = 680
+        /** Compact footprint for the listening-only dictation bubble. */
+        private const val DICTATION_PANEL_WIDTH = 220
         private const val CONFIRMATION_MS = 3000L
         private const val ACCENT = 0xFFB39DDB.toInt()
         private const val PANEL_BG = 0xF21E1E28.toInt()
         private const val CHIP_BG = 0xFF2A2A36.toInt()
+        private const val VOICE_CHIP_BG = 0xFF3D3555.toInt()
+        private const val VOICE_CHIP_STROKE = 0xFFB39DDB.toInt()
         private const val MAX_PANEL_HEIGHT_FRACTION = 0.4f
         private const val TAG_NEW_SENDER_ARROW = "scrollcat_new_sender_arrow"
         private const val MUTED_TEXT = 0xFFA39BB0.toInt()
@@ -63,13 +71,14 @@ class ReplyPanel(
     private var navRow: LinearLayout? = null
     private var pendingCountView: TextView? = null
     private var newSenderArrow: TextView? = null
-    /** Notification keys the user has already viewed in this open panel session. */
+    /** Notification entryIds the user has already viewed in this open panel session. */
     private val viewedKeys = mutableSetOf<String>()
     /**
-     * Conversation keys of other pending senders that already existed when this
-     * single-sender panel opened (direct or from list). Arrow only for arrivals after this.
+     * Entry IDs that already existed when this panel session opened (or that the
+     * user has since viewed via the ↓ arrow). Arrow only for arrivals after this —
+     * including a second message from the **same** sender.
      */
-    private val knownOthersAtOpen = mutableSetOf<String>()
+    private val knownEntryIdsAtOpen = mutableSetOf<String>()
     private var showingSenderList = false
     var onDismissed: (() -> Unit)? = null
     /** Fired when the onboarding demo reply panel first opens (message + chips). */
@@ -78,6 +87,14 @@ class ReplyPanel(
     var onDemoReplySent: (() -> Unit)? = null
     private var demoInstructionsDismissed = false
     private var demoPanelShownNotified = false
+    private var voiceListening = false
+    private var micPulseAnimator: ObjectAnimator? = null
+    private val voiceTranslator by lazy { ScreenTranslator(context) }
+    /** True while showing the minimal no-pending voice-dictation panel. */
+    private var dictationMode = false
+    private var dictationStatusLabel: TextView? = null
+    private var dictationMicIcon: ImageView? = null
+    private var dictationRetryHint: TextView? = null
 
     fun resetOnboardingDemoState() {
         demoInstructionsDismissed = false
@@ -98,7 +115,7 @@ class ReplyPanel(
         if (pending.isEmpty()) return
         currentIndex = 0
         viewedKeys.clear()
-        knownOthersAtOpen.clear()
+        knownEntryIdsAtOpen.clear()
         dismiss()
         isShowing = true
 
@@ -145,6 +162,284 @@ class ReplyPanel(
         } else {
             showSenderList()
         }
+    }
+
+    /**
+     * Compact voice-dictation bubble (chip-sized): ✕, listening pulse, translate toggle,
+     * and a Smart Voice helper link. Auto-starts listening; on success inserts at the
+     * focused field's cursor via [CatAccessibilityService] and dismisses.
+     */
+    fun showVoiceDictation(catX: Int, catY: Int, catSize: Int) {
+        dismiss()
+        isShowing = true
+        dictationMode = true
+        dictationStatusLabel = null
+        dictationMicIcon = null
+        dictationRetryHint = null
+
+        val panelW = dp(DICTATION_PANEL_WIDTH)
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(10))
+            background = GradientDrawable().apply {
+                setColor(PANEL_BG)
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0x33FFFFFF)
+            }
+        }
+
+        val dm = context.resources.displayMetrics
+        val x = (catX + catSize / 2 - panelW / 2)
+            .coerceIn(dp(8), (dm.widthPixels - panelW - dp(8)).coerceAtLeast(dp(8)))
+        val y = (catY - dp(100)).coerceAtLeast(dp(48))
+
+        val params = WindowManager.LayoutParams(
+            panelW,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            this.x = x
+            this.y = y
+        }
+
+        try {
+            if (panel.parent == null) windowManager.addView(panel, params)
+        } catch (e: Exception) {
+            android.util.Log.w("ScrollCat", "Voice dictation panel addView failed: ${e.message}")
+            isShowing = false
+            dictationMode = false
+            return
+        }
+        panelView = panel
+        panelParams = params
+
+        // Baseline text at panel open — used at insertion to decide REPLACE vs SPLICE.
+        clearDictationTargetRefs()
+        val a11y = CatAccessibilityService.instance
+        dictationOriginalNode = a11y?.findFocusedEditableNode()
+        dictationTargetSnapshot = a11y?.captureEditableTarget()
+        android.util.Log.d(
+            "ScrollCat",
+            "Voice dictation panel open — baseline='${dictationTargetSnapshot?.textBefore}' " +
+                "snapshot=${dictationTargetSnapshot != null}"
+        )
+
+        // Top row: mic + status | translate | ✕
+        val topRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val micIcon = ImageView(context).apply {
+            setImageResource(R.drawable.ic_mic)
+            imageTintList = android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
+        }
+        dictationMicIcon = micIcon
+        topRow.addView(micIcon)
+
+        val status = TextView(context).apply {
+            text = "Listening…"
+            textSize = 12f
+            setTextColor(TIP_ACCENT)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), 0, dp(4), 0)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        dictationStatusLabel = status
+        topRow.addView(status)
+
+        topRow.addView(buildVoiceTranslateToggle(dp(32)).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply {
+                marginEnd = dp(2)
+            }
+        })
+
+        topRow.addView(TextView(context).apply {
+            text = "✕"
+            textSize = 14f
+            setTextColor(MUTED_TEXT)
+            setPadding(dp(6), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                android.util.Log.d("ScrollCat", "Voice dictation cancelled via ✕")
+                dismiss()
+            }
+        })
+        panel.addView(topRow)
+
+        val retryHint = TextView(context).apply {
+            text = ""
+            textSize = 11f
+            setTextColor(DANGER)
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            setPadding(0, dp(4), 0, 0)
+            setOnClickListener {
+                if (!voiceListening) startDictationListening()
+            }
+        }
+        dictationRetryHint = retryHint
+        panel.addView(retryHint)
+
+        panel.addView(TextView(context).apply {
+            text = "Choose translation voice in Smart Voice"
+            textSize = 10f
+            setTextColor(MUTED_TEXT)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, 0)
+            setOnClickListener {
+                try {
+                    context.startActivity(
+                        Intent(context, SmartVoiceActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("ScrollCat", "Open SmartVoice failed: ${e.message}")
+                }
+            }
+        })
+
+        // Tap panel body (status area) to retry after an error
+        status.isClickable = true
+        status.setOnClickListener {
+            if (!voiceListening) startDictationListening()
+        }
+
+        android.util.Log.d("ScrollCat", "Voice dictation panel shown — auto-starting listen")
+        startDictationListening()
+    }
+
+    private fun setDictationListeningUi() {
+        voiceListening = true
+        dictationRetryHint?.visibility = View.GONE
+        dictationStatusLabel?.apply {
+            text = "Listening…"
+            setTextColor(TIP_ACCENT)
+        }
+        dictationMicIcon?.imageTintList =
+            android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+        micPulseAnimator?.cancel()
+        dictationMicIcon?.let { icon ->
+            micPulseAnimator = ObjectAnimator.ofFloat(icon, View.ALPHA, 1f, 0.35f).apply {
+                duration = 650L
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+    }
+
+    private fun setDictationErrorUi(message: String) {
+        voiceListening = false
+        micPulseAnimator?.cancel()
+        micPulseAnimator = null
+        dictationMicIcon?.alpha = 1f
+        dictationMicIcon?.imageTintList =
+            android.content.res.ColorStateList.valueOf(DANGER)
+        dictationStatusLabel?.apply {
+            text = message.ifBlank { "Didn't catch that, try again" }
+            setTextColor(DANGER)
+        }
+        dictationRetryHint?.apply {
+            text = "Tap to try again"
+            visibility = View.VISIBLE
+        }
+    }
+
+    /** Snapshot of the focused field, taken before recognition starts. */
+    private var dictationTargetSnapshot:
+        CatAccessibilityService.EditableTargetSnapshot? = null
+    /** Pre-recognition node kept only for stale-vs-fresh diagnostic logging. */
+    private var dictationOriginalNode: android.view.accessibility.AccessibilityNodeInfo? = null
+
+    private fun startDictationListening() {
+        if (!dictationMode || panelView == null) return
+        if (!RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+            setDictationErrorUi("Speech not available")
+            return
+        }
+
+        // Capture target only if missing (e.g. first listen). Retries keep the panel-open baseline
+        // so "unchanged since open" still means REPLACE for placeholders.
+        if (dictationTargetSnapshot == null) {
+            clearDictationTargetRefs()
+            val a11y = CatAccessibilityService.instance
+            dictationOriginalNode = a11y?.findFocusedEditableNode()
+            dictationTargetSnapshot = a11y?.captureEditableTarget()
+            android.util.Log.d(
+                "ScrollCat",
+                "Voice dictation target captured snapshot=${dictationTargetSnapshot != null} " +
+                    "originalNode=${dictationOriginalNode != null} " +
+                    "baseline='${dictationTargetSnapshot?.textBefore}'"
+            )
+        }
+
+        setDictationListeningUi()
+        RecordAudioPermissionActivity.start(
+            context,
+            object : RecordAudioPermissionActivity.Callback {
+                override fun onListening() {
+                    handler.post { if (dictationMode) setDictationListeningUi() }
+                }
+
+                override fun onTranscript(text: String) {
+                    handler.post {
+                        if (!dictationMode) return@post
+                        voiceListening = false
+                        micPulseAnimator?.cancel()
+                        dictationStatusLabel?.text = "Inserting…"
+                        resolveVoiceTranscript(text) { resolved ->
+                            // Brief delay so the transparent Activity can finish and focus can settle,
+                            // then ALWAYS re-resolve a fresh node (never reuse dictationOriginalNode).
+                            handler.postDelayed({
+                                if (!dictationMode) return@postDelayed
+                                val ok = CatAccessibilityService.instance?.insertTextAtCursor(
+                                    text = resolved,
+                                    snapshot = dictationTargetSnapshot,
+                                    originalNodeForLog = dictationOriginalNode
+                                ) == true
+                                android.util.Log.d(
+                                    "ScrollCat",
+                                    "Voice dictation insert success=$ok textLen=${resolved.length}"
+                                )
+                                clearDictationTargetRefs()
+                                if (ok) {
+                                    dismiss()
+                                } else {
+                                    setDictationErrorUi(
+                                        "Couldn't insert — is the field still focused?"
+                                    )
+                                }
+                            }, 200L)
+                        }
+                    }
+                }
+
+                override fun onError(message: String) {
+                    handler.post {
+                        clearDictationTargetRefs()
+                        if (dictationMode) setDictationErrorUi(message)
+                    }
+                }
+
+                override fun onCancelled() {
+                    handler.post { clearDictationTargetRefs() }
+                }
+            }
+        )
+    }
+
+    private fun clearDictationTargetRefs() {
+        try {
+            dictationOriginalNode?.recycle()
+        } catch (_: Exception) {
+        }
+        dictationOriginalNode = null
+        dictationTargetSnapshot = null
     }
 
     private fun showSenderList() {
@@ -270,7 +565,7 @@ class ReplyPanel(
         })
 
         row.setOnClickListener {
-            currentIndex = pending.indexOfFirst { it.notificationKey == entry.notificationKey }
+            currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }
                 .coerceAtLeast(0)
             showMessage(entry, captureOpenSnapshot = true)
         }
@@ -280,10 +575,10 @@ class ReplyPanel(
 
     private fun dismissSenderFromList(entry: ReplyStore.ReplyableMessage) {
         cancelShadeNotification(entry)
+        ReplyStore.removeEntry(entry.entryId)
         clearPregeneratedReplies(entry)
-        ReplyStore.remove(entry.notificationKey)
         ReplyStore.getAndClearBuffer(senderKeyFor(entry))
-        pending.removeAll { it.notificationKey == entry.notificationKey }
+        pending.removeAll { it.entryId == entry.entryId }
         OverlayService.instance?.updateBadgeAfterReply()
         Logger.d("Message ignored from list: ${entry.sender}")
         when {
@@ -294,16 +589,16 @@ class ReplyPanel(
     }
 
     private fun snapshotKnownOthersAtOpen(current: ReplyStore.ReplyableMessage) {
-        knownOthersAtOpen.clear()
-        // Snapshot ALL pending conversations at open (including the one being viewed),
-        // so ←/→ between already-known senders never looks like a "new" arrival.
+        knownEntryIdsAtOpen.clear()
+        // Snapshot ALL pending entry IDs at open (including the one being viewed),
+        // so ←/→ between already-known messages never looks like a "new" arrival.
         pending.forEach { entry ->
-            knownOthersAtOpen.add(entry.conversationKey)
+            knownEntryIdsAtOpen.add(entry.entryId)
         }
         android.util.Log.d(
             "ScrollCat",
-            "Panel opened for ${current.notificationKey} - known at open time: $knownOthersAtOpen " +
-                "(including current ${current.conversationKey})"
+            "Panel opened for ${current.notificationKey} - known entryIds at open: " +
+                "$knownEntryIdsAtOpen (including current ${current.entryId})"
         )
     }
 
@@ -312,14 +607,15 @@ class ReplyPanel(
         captureOpenSnapshot: Boolean = false
     ) {
         showingSenderList = false
-        pending.indexOfFirst { it.notificationKey == message.notificationKey }
+        pending.indexOfFirst { it.entryId == message.entryId }
             .takeIf { it >= 0 }
             ?.let { currentIndex = it }
         currentEntry = message
         if (captureOpenSnapshot) {
             snapshotKnownOthersAtOpen(message)
         }
-        viewedKeys.add(message.notificationKey)
+        viewedKeys.add(message.entryId)
+        knownEntryIdsAtOpen.add(message.entryId)
         val panel = panelView ?: return
         panel.removeAllViews()
         navRow = null
@@ -384,34 +680,109 @@ class ReplyPanel(
 
         // ── Incoming message preview (full text; scrollable if panel is height-capped) ──
         val replyTextSp = SettingsManager.getReplyTextSizeSp(context)
+        val fullIncomingMessage = message.message
         val messagePreview = TextView(context).apply {
-            text = message.message
+            text = fullIncomingMessage
             setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
             setTextColor(SOFT_TEXT)
-            setPadding(0, 10, 0, 16)
+            // Trailing padding so long lines don't sit under the copy icon
+            setPadding(0, dp(10), dp(28), dp(16))
         }
         val messageScroll = ScrollView(context).apply {
             isVerticalScrollBarEnabled = true
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
             addView(
                 messagePreview,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
                 )
             )
         }
-        panel.addView(messageScroll)
+        val copyFeedback = TextView(context).apply {
+            text = "Copied!"
+            textSize = 11f
+            setTextColor(ACCENT)
+            visibility = View.GONE
+            setPadding(dp(2), 0, dp(2), 0)
+        }
+        val copyIconHit = dp(32)
+        val copyBtn = ImageView(context).apply {
+            setImageResource(R.drawable.ic_content_copy)
+            imageTintList = android.content.res.ColorStateList.valueOf(MUTED_TEXT)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Copy message"
+            // ~16–18dp glyph inside a slightly larger tap target
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            layoutParams = FrameLayout.LayoutParams(copyIconHit, copyIconHit).apply {
+                gravity = Gravity.TOP or Gravity.END
+            }
+            setOnClickListener {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                clipboard.setPrimaryClip(
+                    android.content.ClipData.newPlainText("message", fullIncomingMessage)
+                )
+                (copyFeedback.tag as? Runnable)?.let { handler.removeCallbacks(it) }
+                copyFeedback.animate().cancel()
+                copyFeedback.alpha = 1f
+                copyFeedback.visibility = View.VISIBLE
+                val hide = Runnable {
+                    if (copyFeedback.visibility != View.VISIBLE) return@Runnable
+                    copyFeedback.animate()
+                        .alpha(0f)
+                        .setDuration(200L)
+                        .withEndAction {
+                            copyFeedback.visibility = View.GONE
+                            copyFeedback.alpha = 1f
+                        }
+                        .start()
+                }
+                copyFeedback.tag = hide
+                handler.postDelayed(hide, 1600L)
+            }
+        }
+        val messageArea = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(14)
+            }
+            addView(messageScroll)
+            addView(copyBtn)
+            addView(copyFeedback, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(28)
+                marginEnd = dp(2)
+            })
+        }
+        panel.addView(messageArea)
 
         // ── Suggestions container ──
         val chipsContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(2)
+            }
         }
         panel.addView(chipsContainer)
+
+        val isGmailMessage = message.packageName.equals("com.google.android.gm", ignoreCase = true)
+        // Gmail: preview + Reply in app / Ignore only — no AI chips, mic, or Send.
+        if (isGmailMessage) {
+            chipsContainer.visibility = View.GONE
+        }
 
         // ── Bottom row: Reply in app + Ignore + more ──
         val bottomRow = LinearLayout(context).apply {
@@ -501,22 +872,25 @@ class ReplyPanel(
                     Logger.e("Failed to open app: ${e2.message}")
                 }
             }
-            // Clear badge and remove from store after opening app
+            // Clear this message only; continue to next queued if any
+            ReplyStore.removeEntry(entry.entryId)
             clearPregeneratedReplies(entry)
-            ReplyStore.remove(entry.notificationKey)
             OverlayService.instance?.updateBadgeAfterReply()
-            dismiss()
+            continueAfterHandling(entry)
         }
 
-        // Ignore click - dismiss panel entry and clear the OS shade notification
+        // Ignore click - dismiss this queue entry (not the whole sender queue)
         ignoreBtn.setOnClickListener {
             val entry = currentEntry ?: return@setOnClickListener
-            cancelShadeNotification(entry)
+            ReplyStore.removeEntry(entry.entryId)
             clearPregeneratedReplies(entry)
-            ReplyStore.remove(entry.notificationKey)
+            // Only clear the shade when nothing else still references this notification
+            if (ReplyStore.countForNotificationKey(entry.notificationKey) == 0) {
+                cancelShadeNotification(entry)
+            }
             OverlayService.instance?.updateBadgeAfterReply()
-            dismiss()
             Logger.d("Message ignored: ${entry.sender}")
+            continueAfterHandling(entry)
         }
 
         bottomRow.addView(replyInAppBtn)
@@ -550,7 +924,7 @@ class ReplyPanel(
         fun sizePanelForContent() {
             panel.post {
                 applyAutoPanelHeight(
-                    header, messageScroll, messagePreview, chipsContainer, bottomRow, belowButtons
+                    header, messageArea, messageScroll, messagePreview, chipsContainer, bottomRow, belowButtons
                 )
             }
         }
@@ -562,6 +936,7 @@ class ReplyPanel(
         }
 
         fun showThinkingState() {
+            releaseSpeechRecognizer()
             chipsContainer.removeAllViews()
             chipsContainer.addView(TextView(context).apply {
                 text = "🐾 Cat is thinking…"
@@ -576,22 +951,22 @@ class ReplyPanel(
         lateinit var renderReplies: (List<String>, String) -> Unit
 
         fun showEditInput(initialText: String, suggestions: List<String>, engine: String) {
+            releaseSpeechRecognizer()
             chipsContainer.removeAllViews()
             setPanelFocusable(true)
 
-            val editRow = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
+            val editColumn = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
             }
             val input = android.widget.EditText(context).apply {
                 setText(initialText)
                 setSelection(text.length)
-                textSize = 14f
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
                 setTextColor(0xFFF5F3F7.toInt())
                 setHintTextColor(MUTED_TEXT)
                 setSingleLine(false)
                 minLines = 1
-                maxLines = 3
+                maxLines = 5
                 setPadding(18, 14, 18, 14)
                 background = GradientDrawable().apply {
                     setColor(INPUT_BG)
@@ -599,24 +974,177 @@ class ReplyPanel(
                     setStroke(1, 0x44FFFFFF)
                 }
                 layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                ).apply { marginEnd = 8 }
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
             }
-            val sendBtn = TextView(context).apply {
-                text = "Send"
-                textSize = 13f
-                setTextColor(0xFFF5F3F7.toInt())
+
+            val actionsRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+            }
+            val rowHeight = dp(52)
+            val dividerColor = 0x446B6578
+            fun toolbarDivider(): View = View(context).apply {
+                setBackgroundColor(dividerColor)
+                layoutParams = LinearLayout.LayoutParams(dp(1), rowHeight - dp(12)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+            }
+
+            // ── Cancel (flat text) ──
+            val cancelBtn = TextView(context).apply {
+                text = "Cancel"
+                textSize = 14f
+                setTextColor(ACCENT)
                 gravity = Gravity.CENTER
-                setPadding(18, 16, 18, 16)
+                setPadding(0, 0, 0, 0)
+                background = null
+                layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
+                setOnClickListener {
+                    setPanelFocusable(false)
+                    releaseSpeechRecognizer()
+                    renderReplies(suggestions, engine)
+                }
+            }
+
+            // ── Continue (mic above + label below, flat) ──
+            val continueMic = ImageView(context).apply {
+                setImageResource(R.drawable.ic_mic)
+                imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                }
+            }
+            val continueLabel = TextView(context).apply {
+                text = "Continue"
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(ACCENT)
+                gravity = Gravity.CENTER_HORIZONTAL
+                maxLines = 1
+                isSingleLine = true
+                setPadding(0, dp(2), 0, 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { gravity = Gravity.CENTER_HORIZONTAL }
+            }
+            val continueBtn = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = null
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+                layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
+                addView(continueMic)
+                addView(continueLabel)
+            }
+
+            fun setContinueIdle(error: String? = null) {
+                voiceListening = false
+                micPulseAnimator?.cancel()
+                micPulseAnimator = null
+                continueMic.alpha = 1f
+                continueMic.imageTintList =
+                    android.content.res.ColorStateList.valueOf(ACCENT)
+                continueLabel.text = "Continue"
+                continueLabel.setTextColor(ACCENT)
+                if (error != null) {
+                    android.widget.Toast.makeText(
+                        context,
+                        error,
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            fun setContinueListening() {
+                voiceListening = true
+                continueLabel.text = "Listening"
+                continueLabel.setTextColor(TIP_ACCENT)
+                continueMic.imageTintList =
+                    android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+                micPulseAnimator?.cancel()
+                micPulseAnimator = ObjectAnimator.ofFloat(continueMic, View.ALPHA, 1f, 0.35f).apply {
+                    duration = 650L
+                    repeatMode = ValueAnimator.REVERSE
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = AccelerateDecelerateInterpolator()
+                    start()
+                }
+            }
+
+            continueBtn.setOnClickListener {
+                if (voiceListening || RecordAudioPermissionActivity.isActive()) {
+                    releaseSpeechRecognizer()
+                    setContinueIdle()
+                    return@setOnClickListener
+                }
+                if (!RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+                    setContinueIdle("Speech not available")
+                    return@setOnClickListener
+                }
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                    as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(input.windowToken, 0)
+                setContinueListening()
+                RecordAudioPermissionActivity.start(
+                    context,
+                    object : RecordAudioPermissionActivity.Callback {
+                        override fun onListening() {
+                            handler.post { setContinueListening() }
+                        }
+
+                        override fun onTranscript(text: String) {
+                            handler.post {
+                                setContinueIdle()
+                                resolveVoiceTranscript(text) { resolved ->
+                                    appendTranscriptToEdit(input, resolved)
+                                    input.requestFocus()
+                                    val again = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                                        as android.view.inputmethod.InputMethodManager
+                                    again.showSoftInput(
+                                        input,
+                                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
+                                    )
+                                }
+                            }
+                        }
+
+                        override fun onError(message: String) {
+                            handler.post { setContinueIdle(message) }
+                        }
+
+                        override fun onCancelled() {
+                            handler.post { setContinueIdle() }
+                        }
+                    }
+                )
+            }
+
+            // ── Send (filled primary segment — Connect-style ACCENT fill + light icon) ──
+            val sendIconPad = dp(14)
+            val sendBtn = ImageView(context).apply {
+                setImageResource(R.drawable.ic_send)
+                imageTintList = android.content.res.ColorStateList.valueOf(0xFFF5F3F7.toInt())
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                contentDescription = "Send"
+                setPadding(sendIconPad, sendIconPad, sendIconPad, sendIconPad)
                 background = GradientDrawable().apply {
                     setColor(ACCENT)
-                    cornerRadius = 20f
+                    cornerRadius = dp(10).toFloat()
                 }
+                layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
                 setOnClickListener {
                     val entry = currentEntry ?: return@setOnClickListener
                     val edited = input.text.toString().trim()
                     if (edited.isEmpty()) return@setOnClickListener
                     setPanelFocusable(false)
+                    releaseSpeechRecognizer()
                     if (entry.hasRemoteInput) {
                         sendReply(entry, edited)
                     } else {
@@ -634,20 +1162,15 @@ class ReplyPanel(
                     }
                 }
             }
-            editRow.addView(input)
-            editRow.addView(sendBtn)
-            chipsContainer.addView(editRow)
-            chipsContainer.addView(TextView(context).apply {
-                text = "Cancel"
-                textSize = 12f
-                setTextColor(MUTED_TEXT)
-                gravity = Gravity.END
-                setPadding(0, 10, 6, 0)
-                setOnClickListener {
-                    setPanelFocusable(false)
-                    renderReplies(suggestions, engine)
-                }
-            })
+
+            actionsRow.addView(cancelBtn)
+            actionsRow.addView(toolbarDivider())
+            actionsRow.addView(continueBtn)
+            actionsRow.addView(toolbarDivider())
+            actionsRow.addView(sendBtn)
+            editColumn.addView(input)
+            editColumn.addView(actionsRow)
+            chipsContainer.addView(editColumn)
 
             input.post {
                 input.requestFocus()
@@ -655,11 +1178,13 @@ class ReplyPanel(
                     as android.view.inputmethod.InputMethodManager
                 imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }
+            sizePanelForContent()
         }
 
         fun showReplies(suggestions: List<String>, engine: String = "Pre-generated") {
             if (!isShowing || currentEntry != message) return
             setPanelFocusable(false)
+            releaseSpeechRecognizer()
             chipsContainer.removeAllViews()
             if (engine == AiReplyGenerator.ENGINE_LIMIT_REACHED) {
                 chipsContainer.addView(TextView(context).apply {
@@ -763,10 +1288,29 @@ class ReplyPanel(
                     addEditableChip(suggestion)
                 }
             }
+            if (RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+                chipsContainer.addView(
+                    buildVoiceToTextChip(
+                        onVoiceTranscript = { text ->
+                            resolveVoiceTranscript(text) { resolved ->
+                                showEditInput(resolved, suggestions, engine)
+                            }
+                        },
+                        onContentChanged = { sizePanelForContent() }
+                    )
+                )
+            }
             sizePanelForContent()
         }
 
         renderReplies = ::showReplies
+
+        // Gmail: no reply chips / mic / Groq — message + button row only.
+        if (isGmailMessage) {
+            Logger.d("Gmail message — skipping reply chips and AI generation")
+            sizePanelForContent()
+            return
+        }
 
         // Onboarding demo: hardcoded chips, no AI / no real notification
         if (ReplyStore.isDemoMessage(message)) {
@@ -780,7 +1324,8 @@ class ReplyPanel(
             message.packageName,
             message.notificationId,
             message.sender,
-            message.message
+            message.message,
+            message.entryId
         )
 
         if (pregenerated != null && pregenerated.isNotEmpty()) {
@@ -792,11 +1337,288 @@ class ReplyPanel(
             val aiGenerator = AiReplyGenerator(context)
             aiGenerator.generateReplies(message.sender, message.message) { replies, engine ->
                 handler.post {
-                    ReplyStore.storeReplies(senderKeyFor(message), replies)
+                    ReplyStore.storeReplies(message.entryId, replies)
                     showReplies(replies, engine)
                 }
             }
         }
+    }
+
+    /**
+     * Shared Voice→edit pipeline: optionally ML-Kit translate Language 1 → Language 2
+     * when the panel translate toggle is on and the two languages differ.
+     */
+    private fun resolveVoiceTranscript(raw: String, onReady: (String) -> Unit) {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) {
+            onReady(raw)
+            return
+        }
+        val translateOn = SettingsManager.isVoiceTranslateEnabled(context)
+        val lang1 = SettingsManager.getVoiceLanguage1(context)
+        val lang2 = SettingsManager.getVoiceLanguage2(context)
+        if (!translateOn || lang1.equals(lang2, ignoreCase = true)) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Voice transcript passthrough (translate=$translateOn lang1=$lang1 lang2=$lang2)"
+            )
+            onReady(trimmed)
+            return
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "Voice transcript translating $lang1 → $lang2"
+        )
+        voiceTranslator.translateBetween(trimmed, lang1, lang2) { translated ->
+            handler.post {
+                if (translated.isNullOrBlank()) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Translation unavailable — using original",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    onReady(trimmed)
+                } else {
+                    onReady(translated)
+                }
+            }
+        }
+    }
+
+    private val voiceTranslatePainters = mutableListOf<() -> Unit>()
+
+    private fun refreshVoiceTranslateToggles() {
+        voiceTranslatePainters.toList().forEach { it.invoke() }
+    }
+
+    /** Compact on/off translate control shared by Voice-to-text chip and Continue row. */
+    private fun buildVoiceTranslateToggle(heightPx: Int = dp(40)): ImageView {
+        val toggle = ImageView(context).apply {
+            setImageResource(R.drawable.ic_translate)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Translate voice"
+            isClickable = true
+            isFocusable = true
+            val pad = dp(8)
+            setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(heightPx, heightPx).apply {
+                marginStart = dp(4)
+            }
+        }
+        fun paint() {
+            val lang1 = SettingsManager.getVoiceLanguage1(context)
+            val lang2 = SettingsManager.getVoiceLanguage2(context)
+            val sameLang = lang1.equals(lang2, ignoreCase = true)
+            if (sameLang && SettingsManager.isVoiceTranslateEnabled(context)) {
+                SettingsManager.setVoiceTranslateEnabled(context, false)
+            }
+            val on = !sameLang && SettingsManager.isVoiceTranslateEnabled(context)
+            toggle.isEnabled = !sameLang
+            toggle.isClickable = !sameLang
+            toggle.isFocusable = !sameLang
+            toggle.imageTintList = android.content.res.ColorStateList.valueOf(
+                when {
+                    sameLang -> MUTED_TEXT
+                    on -> TIP_ACCENT
+                    else -> MUTED_TEXT
+                }
+            )
+            toggle.background = GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
+                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+            }
+            toggle.alpha = when {
+                sameLang -> 0.35f
+                on -> 1f
+                else -> 0.75f
+            }
+            toggle.contentDescription = when {
+                sameLang -> "Translate unavailable (same language)"
+                on -> "Translate voice on"
+                else -> "Translate voice off"
+            }
+        }
+        val painter: () -> Unit = { paint() }
+        voiceTranslatePainters.add(painter)
+        toggle.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                paint()
+            }
+            override fun onViewDetachedFromWindow(v: View) {
+                voiceTranslatePainters.remove(painter)
+            }
+        })
+        paint()
+        toggle.setOnClickListener {
+            if (!toggle.isEnabled) return@setOnClickListener
+            val next = !SettingsManager.isVoiceTranslateEnabled(context)
+            SettingsManager.setVoiceTranslateEnabled(context, next)
+            refreshVoiceTranslateToggles()
+            android.widget.Toast.makeText(
+                context,
+                if (next) "Voice translate on" else "Voice translate off",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        return toggle
+    }
+
+    private fun releaseSpeechRecognizer() {
+        voiceListening = false
+        micPulseAnimator?.cancel()
+        micPulseAnimator = null
+        RecordAudioPermissionActivity.cancelActive()
+    }
+
+    /** Append [newText] to the edit field, inserting a space when needed; cursor at end. */
+    private fun appendTranscriptToEdit(input: android.widget.EditText, newText: String) {
+        val trimmedNew = newText.trim()
+        if (trimmedNew.isEmpty()) return
+        val existing = input.text?.toString().orEmpty()
+        val combined = when {
+            existing.isEmpty() -> trimmedNew
+            existing.last().isWhitespace() -> existing + trimmedNew
+            else -> "$existing $trimmedNew"
+        }
+        input.setText(combined)
+        input.setSelection(combined.length)
+    }
+
+    /**
+     * Action chip (not an AI suggestion): mic + "Voice to text". Hosts listening
+     * in a fully transparent Activity; chip shows listening/error states inline.
+     */
+    private fun buildVoiceToTextChip(
+        onVoiceTranscript: (String) -> Unit,
+        onContentChanged: () -> Unit
+    ): LinearLayout {
+        val chip = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                setColor(VOICE_CHIP_BG)
+                cornerRadius = 24f
+                setStroke(dp(1), VOICE_CHIP_STROKE)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, dp(6), 0, dp(4)) }
+            // ~18% shorter than previous 12dp vertical padding
+            setPadding(dp(14), dp(8), dp(10), dp(8))
+        }
+
+        val micIcon = ImageView(context).apply {
+            setImageResource(R.drawable.ic_mic)
+            imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+                marginEnd = dp(8)
+            }
+        }
+        val label = TextView(context).apply {
+            text = "Voice to text"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(ACCENT)
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        val voiceDivider = View(context).apply {
+            setBackgroundColor(0x446B6578)
+            layoutParams = LinearLayout.LayoutParams(dp(1), dp(22)).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                marginStart = dp(4)
+                marginEnd = dp(2)
+            }
+        }
+        chip.addView(micIcon)
+        chip.addView(label)
+        chip.addView(voiceDivider)
+        chip.addView(buildVoiceTranslateToggle(dp(32)))
+
+        // Refresh disable/enable when this chip is shown (languages may have changed)
+        refreshVoiceTranslateToggles()
+
+        fun setIdleState(errorMessage: String? = null) {
+            voiceListening = false
+            micPulseAnimator?.cancel()
+            micPulseAnimator = null
+            micIcon.alpha = 1f
+            micIcon.scaleX = 1f
+            micIcon.scaleY = 1f
+            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+            label.text = errorMessage ?: "Voice to text"
+            label.setTextColor(if (errorMessage != null) DANGER else ACCENT)
+            onContentChanged()
+            if (errorMessage != null) {
+                handler.postDelayed({
+                    if (!voiceListening && label.text == errorMessage) {
+                        label.text = "Voice to text"
+                        label.setTextColor(ACCENT)
+                        onContentChanged()
+                    }
+                }, 2200L)
+            }
+        }
+
+        fun setListeningState() {
+            voiceListening = true
+            label.text = "Listening..."
+            label.setTextColor(TIP_ACCENT)
+            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+            micPulseAnimator?.cancel()
+            micPulseAnimator = ObjectAnimator.ofFloat(micIcon, View.ALPHA, 1f, 0.35f).apply {
+                duration = 650L
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+            onContentChanged()
+        }
+
+        fun startListening() {
+            if (!RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+                setIdleState("Speech not available")
+                return
+            }
+            setListeningState()
+            RecordAudioPermissionActivity.start(
+                context,
+                object : RecordAudioPermissionActivity.Callback {
+                    override fun onListening() {
+                        handler.post { setListeningState() }
+                    }
+
+                    override fun onTranscript(text: String) {
+                        handler.post {
+                            setIdleState()
+                            onVoiceTranscript(text)
+                        }
+                    }
+
+                    override fun onError(message: String) {
+                        handler.post { setIdleState(message) }
+                    }
+
+                    override fun onCancelled() {
+                        handler.post { setIdleState() }
+                    }
+                }
+            )
+        }
+
+        chip.setOnClickListener {
+            if (voiceListening || RecordAudioPermissionActivity.isActive()) {
+                releaseSpeechRecognizer()
+                setIdleState()
+                return@setOnClickListener
+            }
+            startListening()
+        }
+        return chip
     }
 
     private fun resetPanelHeightToWrap() {
@@ -815,6 +1637,7 @@ class ReplyPanel(
      */
     private fun applyAutoPanelHeight(
         header: View,
+        messageArea: View,
         messageScroll: ScrollView,
         messagePreview: TextView,
         chipsContainer: View,
@@ -852,14 +1675,20 @@ class ReplyPanel(
         } ?: 0
 
         // Fixed chrome only — header / chips / buttons are not multiplied.
+        // GONE chips (e.g. Gmail) contribute 0 so the panel doesn't leave empty space.
+        val chipsHeight = if (chipsContainer.visibility == View.GONE) {
+            0
+        } else {
+            chipsContainer.measuredHeight + verticalMargins(chipsContainer)
+        }
         val fixedChrome = panel.paddingTop + panel.paddingBottom +
             header.measuredHeight + verticalMargins(header) +
-            chipsContainer.measuredHeight + verticalMargins(chipsContainer) +
+            chipsHeight +
             bottomRow.measuredHeight + verticalMargins(bottomRow) +
             (extraBelowButtons?.let { it.measuredHeight + verticalMargins(it) } ?: 0) +
             navHeight + (nav?.let { verticalMargins(it) } ?: 0) +
             arrowHeight +
-            verticalMargins(messageScroll)
+            verticalMargins(messageArea)
 
         // Message-area allotment boost (Large +25%, Extra Large +45%). Small/Normal unchanged.
         // The 40% screen fraction is the baseline ceiling; Large/XL scale that ceiling by the
@@ -879,7 +1708,7 @@ class ReplyPanel(
         val preferredMessageHeight = (naturalMessageHeight * messageHeightMultiplier).toInt()
         val messageHeight = preferredMessageHeight.coerceAtMost(messageBudget)
 
-        messageScroll.layoutParams = LinearLayout.LayoutParams(
+        messageArea.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             messageHeight
         )
@@ -998,9 +1827,9 @@ class ReplyPanel(
 
     private fun sendReply(message: ReplyStore.ReplyableMessage, replyText: String) {
         if (ReplyStore.isDemoMessage(message)) {
-            clearPregeneratedReplies(message)
             ReplyStore.clearDemo()
-            pending.remove(message)
+            clearPregeneratedReplies(message)
+            pending.removeAll { it.entryId == message.entryId }
             currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
             OverlayService.instance?.updateBadgeAfterReply()
             SettingsManager.setOnboardingDemoCompleted(context, true)
@@ -1008,26 +1837,87 @@ class ReplyPanel(
                 "ScrollCat",
                 "Demo completed, notifying onboarding to show Grant Access"
             )
-            showConfirmation("Sent! ✓", notifyDemoSent = true)
+            showConfirmation("Sent! ✓", notifyDemoSent = true, handled = message)
             return
         }
 
-        val sent = ReplySender.send(context, message, replyText)
+        // Remove this entry first so sibling detection / notification cancel is accurate
+        ReplyStore.removeEntry(message.entryId)
         clearPregeneratedReplies(message)
-        ReplyStore.remove(message.notificationKey)
-        pending.remove(message)
+        pending.removeAll { it.entryId == message.entryId }
         currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
         OverlayService.instance?.updateBadgeAfterReply()
+
+        val sent = ReplySender.send(context, message, replyText)
         if (sent) {
-            showConfirmation("Sent to ${message.sender} ✓")
+            // Auto-advance immediately when more remain for this sender (no full close)
+            if (advanceToNextSameSenderOrNull(message) != null) {
+                return
+            }
+            showConfirmation("Sent to ${message.sender} ✓", handled = message)
         } else {
-            // RemoteInput unusable — fall back to opening the conversation
             ReplySender.openApp(context, message)
-            dismiss()
+            continueAfterHandling(message)
         }
     }
 
-    private fun showConfirmation(text: String, notifyDemoSent: Boolean = false) {
+    /**
+     * After handling one queue entry: if the same sender still has queued messages,
+     * keep the panel open and show the next one. Otherwise close/dock as today.
+     */
+    private fun continueAfterHandling(handled: ReplyStore.ReplyableMessage) {
+        if (advanceToNextSameSenderOrNull(handled) != null) return
+
+        pending = ReplyStore.getAll().toMutableList()
+        val senderKey = senderKeyFor(handled)
+        android.util.Log.d(
+            "ScrollCat",
+            "Post-send check for $senderKey - remaining queue entries: 0, auto-advancing: false"
+        )
+        when {
+            pending.isEmpty() -> dismiss()
+            else -> {
+                currentIndex = currentIndex.coerceIn(0, pending.size - 1)
+                showMessage(pending[currentIndex])
+            }
+        }
+    }
+
+    /**
+     * If [handled]'s conversation still has queue entries, show the oldest remaining
+     * one in-place (panel stays open, dock timer stays paused). Returns that entry,
+     * or null if the same-sender queue is empty.
+     */
+    private fun advanceToNextSameSenderOrNull(
+        handled: ReplyStore.ReplyableMessage
+    ): ReplyStore.ReplyableMessage? {
+        pending = ReplyStore.getAll().toMutableList()
+        val senderKey = senderKeyFor(handled)
+        val sameSender = pending.filter { it.conversationKey == handled.conversationKey }
+        val remaining = sameSender.size
+        val nextSame = sameSender.minByOrNull { it.timestamp }
+        val autoAdvance = nextSame != null
+        android.util.Log.d(
+            "ScrollCat",
+            "Post-send check for $senderKey - remaining queue entries: $remaining, " +
+                "auto-advancing: $autoAdvance"
+        )
+        if (nextSame == null) return null
+
+        android.util.Log.d(
+            "ScrollCat",
+            "Same-sender queue: showing next entry ${nextSame.entryId} for ${handled.sender}"
+        )
+        knownEntryIdsAtOpen.add(nextSame.entryId)
+        showQueuedEntry(nextSame)
+        return nextSame
+    }
+
+    private fun showConfirmation(
+        text: String,
+        notifyDemoSent: Boolean = false,
+        handled: ReplyStore.ReplyableMessage? = null
+    ) {
         val panel = panelView ?: return
         panel.removeAllViews()
         resetPanelHeightToWrap()
@@ -1044,7 +1934,9 @@ class ReplyPanel(
         }
         handler.postDelayed({
             if (!isShowing) return@postDelayed
-            if (pending.isNotEmpty()) {
+            if (handled != null) {
+                continueAfterHandling(handled)
+            } else if (pending.isNotEmpty()) {
                 currentIndex = currentIndex.coerceIn(0, pending.size - 1)
                 showMessage(pending[currentIndex])
             } else {
@@ -1066,23 +1958,46 @@ class ReplyPanel(
     }
 
     /**
-     * Jump to the next pending sender the user hasn't viewed yet (priority-first order).
-     * Reuses showMessage — same path as ←/→ navigation, including thinking state if replies
-     * are still generating.
+     * Jump to the next newly arrived queue entry (same or different sender).
+     * Same-sender arrivals reuse [showQueuedEntry] — the same reveal path as
+     * post-Send auto-advance.
      */
     private fun jumpToNextUnviewedSender() {
-        if (pending.size <= 1) return
+        val current = currentEntry
+        // Prefer a new same-sender entry (not yet in the open-time snapshot)
+        if (current != null) {
+            val nextSameNew = pending
+                .filter {
+                    it.conversationKey == current.conversationKey &&
+                        it.entryId !in knownEntryIdsAtOpen
+                }
+                .minByOrNull { it.timestamp }
+            if (nextSameNew != null) {
+                knownEntryIdsAtOpen.add(nextSameNew.entryId)
+                showQueuedEntry(nextSameNew)
+                return
+            }
+        }
+        if (pending.size <= 1) {
+            updateNewSenderIndicator()
+            return
+        }
         for (offset in 1..pending.size) {
             val idx = (currentIndex + offset) % pending.size
             val entry = pending[idx]
-            // Only jump to senders that arrived after this panel opened
-            if (entry.conversationKey !in knownOthersAtOpen) {
-                currentIndex = idx
-                showMessage(entry) // no new snapshot — still same open session
+            if (entry.entryId !in knownEntryIdsAtOpen) {
+                knownEntryIdsAtOpen.add(entry.entryId)
+                showQueuedEntry(entry)
                 return
             }
         }
         updateNewSenderIndicator()
+    }
+
+    /** Show a queued entry in-place (panel stays open). Shared by auto-advance and ↓ arrow. */
+    private fun showQueuedEntry(entry: ReplyStore.ReplyableMessage) {
+        currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
+        showMessage(entry)
     }
 
     fun refreshPendingFromStore() {
@@ -1093,7 +2008,7 @@ class ReplyPanel(
         )
         if (!isShowing) return
 
-        val currentKey = currentEntry?.notificationKey
+        val currentKey = currentEntry?.entryId
         val livePending = ReplyStore.getAll().toMutableList()
         if (livePending.isEmpty()) {
             dismiss()
@@ -1114,21 +2029,21 @@ class ReplyPanel(
         }
 
         // Single-sender panel (one message + reply chips) — update live while still open.
-        val liveIndex = pending.indexOfFirst { it.notificationKey == currentKey }
+        val liveIndex = pending.indexOfFirst { it.entryId == currentKey }
         if (liveIndex >= 0) {
             currentIndex = liveIndex
             updatePendingFooter()
-            val unviewed = hasNewlyArrivedOtherSenders()
-            val currentPendingSet = pending.map { it.conversationKey }.toSet()
+            val unviewed = hasNewlyArrivedMessages()
+            val currentPendingSet = pending.map { it.entryId }.toSet()
             android.util.Log.d(
                 "ScrollCat",
-                "Arrow check - knownAtOpen: $knownOthersAtOpen, currentPending: $currentPendingSet, " +
+                "Arrow check - knownAtOpen: $knownEntryIdsAtOpen, currentPending: $currentPendingSet, " +
                     "showing arrow: $unviewed"
             )
             android.util.Log.d(
                 "ScrollCat",
-                "refreshPendingFromStore - kept current sender, " +
-                    "unviewedOthers=$unviewed total=${pending.size} knownAtOpen=$knownOthersAtOpen"
+                "refreshPendingFromStore - kept current entry, " +
+                    "unviewedNew=$unviewed total=${pending.size} knownAtOpen=$knownEntryIdsAtOpen"
             )
             if (unviewed) {
                 showNewSenderArrowLiveOnOpenPanel(currentKey)
@@ -1149,13 +2064,13 @@ class ReplyPanel(
     private fun showNewSenderArrowLiveOnOpenPanel(currentSenderKey: String?) {
         if (!isShowing || showingSenderList) return
         val panel = panelView ?: return
-        if (!hasNewlyArrivedOtherSenders()) {
+        if (!hasNewlyArrivedMessages()) {
             removeNewSenderArrow()
             return
         }
 
         val unviewedCount = pending.count {
-            it.conversationKey !in knownOthersAtOpen
+            it.entryId !in knownEntryIdsAtOpen
         }
 
         // Prefer the arrow already attached to this panel; otherwise create and attach it.
@@ -1205,10 +2120,13 @@ class ReplyPanel(
         } catch (_: Exception) { }
     }
 
-    /** True only for senders that arrived after this single-sender panel opened. */
-    private fun hasNewlyArrivedOtherSenders(): Boolean {
+    /**
+     * True when any pending entry arrived after this panel's open snapshot —
+     * including another message from the sender currently being viewed.
+     */
+    private fun hasNewlyArrivedMessages(): Boolean {
         return pending.any { entry ->
-            entry.conversationKey !in knownOthersAtOpen
+            entry.entryId !in knownEntryIdsAtOpen
         }
     }
 
@@ -1231,7 +2149,7 @@ class ReplyPanel(
             removeNewSenderArrow()
             return
         }
-        if (!hasNewlyArrivedOtherSenders()) {
+        if (!hasNewlyArrivedMessages()) {
             removeNewSenderArrow()
             return
         }
@@ -1320,7 +2238,7 @@ class ReplyPanel(
         }
         ignored.forEach { entry ->
             cancelShadeNotification(entry)
-            ReplyStore.remove(entry.notificationKey)
+            ReplyStore.removeEntry(entry.entryId)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
             clearPregeneratedReplies(entry)
         }
@@ -1340,7 +2258,7 @@ class ReplyPanel(
             allPending.map { it.notificationKey }
         )
         allPending.forEach { entry ->
-            ReplyStore.remove(entry.notificationKey)
+            ReplyStore.removeEntry(entry.entryId)
             ReplyStore.getAndClearBuffer(senderKeyFor(entry))
             clearPregeneratedReplies(entry)
         }
@@ -1374,8 +2292,10 @@ class ReplyPanel(
             message.packageName,
             message.notificationId,
             message.sender,
-            message.message
-        ) ?: ReplyStore.clearStoredReplies(senderKeyFor(message))
+            message.message,
+            message.entryId,
+            message.conversationKey
+        ) ?: ReplyStore.clearStoredReplies(message.entryId)
     }
 
     /**
@@ -1515,6 +2435,7 @@ class ReplyPanel(
 
     fun dismiss() {
         handler.removeCallbacksAndMessages(null)
+        releaseSpeechRecognizer()
         setPanelFocusable(false)
         panelView?.let {
             try { windowManager.removeView(it) } catch (e: Exception) { }
@@ -1526,8 +2447,15 @@ class ReplyPanel(
         pendingCountView = null
         newSenderArrow = null
         viewedKeys.clear()
-        knownOthersAtOpen.clear()
+        knownEntryIdsAtOpen.clear()
         showingSenderList = false
+        dictationMode = false
+        dictationStatusLabel = null
+        dictationMicIcon = null
+        dictationRetryHint = null
+        clearDictationTargetRefs()
+        micPulseAnimator?.cancel()
+        micPulseAnimator = null
         if (isShowing) {
             isShowing = false
             onDismissed?.invoke()

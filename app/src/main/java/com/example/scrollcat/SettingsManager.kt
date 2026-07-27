@@ -1,6 +1,8 @@
 package com.example.scrollcat
 
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 
 object SettingsManager {
 
@@ -9,6 +11,7 @@ object SettingsManager {
     private const val KEY_WATCHED_PEOPLE = "watched_people"
     private const val KEY_WATCHED_KEYWORDS = "watched_keywords"
     private const val KEY_IGNORED_CHATS = "ignored_chats"
+    private const val KEY_FEEDBACK_ENTRIES = "feedback_entries"
 
     fun getWatchedApps(context: Context): Set<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -300,6 +303,276 @@ object SettingsManager {
             .edit().putString("primary_language", language).apply()
     }
 
+    /**
+     * BCP-47 tag for [SpeechRecognizer] / [RecognizerIntent.EXTRA_LANGUAGE],
+     * based on Smart Voice "Language 1 (You speak)". Falls back to the device
+     * locale when unset, "Other" without a usable name, or an unknown custom name.
+     */
+    fun getSpeechRecognitionLanguageTag(context: Context): String {
+        val spoken = getVoiceLanguage1(context).trim()
+        if (spoken.isEmpty() || spoken.equals("Other", ignoreCase = true)) {
+            return java.util.Locale.getDefault().toLanguageTag()
+        }
+        return languageNameToBcp47(spoken)
+            ?: java.util.Locale.getDefault().toLanguageTag()
+    }
+
+    /** Best-effort map from display name (chips + free-text "Other") → BCP-47. */
+    fun languageNameToBcp47(languageName: String): String? {
+        val key = languageName.trim().lowercase()
+            .replace('_', '-')
+            .replace(Regex("\\s+"), " ")
+        // Already a language tag like "te-IN" or "te"
+        if (key.matches(Regex("^[a-z]{2,3}(-[a-z0-9]{2,8})*$"))) {
+            return languageName.trim().replace('_', '-')
+        }
+        return when (key) {
+            "english", "en", "eng" -> "en-US"
+            "hindi", "hi", "hin" -> "hi-IN"
+            "spanish", "español", "espanol", "es" -> "es-ES"
+            "arabic", "عربي", "ar" -> "ar-SA"
+            "french", "français", "francais", "fr" -> "fr-FR"
+            "telugu", "te", "తెలుగు" -> "te-IN"
+            "tamil", "ta" -> "ta-IN"
+            "kannada", "kn" -> "kn-IN"
+            "malayalam", "ml" -> "ml-IN"
+            "marathi", "mr" -> "mr-IN"
+            "bengali", "bangla", "bn" -> "bn-IN"
+            "gujarati", "gu" -> "gu-IN"
+            "punjabi", "pa" -> "pa-IN"
+            "urdu", "ur" -> "ur-PK"
+            "german", "deutsch", "de" -> "de-DE"
+            "portuguese", "português", "portugues", "pt" -> "pt-BR"
+            "italian", "italiano", "it" -> "it-IT"
+            "japanese", "日本語", "ja" -> "ja-JP"
+            "korean", "한국어", "ko" -> "ko-KR"
+            "chinese", "mandarin", "中文", "zh" -> "zh-CN"
+            "russian", "ru" -> "ru-RU"
+            "dutch", "nederlands", "nl" -> "nl-NL"
+            "turkish", "tr" -> "tr-TR"
+            "vietnamese", "vi" -> "vi-VN"
+            "thai", "th" -> "th-TH"
+            "indonesian", "bahasa", "id" -> "id-ID"
+            else -> null
+        }
+    }
+
+    /** ML Kit TranslateLanguage base tag (e.g. "te") from a display name or BCP-47. */
+    fun languageNameToMlKitTag(languageName: String): String? {
+        val bcp = languageNameToBcp47(languageName) ?: return null
+        return bcp.substringBefore('-').lowercase()
+    }
+
+    // ── Smart Voice (speak / appear-as languages + translate toggle) ──
+
+    private fun ensureVoiceLanguagesMigrated(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.contains("voice_language_1")) return
+        val seed = getPrimaryLanguage(context).ifBlank { "English" }
+        prefs.edit()
+            .putString("voice_language_1", seed)
+            .putString("voice_language_2", seed)
+            .apply()
+    }
+
+    fun getVoiceLanguage1(context: Context): String {
+        ensureVoiceLanguagesMigrated(context)
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("voice_language_1", "English") ?: "English"
+    }
+
+    fun setVoiceLanguage1(context: Context, language: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("voice_language_1", language.trim().ifBlank { "English" }).apply()
+    }
+
+    fun getVoiceLanguage2(context: Context): String {
+        ensureVoiceLanguagesMigrated(context)
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("voice_language_2", "English") ?: "English"
+    }
+
+    fun setVoiceLanguage2(context: Context, language: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("voice_language_2", language.trim().ifBlank { "English" }).apply()
+    }
+
+    fun isVoiceTranslateEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("voice_translate_enabled", false)
+    }
+
+    fun setVoiceTranslateEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("voice_translate_enabled", enabled).apply()
+    }
+
+    // ── On-device model manual override (testing) ──
+
+    /** Stored values: [OVERRIDE_E2B], [OVERRIDE_270M], or null = automatic RAM tier. */
+    const val OVERRIDE_E2B = "e2b"
+    const val OVERRIDE_270M = "270m"
+
+    fun getOnDeviceModelOverride(context: Context): String? {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("on_device_model_override", null)
+            ?.trim()
+            ?.lowercase()
+        return raw?.takeIf { it.isNotEmpty() }
+    }
+
+    fun setOnDeviceModelOverride(context: Context, override: String?) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        val normalized = override?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        if (normalized == null) {
+            prefs.remove("on_device_model_override")
+        } else {
+            prefs.putString("on_device_model_override", normalized)
+        }
+        prefs.apply()
+    }
+
+    /**
+     * When false, on-device AI must not warm up or generate — callers fall through to cloud.
+     * Synced with [getPrimaryAiProvider]: true only when primary is on-device.
+     */
+    fun isOnDeviceAiEnabled(context: Context): Boolean {
+        return getPrimaryAiProvider(context) == PRIMARY_AI_ON_DEVICE
+    }
+
+    fun setOnDeviceAiEnabled(context: Context, enabled: Boolean) {
+        // Kept for call-site compatibility; prefer setPrimaryAiProvider.
+        if (enabled) {
+            setPrimaryAiProvider(context, PRIMARY_AI_ON_DEVICE)
+        } else if (getPrimaryAiProvider(context) == PRIMARY_AI_ON_DEVICE) {
+            val fallback = defaultCloudPrimaryKey(context)
+            setPrimaryAiProvider(context, fallback)
+        }
+        android.util.Log.d("ScrollCat", "Settings: on_device_ai_enabled → $enabled")
+    }
+
+    /** Explicit primary reply engine: [PRIMARY_AI_ON_DEVICE], groq, claude, openai, custom, or "". */
+    const val PRIMARY_AI_ON_DEVICE = "on_device"
+    const val PRIMARY_AI_GROQ = "groq"
+    const val PRIMARY_AI_CLAUDE = "claude"
+    const val PRIMARY_AI_OPENAI = "openai"
+    const val PRIMARY_AI_CUSTOM = "custom"
+
+    fun getPrimaryAiProvider(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val stored = prefs.getString("primary_ai_provider", null)?.trim()?.lowercase()
+        if (!stored.isNullOrEmpty()) {
+            if (stored == PRIMARY_AI_ON_DEVICE && !ModelDownloadManager.modelFileExists(context)) {
+                // Model was deleted — fall through to cloud default.
+            } else {
+                return stored
+            }
+        }
+        return resolveDefaultPrimaryAiProvider(context)
+    }
+
+    fun setPrimaryAiProvider(context: Context, primary: String) {
+        val normalized = primary.trim().lowercase()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("primary_ai_provider", normalized).apply()
+        // Mirror legacy boolean so older call sites stay consistent.
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("on_device_ai_enabled", normalized == PRIMARY_AI_ON_DEVICE).apply()
+        android.util.Log.d("ScrollCat", "Settings: primary_ai_provider → $normalized")
+    }
+
+    /** Default when no explicit primary is stored. */
+    fun resolveDefaultPrimaryAiProvider(context: Context): String {
+        val hasModel = ModelDownloadManager.modelFileExists(context)
+        val cloudKey = defaultCloudPrimaryKey(context)
+        return when {
+            hasModel -> PRIMARY_AI_ON_DEVICE
+            cloudKey.isNotEmpty() -> cloudKey
+            else -> ""
+        }
+    }
+
+    fun primaryKeyForCloudProvider(name: String, endpoint: String): String {
+        val n = name.lowercase()
+        val e = endpoint.lowercase()
+        return when {
+            n.contains("groq") || e.contains("groq") -> PRIMARY_AI_GROQ
+            n.contains("claude") || e.contains("anthropic") -> PRIMARY_AI_CLAUDE
+            n.contains("openai") || e.contains("openai.com") -> PRIMARY_AI_OPENAI
+            else -> PRIMARY_AI_CUSTOM
+        }
+    }
+
+    private fun defaultCloudPrimaryKey(context: Context): String {
+        val providers = try {
+            AiProviderActivity.loadProviderList(context)
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val active = providers.firstOrNull { it.isActive } ?: providers.firstOrNull()
+        return if (active != null) {
+            primaryKeyForCloudProvider(active.name, active.endpoint)
+        } else {
+            ""
+        }
+    }
+
+    /** User-added language chips for Smart Voice Language 1 (persisted across sessions). */
+    fun getVoiceCustomLanguages1(context: Context): List<String> =
+        readVoiceCustomLanguages(context, "voice_custom_languages_1")
+
+    fun addVoiceCustomLanguage1(context: Context, language: String) {
+        addVoiceCustomLanguage(context, "voice_custom_languages_1", language)
+    }
+
+    /** User-added language chips for Smart Voice Language 2 (persisted across sessions). */
+    fun getVoiceCustomLanguages2(context: Context): List<String> =
+        readVoiceCustomLanguages(context, "voice_custom_languages_2")
+
+    fun addVoiceCustomLanguage2(context: Context, language: String) {
+        addVoiceCustomLanguage(context, "voice_custom_languages_2", language)
+    }
+
+    fun setVoiceCustomLanguages1(context: Context, languages: List<String>) {
+        writeVoiceCustomLanguages(context, "voice_custom_languages_1", languages)
+    }
+
+    fun setVoiceCustomLanguages2(context: Context, languages: List<String>) {
+        writeVoiceCustomLanguages(context, "voice_custom_languages_2", languages)
+    }
+
+    private fun readVoiceCustomLanguages(context: Context, key: String): List<String> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(key, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return raw.split('\u001f')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+    }
+
+    private fun writeVoiceCustomLanguages(context: Context, key: String, languages: List<String>) {
+        val cleaned = languages
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(key, cleaned.joinToString("\u001f")).apply()
+    }
+
+    private fun addVoiceCustomLanguage(context: Context, key: String, language: String) {
+        val name = language.trim()
+        if (name.isEmpty()) return
+        val existing = readVoiceCustomLanguages(context, key).toMutableList()
+        val idx = existing.indexOfFirst { it.equals(name, ignoreCase = true) }
+        if (idx >= 0) {
+            existing[idx] = name
+        } else {
+            existing.add(name)
+        }
+        writeVoiceCustomLanguages(context, key, existing)
+    }
+
     fun isMatchLanguageEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("match_language", true)
@@ -399,4 +672,41 @@ object SettingsManager {
     fun getActiveAiKey(context: Context): String =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString("active_ai_key", "") ?: ""
+
+    data class FeedbackEntry(val text: String, val timestamp: Long)
+
+    fun addFeedback(context: Context, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val arr = try {
+            JSONArray(prefs.getString(KEY_FEEDBACK_ENTRIES, "[]") ?: "[]")
+        } catch (_: Exception) {
+            JSONArray()
+        }
+        arr.put(
+            JSONObject()
+                .put("text", trimmed)
+                .put("timestamp", System.currentTimeMillis())
+        )
+        prefs.edit().putString(KEY_FEEDBACK_ENTRIES, arr.toString()).apply()
+    }
+
+    fun getFeedbackEntries(context: Context): List<FeedbackEntry> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_FEEDBACK_ENTRIES, "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val entryText = obj.optString("text", "").trim()
+                    if (entryText.isEmpty()) continue
+                    add(FeedbackEntry(entryText, obj.optLong("timestamp", 0L)))
+                }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 }
