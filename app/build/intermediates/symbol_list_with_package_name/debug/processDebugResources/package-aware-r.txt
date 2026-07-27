@@ -2997,6 +2997,7 @@ drawable ic_call_decline_low
 drawable ic_clear_black_24
 drawable ic_clock_black_24dp
 drawable ic_close_zone_x
+drawable ic_content_copy
 drawable ic_delete_outline
 drawable ic_keyboard_black_24dp
 drawable ic_launcher_background
@@ -3004,6 +3005,7 @@ drawable ic_launcher_foreground
 drawable ic_m3_chip_check
 drawable ic_m3_chip_checked_circle
 drawable ic_m3_chip_close
+drawable ic_mic
 drawable ic_mtrl_checked_circle
 drawable ic_mtrl_chip_checked_black
 drawable ic_mtrl_chip_checked_circle
@@ -3014,6 +3016,8 @@ drawable ic_section_apps
 drawable ic_section_block
 drawable ic_section_key
 drawable ic_section_person
+drawable ic_send
+drawable ic_translate
 drawable indeterminate_static
 drawable m3_avd_hide_password
 drawable m3_avd_show_password
@@ -3475,6 +3479,7 @@ id snapMargins
 id software
 id spacer
 id special_effects_controller_view_tag
+id splashLottie
 id spline
 id split_action_bar
 id spread

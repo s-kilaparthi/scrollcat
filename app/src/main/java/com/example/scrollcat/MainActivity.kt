@@ -35,6 +35,9 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Diagnostic: log Telugu-related ICU Transliterator IDs available on this device
+        SleepManager.logTeluguTransliterators()
+
         // First launch → run onboarding instead
         if (!SettingsManager.isOnboardingComplete(this)) {
             startActivity(Intent(this, OnboardingActivity::class.java))

@@ -16,6 +16,7 @@
     <color name="scrollcat_secondary_container">#2E2A3A</color>
     <color name="scrollcat_surface">#1A1A1E</color>
     <color name="scrollcat_surface_variant">#25252C</color>
+    <item name="splashLottie" type="id"/>
     <string name="accessibility_service_description">Lets the ScrollCat companion perform scroll gestures on your behalf when you flick the cat, reducing repeated thumb swipes.</string>
     <string name="accessibility_service_label">ScrollCat Gesture Helper</string>
     <string name="app_name">ScrollCat</string>

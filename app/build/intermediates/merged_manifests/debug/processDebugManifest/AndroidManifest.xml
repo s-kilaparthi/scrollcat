@@ -12,11 +12,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Claude API (Pro tier) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Package visibility (API 30+): allow icon/label lookups for messaging apps -->
     <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <package android:name="org.telegram.messenger" />
@@ -70,8 +78,19 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:testOnly="true"
         android:theme="@style/Theme.ScrollCat" >
+
+        <!-- Required for LiteRT-LM / GPU OpenCL access on API 31+ -->
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL-car.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL-pixel.so"
+            android:required="false" />
+
         <activity
             android:name="com.example.scrollcat.SplashActivity"
             android:exported="true"
@@ -110,6 +129,20 @@
             android:label="Auto-Reply Rules"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name="com.example.scrollcat.SmartVoiceActivity"
+            android:exported="false"
+            android:label="Smart Voice"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="com.example.scrollcat.AutoReplyTrackerActivity"
+            android:exported="false"
+            android:label="Auto Reply Tracker" />
+        <activity
+            android:name="com.example.scrollcat.FeedbackActivity"
+            android:exported="false"
+            android:label="Give Feedback"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name="com.example.scrollcat.OnboardingActivity"
             android:exported="false"
             android:label="Welcome to ScrollCat"
@@ -126,6 +159,13 @@
             android:name="com.example.scrollcat.ShareCardActivity"
             android:exported="false"
             android:label="Share My Stats" />
+        <activity
+            android:name="com.example.scrollcat.RecordAudioPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -145,6 +185,16 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating companion overlay that the user interacts with" />
+        </service>
+
+        <!-- Temporary LiteRT-LM feasibility test — delete with TestLlmService.kt -->
+        <service
+            android:name="com.example.scrollcat.TestLlmService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse" >
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Temporary on-device LLM feasibility test only" />
         </service>
 
         <!--
