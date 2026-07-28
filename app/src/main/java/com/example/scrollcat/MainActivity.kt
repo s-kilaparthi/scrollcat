@@ -23,6 +23,7 @@ import com.google.android.material.card.MaterialCardView
 class MainActivity : Activity() {
 
     private var aiKeyBanner: MaterialCardView? = null
+    private var accessibilityBanner: MaterialCardView? = null
     private var dashboardCatAnimator: CatAnimator? = null
     private var repliesTodayCountView: TextView? = null
     private var autoRepliesTodayCountView: TextView? = null
@@ -64,10 +65,18 @@ class MainActivity : Activity() {
             strokeColor = 0xFFB39DDB.toInt()
             setCardBackgroundColor(0xFF2E2A3A.toInt())
             setOnClickListener {
-                startActivity(Intent(this@MainActivity, AiProviderActivity::class.java))
+                val hasGroqKey = ApiKeyStore.hasGroqApiKey(this@MainActivity)
+                val hasModelFile = ModelDownloadManager.modelFileExists(this@MainActivity)
+                val showing = AiSetupActivity.resolveBannerDestination(this@MainActivity)
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Add AI banner tapped - groq configured: $hasGroqKey, " +
+                        "on-device downloaded: $hasModelFile - showing: $showing"
+                )
+                startActivity(Intent(this@MainActivity, AiSetupActivity::class.java))
             }
             addView(TextView(this@MainActivity).apply {
-                text = "Add your free AI key to unlock Smart Replies"
+                text = "Add your AI to unlock Smart Replies"
                 textSize = 14f
                 setTextColor(0xFFF5F3F7.toInt())
                 setPadding(
@@ -83,6 +92,13 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
         refreshAiKeyBanner()
+
+        accessibilityBanner = buildAccessibilityBanner()
+        root.addView(accessibilityBanner, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
+        refreshAccessibilityBanner()
 
         root.addView(dashboardCatIllustration())
 
@@ -388,16 +404,86 @@ class MainActivity : Activity() {
             AutoReplyManager.getAutoRepliesTriggeredToday(this).toString()
     }
 
+    private fun buildAccessibilityBanner(): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@MainActivity, 14).toFloat()
+            cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
+            strokeWidth = 1
+            strokeColor = 0xFFB39DDB.toInt()
+            setCardBackgroundColor(0xFF2E2A3A.toInt())
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                UiKit.dp(this@MainActivity, 18),
+                UiKit.dp(this@MainActivity, 14),
+                UiKit.dp(this@MainActivity, 12),
+                UiKit.dp(this@MainActivity, 14)
+            )
+        }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        top.addView(TextView(this).apply {
+            text = "Use voice-to-text in any app — grant one more permission"
+            textSize = 14f
+            setTextColor(0xFFF5F3F7.toInt())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        top.addView(TextView(this).apply {
+            text = "✕"
+            textSize = 16f
+            setTextColor(0xFFA39BB0.toInt())
+            setPadding(
+                UiKit.dp(this@MainActivity, 10),
+                UiKit.dp(this@MainActivity, 4),
+                UiKit.dp(this@MainActivity, 4),
+                UiKit.dp(this@MainActivity, 4)
+            )
+            setOnClickListener {
+                SettingsManager.setAccessibilityBannerDismissed(this@MainActivity, true)
+                refreshAccessibilityBanner()
+            }
+        })
+        row.addView(top)
+        row.addView(TextView(this).apply {
+            text = "Grant Access"
+            textSize = 13f
+            setTextColor(0xFFB39DDB.toInt())
+            setPadding(0, UiKit.dp(this@MainActivity, 10), 0, 0)
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        })
+        card.addView(row)
+        return card
+    }
+
+    private fun isAiConfigured(): Boolean =
+        AiSetupActivity.hasCompletedAiSetup(this) ||
+            SettingsManager.getActiveAiKey(this).isNotBlank()
+
     private fun refreshAiKeyBanner() {
         val banner = aiKeyBanner ?: return
-        val hasKey = SettingsManager.getActiveAiKey(this).isNotBlank()
-        banner.visibility = if (hasKey) View.GONE else View.VISIBLE
+        // Hide once Groq key or on-device model is present (same gate as a11y banner).
+        banner.visibility = if (isAiConfigured()) View.GONE else View.VISIBLE
+    }
+
+    private fun refreshAccessibilityBanner() {
+        val banner = accessibilityBanner ?: return
+        val a11yEnabled = CatAccessibilityService.instance != null
+        val show = isAiConfigured() &&
+            !a11yEnabled &&
+            !SettingsManager.isAccessibilityBannerDismissed(this)
+        banner.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     override fun onResume() {
         super.onResume()
         dashboardCatAnimator?.showFrame(DASHBOARD_REST_FRAME)
         refreshAiKeyBanner()
+        refreshAccessibilityBanner()
         refreshTodayStats()
         RateUsManager.maybeShowRatePrompt(this)
     }

@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:154:9-162:20
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:160:9-168:20
 	android:grantUriPermissions
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:158:13-47
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:164:13-47
 	android:authorities
 		INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:156:13-64
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:162:13-64
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:157:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:163:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:155:13-62
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:161:13-62
 manifest
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-210:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-210:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-210:12
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-210:12
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:17:1-24:12
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:2:1-9:12
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/skilaparthi/.gradle/caches/transforms-4/5fbe2e67df5b0f3965ca281cdd6b541d/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
@@ -223,8 +223,8 @@ ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:13-73
 	android:name
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:23-70
 application
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-209:19
-INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-209:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-215:19
+INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-215:19
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:7:5-20
@@ -343,168 +343,178 @@ ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:91:9-94:
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:93:13-37
 	android:name
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:92:13-47
-activity#com.example.scrollcat.AiSettingsActivity
+activity#com.example.scrollcat.AiSetupActivity
 ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:96:9-100:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:99:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:99:13-38
 	android:windowSoftInputMode
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:100:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:98:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:97:13-47
-activity#com.example.scrollcat.AutoReplyActivity
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:97:13-44
+activity#com.example.scrollcat.AiSettingsActivity
 ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:102:9-106:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:105:13-45
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:105:13-43
 	android:windowSoftInputMode
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:106:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:104:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:103:13-46
-activity#com.example.scrollcat.SmartVoiceActivity
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:103:13-47
+activity#com.example.scrollcat.AutoReplyActivity
 ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:108:9-112:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:111:13-40
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:111:13-45
 	android:windowSoftInputMode
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:112:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:110:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:109:13-47
-activity#com.example.scrollcat.AutoReplyTrackerActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:114:9-117:50
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:109:13-46
+activity#com.example.scrollcat.SmartVoiceActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:114:9-118:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:117:13-47
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:117:13-40
+	android:windowSoftInputMode
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:118:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:116:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:115:13-53
-activity#com.example.scrollcat.FeedbackActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:119:9-123:58
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:115:13-47
+activity#com.example.scrollcat.AutoReplyTrackerActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:120:9-123:50
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:122:13-42
-	android:windowSoftInputMode
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:123:13-55
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:123:13-47
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:121:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:122:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:120:13-45
-activity#com.example.scrollcat.OnboardingActivity
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:121:13-53
+activity#com.example.scrollcat.FeedbackActivity
 ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:125:9-129:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:128:13-49
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:128:13-42
 	android:windowSoftInputMode
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:129:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:127:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:126:13-47
-activity#com.example.scrollcat.SubscriptionActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:131:9-134:45
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:126:13-45
+activity#com.example.scrollcat.OnboardingActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:131:9-135:58
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:134:13-42
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:134:13-49
+	android:windowSoftInputMode
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:135:13-55
 	android:exported
 		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:133:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:132:13-49
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:132:13-47
+activity#com.example.scrollcat.SubscriptionActivity
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:137:9-140:45
+	android:label
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:140:13-42
+	android:exported
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:139:13-37
+	android:name
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:138:13-49
 activity#com.example.scrollcat.PrivacyPolicyActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:136:9-139:46
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:142:9-145:46
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:139:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:145:13-43
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:138:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:144:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:137:13-50
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:143:13-50
 activity#com.example.scrollcat.ShareCardActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:141:9-144:46
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:147:9-150:46
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:144:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:150:13-43
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:143:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:149:13-37
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:142:13-46
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:148:13-46
 activity#com.example.scrollcat.RecordAudioPermissionActivity
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:146:9-152:75
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:152:9-158:75
 	android:excludeFromRecents
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:150:13-46
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:156:13-46
 	android:noHistory
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:151:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:157:13-37
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:148:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:154:13-37
 	android:theme
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:152:13-72
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:158:13-72
 	android:taskAffinity
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:149:13-36
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:155:13-36
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:147:13-58
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:153:13-58
 service#com.example.scrollcat.OverlayService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:165:9-172:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:171:9-178:19
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:167:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:173:13-37
 	android:foregroundServiceType
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:168:13-55
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:174:13-55
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:166:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:172:13-43
 property#android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:169:13-171:91
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:175:13-177:91
 	android:value
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:171:17-88
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:177:17-88
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:170:17-76
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:176:17-76
 service#com.example.scrollcat.TestLlmService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:175:9-182:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:181:9-188:19
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:177:13-36
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:183:13-36
 	android:foregroundServiceType
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:178:13-55
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:184:13-55
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:176:13-43
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:182:13-43
 service#com.example.scrollcat.CatAccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:186:9-197:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:192:9-203:19
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:189:13-64
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:195:13-64
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:188:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:194:13-37
 	android:permission
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:190:13-79
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:196:13-79
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:187:13-52
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:193:13-52
 intent-filter#action:name:android.accessibilityservice.AccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:191:13-193:29
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:197:13-199:29
 action#android.accessibilityservice.AccessibilityService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:192:17-92
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:198:17-92
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:192:25-89
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:198:25-89
 meta-data#android.accessibilityservice
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:194:13-196:72
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:200:13-202:72
 	android:resource
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:196:17-69
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:202:17-69
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:195:17-60
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:201:17-60
 service#com.example.scrollcat.CatNotificationListener
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:199:9-207:19
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:205:9-213:19
 	android:label
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:202:13-58
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:208:13-58
 	android:exported
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:201:13-37
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:207:13-37
 	android:permission
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:203:13-87
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:209:13-87
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:200:13-52
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:206:13-52
 intent-filter#action:name:android.service.notification.NotificationListenerService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:204:13-206:29
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:210:13-212:29
 action#android.service.notification.NotificationListenerService
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:205:17-99
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:211:17-99
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:205:25-96
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:211:25-96
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:159:13-161:54
+ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:165:13-167:54
 	android:resource
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:161:17-51
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:167:17-51
 	android:name
-		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:160:17-67
+		ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:166:17-67
 uses-sdk
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml

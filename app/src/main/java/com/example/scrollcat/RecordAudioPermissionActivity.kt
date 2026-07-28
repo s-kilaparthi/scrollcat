@@ -31,26 +31,48 @@ class RecordAudioPermissionActivity : Activity() {
 
     companion object {
         private const val REQ_PERMISSION = 4201
+        /** Wait up to 5s of silence before ending recognition (default ~2s is too aggressive). */
+        private const val SPEECH_SILENCE_TIMEOUT_MS = 5000L
 
         @Volatile
         private var activeInstance: RecordAudioPermissionActivity? = null
         private var pendingCallback: Callback? = null
+        /** Media paused for this voice session — resumed on any end state. */
+        @Volatile
+        private var pausedMediaController: android.media.session.MediaController? = null
 
         fun start(context: Context, callback: Callback) {
             pendingCallback = callback
-            val intent = Intent(context, RecordAudioPermissionActivity::class.java)
+            val appCtx = context.applicationContext
+            val intent = Intent(appCtx, RecordAudioPermissionActivity::class.java)
                 .addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_NO_HISTORY or
                         Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP
                 )
-            context.startActivity(intent)
+            // Retry loop may sleep briefly — keep it off the UI thread, then launch mic Activity.
+            Thread {
+                pausedMediaController =
+                    MediaSessionHelper.pauseActiveMediaIfPlaying(appCtx)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        appCtx.startActivity(intent)
+                    } catch (e: Exception) {
+                        Logger.e("RecordAudioPermissionActivity start failed: ${e.message}")
+                        resumePausedMedia()
+                        val cb = pendingCallback
+                        pendingCallback = null
+                        cb?.onError("Didn't catch that, try again")
+                    }
+                }
+            }.start()
         }
 
         fun cancelActive() {
             activeInstance?.finishCancelled()
                 ?: run {
+                    resumePausedMedia()
                     val cb = pendingCallback
                     pendingCallback = null
                     cb?.onCancelled()
@@ -61,6 +83,12 @@ class RecordAudioPermissionActivity : Activity() {
 
         fun isSpeechRecognitionAvailable(context: Context): Boolean =
             SpeechRecognizer.isRecognitionAvailable(context)
+
+        private fun resumePausedMedia() {
+            val controller = pausedMediaController
+            pausedMediaController = null
+            MediaSessionHelper.resumeMedia(controller)
+        }
     }
 
     private var speechRecognizer: SpeechRecognizer? = null
@@ -167,6 +195,18 @@ class RecordAudioPermissionActivity : Activity() {
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+                SPEECH_SILENCE_TIMEOUT_MS
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                SPEECH_SILENCE_TIMEOUT_MS
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
+                SPEECH_SILENCE_TIMEOUT_MS
+            )
         }
         try {
             pendingCallback?.onListening()
@@ -195,6 +235,7 @@ class RecordAudioPermissionActivity : Activity() {
         if (finished) return
         finished = true
         destroyRecognizer()
+        resumePausedMedia()
         val cb = pendingCallback
         pendingCallback = null
         cb?.onTranscript(text)
@@ -205,6 +246,7 @@ class RecordAudioPermissionActivity : Activity() {
         if (finished) return
         finished = true
         destroyRecognizer()
+        resumePausedMedia()
         val cb = pendingCallback
         pendingCallback = null
         cb?.onError(message)
@@ -215,6 +257,7 @@ class RecordAudioPermissionActivity : Activity() {
         if (finished) return
         finished = true
         destroyRecognizer()
+        resumePausedMedia()
         val cb = pendingCallback
         pendingCallback = null
         cb?.onCancelled()
@@ -225,6 +268,7 @@ class RecordAudioPermissionActivity : Activity() {
         if (activeInstance === this) activeInstance = null
         destroyRecognizer()
         if (!finished && pendingCallback != null) {
+            resumePausedMedia()
             val cb = pendingCallback
             pendingCallback = null
             cb?.onCancelled()

@@ -22,6 +22,12 @@ class CatAccessibilityService : AccessibilityService() {
         private const val TAG = "ScrollCat"
         private const val SWIPE_DURATION_MS = 350L
         private const val SWIPE_DURATION_LONG_MS = 80L
+
+        /** Suppress incoming screen auto-translate after outgoing voice/dictation text is produced. */
+        fun suppressIncomingScreenTranslate(cooldownMs: Long = 5000L) {
+            instance?.suppressIncomingTranslateUntilMs =
+                System.currentTimeMillis() + cooldownMs
+        }
     }
 
     /**
@@ -46,6 +52,12 @@ class CatAccessibilityService : AccessibilityService() {
     private var lastReactedPackage = ""
     private var lastReactedTime = 0L
     private val REACTION_DEBOUNCE_MS = 2000L // 2 seconds
+
+    /**
+     * After Smart Voice / dictation writes outgoing text, block incoming screen auto-translate
+     * so compose-field [TYPE_VIEW_TEXT_CHANGED] events are not mistaken for incoming messages.
+     */
+    private var suppressIncomingTranslateUntilMs = 0L
 
     /** Last focus state reported to [OverlayService] (editable field as source of truth). */
     private var lastReportedEditableFocused = false
@@ -332,6 +344,7 @@ class CatAccessibilityService : AccessibilityService() {
                 "insertTextAtCursor ok action=$actionLabel len=${text.length} " +
                     "cursor=$newCursor fieldLen=${combined.length}"
             )
+            suppressIncomingScreenTranslate()
             return true
         } catch (e: Exception) {
             Log.e(TAG, "insertTextAtCursor failed: ${e.message}", e)
@@ -587,6 +600,14 @@ class CatAccessibilityService : AccessibilityService() {
     }
 
     private fun maybeTranslateFromContentEvent(event: AccessibilityEvent) {
+        if (isOutgoingOrEditBoxContent(event)) {
+            Log.d(
+                TAG,
+                "Incoming-translate check skipped — this is outgoing/edit-box content, not an incoming message"
+            )
+            return
+        }
+
         val now = System.currentTimeMillis()
         if (now - lastTranslationTime < translationCooldownMs) return
 
@@ -609,6 +630,28 @@ class CatAccessibilityService : AccessibilityService() {
             handler.post {
                 overlay.showTranslationBubble(original, translated, language)
             }
+        }
+    }
+
+    /**
+     * Incoming screen auto-translate must not run on the user's own outgoing reply /
+     * dictation output (reply panel edit box, compose fields, post-voice-insert text).
+     */
+    private fun isOutgoingOrEditBoxContent(event: AccessibilityEvent): Boolean {
+        val now = System.currentTimeMillis()
+        if (now < suppressIncomingTranslateUntilMs) return true
+
+        val pkg = event.packageName?.toString().orEmpty()
+        if (pkg == "com.example.scrollcat" || pkg == "com.example.scrollcat.debug") {
+            return true
+        }
+
+        val source = event.source ?: return false
+        return try {
+            val className = source.className?.toString().orEmpty()
+            source.isEditable || className.contains("EditText", ignoreCase = true)
+        } finally {
+            source.recycle()
         }
     }
 

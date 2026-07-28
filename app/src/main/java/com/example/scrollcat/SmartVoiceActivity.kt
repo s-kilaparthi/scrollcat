@@ -9,6 +9,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -16,15 +17,19 @@ import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
 /**
  * Smart Voice settings: Language 1 (you speak) → recognition language,
  * Language 2 (text appears as) → optional ML Kit translation target.
- * Draft selections in memory; [SettingsManager] updated only on Save.
+ * Translate / Romanize are mutually exclusive output modes.
+ * Draft language selections in memory; [SettingsManager] updated on Save
+ * (mode toggles persist immediately).
  */
 class SmartVoiceActivity : Activity() {
 
@@ -36,9 +41,10 @@ class SmartVoiceActivity : Activity() {
         private const val STROKE = 0x556B6578
         private const val TEXT = 0xFFF5F3F7.toInt()
         private const val MUTED = 0xFFA39BB0.toInt()
+        private const val TIP_ACCENT = 0xFFCE93D8.toInt()
 
         val BASE_LANGUAGE_OPTIONS = listOf(
-            "English", "Hindi", "Spanish", "Arabic", "French"
+            "English", "Hindi", "Telugu", "Spanish", "Arabic", "French"
         )
     }
 
@@ -54,6 +60,9 @@ class SmartVoiceActivity : Activity() {
     private val draftCustoms1 = mutableListOf<String>()
     private val draftCustoms2 = mutableListOf<String>()
     private var refreshLang2Ui: (() -> Unit)? = null
+    private var lang2Card: MaterialCardView? = null
+    private var translateSwitch: SwitchMaterial? = null
+    private var romanizeSwitch: SwitchMaterial? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +73,7 @@ class SmartVoiceActivity : Activity() {
         draftCustoms1.addAll(SettingsManager.getVoiceCustomLanguages1(this))
         draftCustoms2.clear()
         draftCustoms2.addAll(SettingsManager.getVoiceCustomLanguages2(this))
+        pruneBaseLanguagesFromCustoms()
         ensureCustomListed(draftLang1, draftCustoms1)
         ensureCustomListed(draftLang2, draftCustoms2)
         syncLang2FromLang1 = draftLang1.equals(draftLang2, ignoreCase = true)
@@ -96,10 +106,10 @@ class SmartVoiceActivity : Activity() {
             onBindRefresh = null
         )
 
-        addLanguageSelector(
+        lang2Card = addLanguageSelector(
             parent = root,
             title = "Language 2 (Text appears as)",
-            subtitle = "When translate is on in the reply panel, mic text is converted to this language",
+            subtitle = "When translate is on, mic text is converted to this language",
             getValue = { draftLang2 },
             setValue = { selected ->
                 syncLang2FromLang1 = selected.equals(draftLang1, ignoreCase = true)
@@ -110,10 +120,13 @@ class SmartVoiceActivity : Activity() {
             onBindRefresh = { refresh -> refreshLang2Ui = refresh }
         )
 
+        addOutputModeToggles(root)
+        updateLang2Availability()
+
         root.addView(
             UiKit.body(
                 this,
-                "Tip: turn on the translate icon next to the mic in the reply panel to convert Language 1 → Language 2.",
+                "Tip: Translate converts Language 1 → Language 2. Romanize keeps Language 1 but writes it in English letters (e.g. Telugu → emi chesthunnavu).",
                 muted = true
             )
         )
@@ -145,11 +158,144 @@ class SmartVoiceActivity : Activity() {
         }
     }
 
+    private fun addOutputModeToggles(parent: LinearLayout) {
+        UiKit.section(parent, "Output mode", "Translate and Romanize cannot be on at the same time") {
+            val translateRow = modeToggleRow(
+                iconRes = R.drawable.ic_translate,
+                title = "Translate",
+                subtitle = "Convert Language 1 → Language 2",
+                checked = SettingsManager.isVoiceTranslateEnabled(this@SmartVoiceActivity)
+            ) { enabled ->
+                SettingsManager.setVoiceTranslateEnabled(this@SmartVoiceActivity, enabled)
+                syncModeSwitchesFromPrefs()
+                updateLang2Availability()
+            }
+            translateSwitch = translateRow.second
+            addView(translateRow.first)
+
+            addView(View(this@SmartVoiceActivity).apply {
+                setBackgroundColor(STROKE)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 1
+                ).apply {
+                    topMargin = UiKit.dp(this@SmartVoiceActivity, 8)
+                    bottomMargin = UiKit.dp(this@SmartVoiceActivity, 8)
+                }
+            })
+
+            val romanizeRow = modeToggleRow(
+                iconRes = R.drawable.ic_romanize,
+                title = "Romanize",
+                subtitle = "Same language, English letters (phonetic)",
+                checked = SettingsManager.isVoiceRomanizeEnabled(this@SmartVoiceActivity)
+            ) { enabled ->
+                SettingsManager.setVoiceRomanizeEnabled(this@SmartVoiceActivity, enabled)
+                syncModeSwitchesFromPrefs()
+                updateLang2Availability()
+            }
+            romanizeSwitch = romanizeRow.second
+            addView(romanizeRow.first)
+        }
+    }
+
+    private fun modeToggleRow(
+        iconRes: Int,
+        title: String,
+        subtitle: String,
+        checked: Boolean,
+        onChanged: (Boolean) -> Unit
+    ): Pair<LinearLayout, SwitchMaterial> {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        row.addView(ImageView(this).apply {
+            setImageResource(iconRes)
+            imageTintList = ColorStateList.valueOf(TIP_ACCENT)
+            layoutParams = LinearLayout.LayoutParams(
+                UiKit.dp(this@SmartVoiceActivity, 28),
+                UiKit.dp(this@SmartVoiceActivity, 28)
+            ).apply { marginEnd = UiKit.dp(this@SmartVoiceActivity, 12) }
+        })
+        val textCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        textCol.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            setTextColor(TEXT)
+        })
+        textCol.addView(TextView(this).apply {
+            text = subtitle
+            textSize = 12f
+            setTextColor(MUTED)
+        })
+        row.addView(textCol)
+        val sw = SwitchMaterial(materialContext).apply {
+            isChecked = checked
+            setOnCheckedChangeListener { _, isChecked ->
+                if (tag == "syncing") return@setOnCheckedChangeListener
+                onChanged(isChecked)
+            }
+        }
+        row.addView(sw)
+        return row to sw
+    }
+
+    private fun syncModeSwitchesFromPrefs() {
+        val t = SettingsManager.isVoiceTranslateEnabled(this)
+        val r = SettingsManager.isVoiceRomanizeEnabled(this)
+        translateSwitch?.let { sw ->
+            sw.tag = "syncing"
+            sw.isChecked = t
+            sw.tag = null
+        }
+        romanizeSwitch?.let { sw ->
+            sw.tag = "syncing"
+            sw.isChecked = r
+            sw.tag = null
+        }
+    }
+
+    /** Language 2 is irrelevant while Romanize is on (output stays L1, Latin-lettered). */
+    private fun updateLang2Availability() {
+        val romanizeOn = SettingsManager.isVoiceRomanizeEnabled(this)
+        lang2Card?.alpha = if (romanizeOn) 0.4f else 1f
+        setViewGroupInteractive(lang2Card, !romanizeOn)
+    }
+
+    private fun setViewGroupInteractive(view: View?, enabled: Boolean) {
+        view ?: return
+        view.isClickable = enabled
+        view.isEnabled = enabled
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) {
+                setViewGroupInteractive(view.getChildAt(i), enabled)
+            }
+        }
+    }
+
     private fun persistDraft() {
+        pruneBaseLanguagesFromCustoms()
         SettingsManager.setVoiceLanguage1(this, draftLang1)
         SettingsManager.setVoiceLanguage2(this, draftLang2)
         SettingsManager.setVoiceCustomLanguages1(this, draftCustoms1)
         SettingsManager.setVoiceCustomLanguages2(this, draftCustoms2)
+    }
+
+    /** Drop customs that are now built-in chips (e.g. a previously added "Telugu"). */
+    private fun pruneBaseLanguagesFromCustoms() {
+        draftCustoms1.removeAll { custom ->
+            BASE_LANGUAGE_OPTIONS.any { it.equals(custom, ignoreCase = true) }
+        }
+        draftCustoms2.removeAll { custom ->
+            BASE_LANGUAGE_OPTIONS.any { it.equals(custom, ignoreCase = true) }
+        }
     }
 
     private fun ensureCustomListed(language: String, target: MutableList<String>) {
@@ -190,8 +336,8 @@ class SmartVoiceActivity : Activity() {
         getCustoms: () -> List<String>,
         addCustom: (String) -> Unit,
         onBindRefresh: ((() -> Unit) -> Unit)?
-    ) {
-        UiKit.section(parent, title, subtitle) {
+    ): MaterialCardView {
+        return UiKit.section(parent, title, subtitle) {
             val group = ChipGroup(materialContext).apply {
                 isSingleSelection = true
                 isSelectionRequired = true

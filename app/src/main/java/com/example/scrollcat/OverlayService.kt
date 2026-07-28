@@ -281,6 +281,8 @@ class OverlayService : Service() {
     private var closeZoneView: View? = null
     private var closeZoneParams: WindowManager.LayoutParams? = null
     private var closeZoneHighlighted = false
+    /** Onboarding Screen 3: single completion handler (survives ReplyPanel rebuilds). */
+    private var onboardingDemoReplySentHandler: (() -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -482,7 +484,7 @@ class OverlayService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
 
-        // Notify after removeView so Grant Access only appears once the fade is done.
+        // Notify after removeView so onboarding can advance once the fade is done.
         if (completed != null) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 completed.invoke()
@@ -722,8 +724,10 @@ class OverlayService : Service() {
                                 } else {
                                     clearBadge()
                                 }
-                            } else if (!maybeShowVoiceDictation()) {
-                                // No pending + no focused field — undock only (existing behavior)
+                            } else if (!maybeShowAccessibilityExplanation() &&
+                                !maybeShowVoiceDictation()
+                            ) {
+                                // No pending + a11y on + no focused field — undock only
                             }
                         }
                         return true
@@ -1016,12 +1020,49 @@ class OverlayService : Service() {
             return
         }
 
+        // No pending: if Accessibility is off, explain voice-to-text before normal idle tap.
+        if (maybeShowAccessibilityExplanation()) return
+
         // No pending: optional voice dictation into a focused editable field (Accessibility only).
         if (maybeShowVoiceDictation()) return
 
         CatAccessibilityService.instance?.performSwipe(up = true, long = isReelsMode)
             ?: showNoAccessibilityToast()
         animateTap()
+    }
+
+    /**
+     * Idle tap with Accessibility disabled: show a compact explanation card
+     * (same footprint as voice-dictation) instead of dock/undock/swipe. Returns true
+     * when that card was shown.
+     */
+    private fun maybeShowAccessibilityExplanation(): Boolean {
+        val isEnabled = CatAccessibilityService.instance != null
+        if (isEnabled) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Cat tapped while idle - Accessibility enabled: true, showing: normal-behavior"
+            )
+            return false
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "Cat tapped while idle - Accessibility enabled: false, " +
+                "showing: accessibility-explanation-card"
+        )
+        showAccessibilityExplanationCard()
+        return true
+    }
+
+    private fun showAccessibilityExplanationCard() {
+        val params = layoutParams ?: return
+        val catSize = SettingsManager.getCatSize(this)
+        animateTap()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        replyPanel?.showAccessibilityExplanation(params.x, params.y, catSize)
+        Logger.d("Accessibility explanation card shown — dock timer paused")
     }
 
     /**
@@ -1814,20 +1855,55 @@ class OverlayService : Service() {
     /**
      * Seeds the scripted onboarding demo: fake message + badge on the cat.
      * Tapping the badge opens the real ReplyPanel with hardcoded demo data.
+     *
+     * [onDemoReplySent] is stored on the service (not only the panel) so the
+     * completion path still fires if ReplyPanel is recreated before the reply.
      */
     fun seedOnboardingDemo(
         onDemoPanelShown: (() -> Unit)? = null,
         onDemoReplySent: (() -> Unit)? = null
     ) {
         ReplyStore.putDemo()
+        // Ensure a panel exists before wiring callbacks.
+        if (replyPanel == null) {
+            replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
+        }
+        onboardingDemoReplySentHandler = onDemoReplySent
         replyPanel?.resetOnboardingDemoState()
         replyPanel?.onDemoPanelShown = onDemoPanelShown
         replyPanel?.onDemoReplySent = onDemoReplySent
         setBadgeCount(ReplyStore.count().coerceAtLeast(1))
-        Logger.d("Onboarding demo seeded (badge=$badgeCount)")
+        Logger.d("Onboarding demo seeded (badge=$badgeCount, handler=${onDemoReplySent != null})")
+    }
+
+    /**
+     * Invoked exactly once when the demo reply is sent. Clears the handler so a
+     * double-fire cannot run Continue UI twice.
+     */
+    fun dispatchOnboardingDemoCompleted() {
+        val handler = onboardingDemoReplySentHandler
+        onboardingDemoReplySentHandler = null
+        replyPanel?.onDemoReplySent = null
+        android.util.Log.d(
+            "ScrollCat",
+            "dispatchOnboardingDemoCompleted - handlerRegistered=${handler != null}"
+        )
+        if (handler == null) {
+            android.util.Log.w(
+                "ScrollCat",
+                "Demo completion dispatched but no onboarding handler was registered"
+            )
+            return
+        }
+        try {
+            handler.invoke()
+        } catch (e: Exception) {
+            android.util.Log.e("ScrollCat", "Exception in demo completion handling", e)
+        }
     }
 
     fun clearOnboardingDemoCallback() {
+        onboardingDemoReplySentHandler = null
         replyPanel?.onDemoPanelShown = null
         replyPanel?.onDemoReplySent = null
         onDismissFadeCompleted = null
@@ -2213,6 +2289,7 @@ class OverlayService : Service() {
                 "catView=$catView isEdgeDocked=$isEdgeDocked"
         )
         isDestroyed = true
+        onboardingDemoReplySentHandler = null
         dismissFadeAnimator?.removeAllListeners()
         dismissFadeAnimator?.cancel()
         dismissFadeAnimator = null

@@ -303,6 +303,17 @@ object SettingsManager {
             .edit().putString("primary_language", language).apply()
     }
 
+    fun getPrimaryCustomLanguages(context: Context): List<String> =
+        readVoiceCustomLanguages(context, "primary_custom_languages")
+
+    fun setPrimaryCustomLanguages(context: Context, languages: List<String>) {
+        writeVoiceCustomLanguages(context, "primary_custom_languages", languages)
+    }
+
+    fun addPrimaryCustomLanguage(context: Context, language: String) {
+        addVoiceCustomLanguage(context, "primary_custom_languages", language)
+    }
+
     /**
      * BCP-47 tag for [SpeechRecognizer] / [RecognizerIntent.EXTRA_LANGUAGE],
      * based on Smart Voice "Language 1 (You speak)". Falls back to the device
@@ -403,8 +414,24 @@ object SettingsManager {
     }
 
     fun setVoiceTranslateEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putBoolean("voice_translate_enabled", enabled).apply()
+        val edit = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean("voice_translate_enabled", enabled)
+        // Translate and Romanize are mutually exclusive output modes.
+        if (enabled) edit.putBoolean("voice_romanize_enabled", false)
+        edit.apply()
+    }
+
+    fun isVoiceRomanizeEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("voice_romanize_enabled", false)
+    }
+
+    fun setVoiceRomanizeEnabled(context: Context, enabled: Boolean) {
+        val edit = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean("voice_romanize_enabled", enabled)
+        // Translate and Romanize are mutually exclusive output modes.
+        if (enabled) edit.putBoolean("voice_translate_enabled", false)
+        edit.apply()
     }
 
     // ── On-device model manual override (testing) ──
@@ -604,8 +631,19 @@ object SettingsManager {
     }
 
     fun setOnboardingDemoCompleted(context: Context, completed: Boolean) {
+        // commit() so onboarding UI can read the flag immediately after demo reply
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putBoolean("onboarding_demo_completed", completed).apply()
+            .edit().putBoolean("onboarding_demo_completed", completed).commit()
+    }
+
+    fun isAccessibilityBannerDismissed(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("accessibility_banner_dismissed", false)
+    }
+
+    fun setAccessibilityBannerDismissed(context: Context, dismissed: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("accessibility_banner_dismissed", dismissed).apply()
     }
 
     // "creator", "business" or "personal"

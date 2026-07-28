@@ -318,10 +318,10 @@ Generate 3 short reply options."""
                 Thread {
                     try {
                         val systemPrompt =
-                            UserProfileBuilder.buildSystemPrompt(context, userMessage.length)
+                            UserProfileBuilder.buildSystemPrompt(context, userMessage)
                         val languageLock =
-                            "CRITICAL: Detect the language of the user's message and reply ONLY in " +
-                                "that same language, not English (unless the message is already in English)."
+                            UserProfileBuilder.languageMatchInstruction(context, userMessage)
+                                .trimEnd()
                         val raw = OnDeviceAiEngine.generateReply(
                             systemPrompt = "$languageLock\n\n$systemPrompt\n\n$languageLock",
                             userMessage = userMessage
@@ -348,10 +348,10 @@ Generate 3 short reply options."""
                         OnDeviceAiEngine.ensureInitialized(context)
                         if (OnDeviceAiEngine.isReady()) {
                             val systemPrompt =
-                                UserProfileBuilder.buildSystemPrompt(context, userMessage.length)
+                                UserProfileBuilder.buildSystemPrompt(context, userMessage)
                             val languageLock =
-                                "CRITICAL: Detect the language of the user's message and reply ONLY in " +
-                                    "that same language, not English (unless the message is already in English)."
+                                UserProfileBuilder.languageMatchInstruction(context, userMessage)
+                                    .trimEnd()
                             val raw = OnDeviceAiEngine.generateReply(
                                 systemPrompt = "$languageLock\n\n$systemPrompt\n\n$languageLock",
                                 userMessage = userMessage
@@ -526,7 +526,7 @@ Generate 3 short reply options."""
     }
 
     private fun buildPrompt(sender: String, message: String): String {
-        return """${UserProfileBuilder.buildSystemPrompt(context, message.length)}
+        return """${UserProfileBuilder.buildSystemPrompt(context, message)}
 
 $sender sent this message:
 "$message"
@@ -743,7 +743,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
             return
         }
 
-        val systemPrompt = UserProfileBuilder.buildSystemPrompt(context, message.length)
+        val systemPrompt = UserProfileBuilder.buildSystemPrompt(context, message)
         android.util.Log.d(
             "ScrollCat",
             "System prompt tokens ~${systemPrompt.length / 4}, message tokens ~${message.length / 4}"

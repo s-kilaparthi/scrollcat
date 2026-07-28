@@ -1,90 +1,122 @@
 [
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_send.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_send.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_section_apps.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_section_apps.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_content_copy.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_content_copy.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/xml_file_paths.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/xml/file_paths.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/xml_data_extraction_rules.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/font_baloo2_semibold.ttf.flat",
-        "source": "com.example.scrollcat.app-main-40:/font/baloo2_semibold.ttf"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_mic.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_mic.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/xml_accessibility_service_config.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/xml/accessibility_service_config.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/xml_accessibility_service_config.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_section_block.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_section_block.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_content_copy.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_content_copy.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_close_zone_x.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_close_zone_x.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/xml_backup_rules.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/xml/backup_rules.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/xml_data_extraction_rules.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/xml/data_extraction_rules.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_section_key.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_section_key.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/xml_backup_rules.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/xml/backup_rules.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_layers.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_layers.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_section_person.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_section_person.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/mipmap-anydpi-v26/ic_launcher.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_pets.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_pets.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_translate.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_translate.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_launcher_background.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_launcher_background.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_launcher_foreground.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_send.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_send.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/font_baloo2.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/font/baloo2.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_notifications.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_notifications.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_section_apps.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_section_apps.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_auto_awesome.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_auto_awesome.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_section_key.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_section_key.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_delete_outline.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_delete_outline.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/font_baloo2_bold.ttf.flat",
-        "source": "com.example.scrollcat.app-main-40:/font/baloo2_bold.ttf"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_chat_bubble.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_chat_bubble.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_delete_outline.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_delete_outline.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/font_baloo2_bold.ttf.flat",
+        "source": "com.example.scrollcat.app-main-6:/font/baloo2_bold.ttf"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_mic.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_mic.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/font_baloo2.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/font/baloo2.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_splash_screen.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/splash_screen.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_section_block.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_section_block.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_splash_screen.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/splash_screen.xml"
     },
     {
-        "merged": "com.example.scrollcat.app-debug-38:/drawable_ic_translate.xml.flat",
-        "source": "com.example.scrollcat.app-main-40:/drawable/ic_translate.xml"
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_clipboard_list.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_clipboard_list.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_shield.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_shield.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/xml_file_paths.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/xml/file_paths.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_pets.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_pets.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_close_zone_x.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_close_zone_x.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_section_person.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_section_person.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/font_baloo2_semibold.ttf.flat",
+        "source": "com.example.scrollcat.app-main-6:/font/baloo2_semibold.ttf"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_bolt.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_bolt.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_romanize.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_romanize.xml"
     }
 ]

@@ -102,7 +102,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
     }
 
     private fun buildSystemPrompt(message: String): String {
-        return UserProfileBuilder.buildSystemPrompt(context, message.length)
+        return UserProfileBuilder.buildSystemPrompt(context, message)
     }
 
     private fun parseResponse(response: Response): List<String> {

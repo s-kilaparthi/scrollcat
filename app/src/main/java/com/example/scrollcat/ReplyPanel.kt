@@ -257,6 +257,11 @@ class ReplyPanel(
                 marginEnd = dp(2)
             }
         })
+        topRow.addView(buildVoiceRomanizeToggle(dp(32)).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply {
+                marginEnd = dp(2)
+            }
+        })
 
         topRow.addView(TextView(context).apply {
             text = "✕"
@@ -310,6 +315,116 @@ class ReplyPanel(
 
         android.util.Log.d("ScrollCat", "Voice dictation panel shown — auto-starting listen")
         startDictationListening()
+    }
+
+    /**
+     * Compact card (same footprint as voice-dictation) explaining why Accessibility
+     * is needed for voice-to-text, with Grant Access → system Accessibility settings.
+     */
+    fun showAccessibilityExplanation(catX: Int, catY: Int, catSize: Int) {
+        dismiss()
+        isShowing = true
+        dictationMode = false
+
+        val panelW = dp(DICTATION_PANEL_WIDTH)
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(10))
+            background = GradientDrawable().apply {
+                setColor(PANEL_BG)
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0x33FFFFFF)
+            }
+        }
+
+        val topRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        topRow.addView(TextView(context).apply {
+            text = "Voice in any app"
+            textSize = 12f
+            setTextColor(TIP_ACCENT)
+            setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        topRow.addView(TextView(context).apply {
+            text = "✕"
+            textSize = 14f
+            setTextColor(MUTED_TEXT)
+            setPadding(dp(6), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                android.util.Log.d("ScrollCat", "Accessibility explanation dismissed via ✕")
+                dismiss()
+            }
+        })
+        panel.addView(topRow)
+
+        panel.addView(TextView(context).apply {
+            text = "You can use voice-to-text in any app"
+            textSize = 12f
+            setTextColor(0xFFF5F3F7.toInt())
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(8), 0, dp(10))
+        })
+
+        panel.addView(TextView(context).apply {
+            text = "Grant Access"
+            textSize = 13f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = GradientDrawable().apply {
+                setColor(ACCENT)
+                cornerRadius = dp(16).toFloat()
+            }
+            setOnClickListener {
+                android.util.Log.d("ScrollCat", "Accessibility explanation — opening settings")
+                try {
+                    context.startActivity(
+                        Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w(
+                        "ScrollCat",
+                        "Open Accessibility settings failed: ${e.message}"
+                    )
+                }
+                dismiss()
+            }
+        })
+
+        val dm = context.resources.displayMetrics
+        val x = (catX + catSize / 2 - panelW / 2)
+            .coerceIn(dp(8), (dm.widthPixels - panelW - dp(8)).coerceAtLeast(dp(8)))
+        val y = (catY - dp(120)).coerceAtLeast(dp(48))
+
+        val params = WindowManager.LayoutParams(
+            panelW,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            this.x = x
+            this.y = y
+        }
+
+        try {
+            if (panel.parent == null) windowManager.addView(panel, params)
+        } catch (e: Exception) {
+            android.util.Log.w(
+                "ScrollCat",
+                "Accessibility explanation panel addView failed: ${e.message}"
+            )
+            isShowing = false
+            return
+        }
+        panelView = panel
+        panelParams = params
+        android.util.Log.d("ScrollCat", "Accessibility explanation card shown")
     }
 
     private fun setDictationListeningUi() {
@@ -950,10 +1065,25 @@ class ReplyPanel(
 
         lateinit var renderReplies: (List<String>, String) -> Unit
 
-        fun showEditInput(initialText: String, suggestions: List<String>, engine: String) {
+        fun showEditInput(
+            initialText: String,
+            suggestions: List<String>,
+            engine: String,
+            openKeyboard: Boolean = true
+        ) {
             releaseSpeechRecognizer()
             chipsContainer.removeAllViews()
             setPanelFocusable(true)
+            if (!openKeyboard) {
+                // Focusable so the user can tap the field later, but don't force the IME up.
+                panelParams?.let { params ->
+                    params.softInputMode =
+                        WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
+                    try {
+                        panelView?.let { windowManager.updateViewLayout(it, params) }
+                    } catch (_: Exception) { }
+                }
+            }
 
             val editColumn = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1104,13 +1234,10 @@ class ReplyPanel(
                                 setContinueIdle()
                                 resolveVoiceTranscript(text) { resolved ->
                                     appendTranscriptToEdit(input, resolved)
-                                    input.requestFocus()
+                                    // Do not auto-open keyboard after Continue voice append.
                                     val again = context.getSystemService(Context.INPUT_METHOD_SERVICE)
                                         as android.view.inputmethod.InputMethodManager
-                                    again.showSoftInput(
-                                        input,
-                                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
-                                    )
+                                    again.hideSoftInputFromWindow(input.windowToken, 0)
                                 }
                             }
                         }
@@ -1172,11 +1299,20 @@ class ReplyPanel(
             editColumn.addView(actionsRow)
             chipsContainer.addView(editColumn)
 
-            input.post {
-                input.requestFocus()
-                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                    as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            if (openKeyboard) {
+                input.post {
+                    input.requestFocus()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                        as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
+            } else {
+                input.clearFocus()
+                input.post {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                        as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(input.windowToken, 0)
+                }
             }
             sizePanelForContent()
         }
@@ -1293,7 +1429,7 @@ class ReplyPanel(
                     buildVoiceToTextChip(
                         onVoiceTranscript = { text ->
                             resolveVoiceTranscript(text) { resolved ->
-                                showEditInput(resolved, suggestions, engine)
+                                showEditInput(resolved, suggestions, engine, openKeyboard = false)
                             }
                         },
                         onContentChanged = { sizePanelForContent() }
@@ -1345,8 +1481,8 @@ class ReplyPanel(
     }
 
     /**
-     * Shared Voice→edit pipeline: optionally ML-Kit translate Language 1 → Language 2
-     * when the panel translate toggle is on and the two languages differ.
+     * Shared Voice→edit pipeline: optionally romanize (L1 script → Latin) or
+     * ML-Kit translate Language 1 → Language 2. Modes are mutually exclusive.
      */
     private fun resolveVoiceTranscript(raw: String, onReady: (String) -> Unit) {
         val trimmed = raw.trim()
@@ -1354,15 +1490,38 @@ class ReplyPanel(
             onReady(raw)
             return
         }
+        fun deliverVoiceTranscript(text: String) {
+            // Outgoing Smart Voice output must not trigger incoming screen auto-translate.
+            CatAccessibilityService.suppressIncomingScreenTranslate()
+            onReady(text)
+        }
+        val romanizeOn = SettingsManager.isVoiceRomanizeEnabled(context)
         val translateOn = SettingsManager.isVoiceTranslateEnabled(context)
         val lang1 = SettingsManager.getVoiceLanguage1(context)
         val lang2 = SettingsManager.getVoiceLanguage2(context)
+
+        if (romanizeOn) {
+            android.util.Log.d("ScrollCat", "Voice transcript romanizing lang1=$lang1")
+            val romanized = TransliterationHelper.romanizeText(trimmed, lang1)
+            if (romanized.isNullOrBlank()) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Romanize unavailable — using original",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                deliverVoiceTranscript(trimmed)
+            } else {
+                deliverVoiceTranscript(romanized)
+            }
+            return
+        }
+
         if (!translateOn || lang1.equals(lang2, ignoreCase = true)) {
             android.util.Log.d(
                 "ScrollCat",
                 "Voice transcript passthrough (translate=$translateOn lang1=$lang1 lang2=$lang2)"
             )
-            onReady(trimmed)
+            deliverVoiceTranscript(trimmed)
             return
         }
         android.util.Log.d(
@@ -1377,21 +1536,26 @@ class ReplyPanel(
                         "Translation unavailable — using original",
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
-                    onReady(trimmed)
+                    deliverVoiceTranscript(trimmed)
                 } else {
-                    onReady(translated)
+                    deliverVoiceTranscript(translated)
                 }
             }
         }
     }
 
     private val voiceTranslatePainters = mutableListOf<() -> Unit>()
+    private val voiceRomanizePainters = mutableListOf<() -> Unit>()
 
-    private fun refreshVoiceTranslateToggles() {
+    private fun refreshVoiceModeToggles() {
         voiceTranslatePainters.toList().forEach { it.invoke() }
+        voiceRomanizePainters.toList().forEach { it.invoke() }
     }
 
-    /** Compact on/off translate control shared by Voice-to-text chip and Continue row. */
+    /** @deprecated Use [refreshVoiceModeToggles] — kept name for call-site clarity. */
+    private fun refreshVoiceTranslateToggles() = refreshVoiceModeToggles()
+
+    /** Compact on/off translate control shared by Voice-to-text, Continue, and dictation. */
     private fun buildVoiceTranslateToggle(heightPx: Int = dp(40)): ImageView {
         val toggle = ImageView(context).apply {
             setImageResource(R.drawable.ic_translate)
@@ -1454,10 +1618,61 @@ class ReplyPanel(
             if (!toggle.isEnabled) return@setOnClickListener
             val next = !SettingsManager.isVoiceTranslateEnabled(context)
             SettingsManager.setVoiceTranslateEnabled(context, next)
-            refreshVoiceTranslateToggles()
+            refreshVoiceModeToggles()
             android.widget.Toast.makeText(
                 context,
                 if (next) "Voice translate on" else "Voice translate off",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        return toggle
+    }
+
+    /** Compact on/off romanize control (native script → Latin letters). */
+    private fun buildVoiceRomanizeToggle(heightPx: Int = dp(40)): ImageView {
+        val toggle = ImageView(context).apply {
+            setImageResource(R.drawable.ic_romanize)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Romanize voice"
+            isClickable = true
+            isFocusable = true
+            val pad = dp(8)
+            setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(heightPx, heightPx).apply {
+                marginStart = dp(4)
+            }
+        }
+        fun paint() {
+            val on = SettingsManager.isVoiceRomanizeEnabled(context)
+            toggle.imageTintList = android.content.res.ColorStateList.valueOf(
+                if (on) TIP_ACCENT else MUTED_TEXT
+            )
+            toggle.background = GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
+                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+            }
+            toggle.alpha = if (on) 1f else 0.75f
+            toggle.contentDescription = if (on) "Romanize voice on" else "Romanize voice off"
+        }
+        val painter: () -> Unit = { paint() }
+        voiceRomanizePainters.add(painter)
+        toggle.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                paint()
+            }
+            override fun onViewDetachedFromWindow(v: View) {
+                voiceRomanizePainters.remove(painter)
+            }
+        })
+        paint()
+        toggle.setOnClickListener {
+            val next = !SettingsManager.isVoiceRomanizeEnabled(context)
+            SettingsManager.setVoiceRomanizeEnabled(context, next)
+            refreshVoiceModeToggles()
+            android.widget.Toast.makeText(
+                context,
+                if (next) "Voice romanize on" else "Voice romanize off",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         }
@@ -1537,9 +1752,10 @@ class ReplyPanel(
         chip.addView(label)
         chip.addView(voiceDivider)
         chip.addView(buildVoiceTranslateToggle(dp(32)))
+        chip.addView(buildVoiceRomanizeToggle(dp(32)))
 
         // Refresh disable/enable when this chip is shown (languages may have changed)
-        refreshVoiceTranslateToggles()
+        refreshVoiceModeToggles()
 
         fun setIdleState(errorMessage: String? = null) {
             voiceListening = false
@@ -1835,9 +2051,21 @@ class ReplyPanel(
             SettingsManager.setOnboardingDemoCompleted(context, true)
             android.util.Log.d(
                 "ScrollCat",
-                "Demo completed, notifying onboarding to show Grant Access"
+                "Demo completion trigger fired ONCE - proceeding to revealDemoContinueUi"
             )
-            showConfirmation("Sent! ✓", notifyDemoSent = true, handled = message)
+            // Dispatch NOW (same frame) — do not bury this inside showConfirmation,
+            // which can return early if panelView is null and skip the handler entirely.
+            try {
+                OverlayService.instance?.dispatchOnboardingDemoCompleted()
+                    ?: onDemoReplySent?.invoke()
+                    ?: android.util.Log.w(
+                        "ScrollCat",
+                        "Demo completion: no OverlayService handler and no panel callback"
+                    )
+            } catch (e: Exception) {
+                android.util.Log.e("ScrollCat", "Exception in demo completion handling", e)
+            }
+            showConfirmation("Sent! ✓", notifyDemoSent = false, handled = message)
             return
         }
 
@@ -1930,7 +2158,15 @@ class ReplyPanel(
             setPadding(0, 28, 0, 28)
         })
         if (notifyDemoSent) {
-            handler.post { onDemoReplySent?.invoke() }
+            // Legacy path — prefer synchronous dispatch from sendReply(demo).
+            handler.post {
+                try {
+                    OverlayService.instance?.dispatchOnboardingDemoCompleted()
+                        ?: onDemoReplySent?.invoke()
+                } catch (e: Exception) {
+                    android.util.Log.e("ScrollCat", "Exception in demo completion handling", e)
+                }
+            }
         }
         handler.postDelayed({
             if (!isShowing) return@postDelayed

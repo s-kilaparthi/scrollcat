@@ -4,7 +4,41 @@ import android.content.Context
 
 object UserProfileBuilder {
 
-    fun buildSystemPrompt(context: Context, messageLength: Int): String {
+    /** Below this trimmed length, strict language detection is unreliable. */
+    private const val SHORT_MESSAGE_CHAR_LIMIT = 6
+
+    fun isShortAmbiguousMessage(message: String): Boolean =
+        message.trim().length < SHORT_MESSAGE_CHAR_LIMIT
+
+    /**
+     * Language instruction for the system prompt / on-device language lock.
+     * Short/ambiguous messages default toward English instead of strict detection.
+     */
+    fun languageMatchInstruction(context: Context, message: String, reminder: Boolean = false): String {
+        val prefs = context.getSharedPreferences("scrollcat_prefs", Context.MODE_PRIVATE)
+        val matchLanguage = prefs.getBoolean("match_language", true)
+        val primaryLanguage = prefs.getString("primary_language", "English") ?: "English"
+        val prefix = if (reminder) "CRITICAL REMINDER: " else "CRITICAL: "
+
+        return when {
+            !matchLanguage ->
+                if (reminder) {
+                    "${prefix}Reply in $primaryLanguage only. "
+                } else {
+                    "${prefix}Reply in $primaryLanguage only — do not switch languages. "
+                }
+            isShortAmbiguousMessage(message) ->
+                "${prefix}This message is short — if the language isn't clearly identifiable, reply in English. "
+            reminder ->
+                "${prefix}Detect the language of the user's message and reply ONLY " +
+                    "in that same language, not English. "
+            else ->
+                "${prefix}Detect the language of the user's message and reply ONLY in that " +
+                    "same language, not English (unless the message is already in English). "
+        }
+    }
+
+    fun buildSystemPrompt(context: Context, message: String): String {
         val prefs = context.getSharedPreferences("scrollcat_prefs", Context.MODE_PRIVATE)
 
         val userType = prefs.getString("user_type", "personal") ?: "personal"
@@ -14,18 +48,10 @@ object UserProfileBuilder {
         val replyLength = prefs.getString("reply_length", "short") ?: "short"
         val neverSay = prefs.getString("never_say", "") ?: ""
         val commonQuestions = prefs.getString("common_questions", "") ?: ""
-        val matchLanguage = prefs.getBoolean("match_language", true)
-        val primaryLanguage = prefs.getString("primary_language", "English") ?: "English"
+        val messageLength = message.trim().length
 
         return buildString {
-            if (matchLanguage) {
-                append(
-                    "CRITICAL: Detect the language of the user's message and reply ONLY in that " +
-                        "same language, not English (unless the message is already in English). "
-                )
-            } else {
-                append("CRITICAL: Reply in $primaryLanguage only — do not switch languages. ")
-            }
+            append(languageMatchInstruction(context, message, reminder = false))
 
             append("You are a smart reply assistant. ")
             append("Generate exactly 3 short reply options for the message. ")
@@ -101,14 +127,7 @@ object UserProfileBuilder {
                 }
             }
 
-            if (matchLanguage) {
-                append(
-                    "CRITICAL REMINDER: Detect the language of the user's message and reply ONLY " +
-                        "in that same language, not English. "
-                )
-            } else {
-                append("CRITICAL REMINDER: Reply in $primaryLanguage only. ")
-            }
+            append(languageMatchInstruction(context, message, reminder = true))
 
             append("CRITICAL RULES: ")
             append("Never invent or assume specific facts about what the user is doing, where they are, or what happened to them (no \"I was in a meeting\", \"just got back from...\", \"I'm at the gym\" type statements) unless that exact fact is explicitly present in the user's profile above. ")
@@ -119,7 +138,7 @@ object UserProfileBuilder {
         }
     }
 
-    fun getPromptTokenEstimate(context: Context, messageLength: Int): Int {
-        return buildSystemPrompt(context, messageLength).length / 4
+    fun getPromptTokenEstimate(context: Context, message: String): Int {
+        return buildSystemPrompt(context, message).length / 4
     }
 }

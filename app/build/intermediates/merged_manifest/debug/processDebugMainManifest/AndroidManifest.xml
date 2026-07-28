@@ -78,6 +78,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:testOnly="true"
         android:theme="@style/Theme.ScrollCat" >
 
         <!-- Required for LiteRT-LM / GPU OpenCL access on API 31+ -->
@@ -117,6 +118,11 @@
         <activity
             android:name="com.example.scrollcat.AiProviderActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="com.example.scrollcat.AiSetupActivity"
+            android:exported="false"
+            android:label="Set up AI"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.example.scrollcat.AiSettingsActivity"
