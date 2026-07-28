@@ -636,16 +636,6 @@ object SettingsManager {
             .edit().putBoolean("onboarding_demo_completed", completed).commit()
     }
 
-    fun isAccessibilityBannerDismissed(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("accessibility_banner_dismissed", false)
-    }
-
-    fun setAccessibilityBannerDismissed(context: Context, dismissed: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putBoolean("accessibility_banner_dismissed", dismissed).apply()
-    }
-
     // "creator", "business" or "personal"
     fun getUserType(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

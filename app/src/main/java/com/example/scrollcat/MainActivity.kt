@@ -24,6 +24,8 @@ class MainActivity : Activity() {
 
     private var aiKeyBanner: MaterialCardView? = null
     private var accessibilityBanner: MaterialCardView? = null
+    /** In-memory only — ✕ hides for this dashboard visit; resets on next app open. */
+    private var accessibilityBannerDismissedThisSession = false
     private var dashboardCatAnimator: CatAnimator? = null
     private var repliesTodayCountView: TextView? = null
     private var autoRepliesTodayCountView: TextView? = null
@@ -442,7 +444,7 @@ class MainActivity : Activity() {
                 UiKit.dp(this@MainActivity, 4)
             )
             setOnClickListener {
-                SettingsManager.setAccessibilityBannerDismissed(this@MainActivity, true)
+                accessibilityBannerDismissedThisSession = true
                 refreshAccessibilityBanner()
             }
         })
@@ -475,7 +477,7 @@ class MainActivity : Activity() {
         val a11yEnabled = CatAccessibilityService.instance != null
         val show = isAiConfigured() &&
             !a11yEnabled &&
-            !SettingsManager.isAccessibilityBannerDismissed(this)
+            !accessibilityBannerDismissedThisSession
         banner.visibility = if (show) View.VISIBLE else View.GONE
     }
 
