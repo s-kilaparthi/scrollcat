@@ -9,10 +9,13 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.Layout
+import android.text.StaticLayout
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
@@ -20,6 +23,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.constraintlayout.widget.ConstraintLayout
 import com.google.android.material.card.MaterialCardView
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,6 +44,8 @@ class ReplyPanel(
         /** Compact footprint for the listening-only dictation bubble. */
         private const val DICTATION_PANEL_WIDTH = 220
         private const val CONFIRMATION_MS = 3000L
+        /** Fade-out / fade-in duration when switching between queued messages. */
+        private const val MESSAGE_CROSSFADE_MS = 130L
         private const val ACCENT = 0xFFB39DDB.toInt()
         private const val PANEL_BG = 0xF21E1E28.toInt()
         private const val CHIP_BG = 0xFF2A2A36.toInt()
@@ -60,7 +66,7 @@ class ReplyPanel(
     var isShowing = false
         private set
 
-    private var panelView: LinearLayout? = null
+    private var panelView: ViewGroup? = null
     private var panelParams: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
     // Routes to Claude when an API key is set, on-device Gemini Nano otherwise
@@ -68,9 +74,17 @@ class ReplyPanel(
     private var pending: MutableList<ReplyStore.ReplyableMessage> = mutableListOf()
     private var currentEntry: ReplyStore.ReplyableMessage? = null
     private var currentIndex = 0
+    /** Invalidates in-flight message crossfades when a newer navigation starts. */
+    private var messageCrossfadeToken = 0
     private var navRow: LinearLayout? = null
     private var pendingCountView: TextView? = null
     private var newSenderArrow: TextView? = null
+    /** Variable content above the fixed footer (header → chips). */
+    private var messageBodyColumn: LinearLayout? = null
+    /** Combined fixed footer: button row + overflow/demo + nav row. */
+    private var messageFooterBlock: LinearLayout? = null
+    /** Re-run single-message panel sizing (set while a message panel is showing). */
+    private var messagePanelRelayout: (() -> Unit)? = null
     /** Notification entryIds the user has already viewed in this open panel session. */
     private val viewedKeys = mutableSetOf<String>()
     /**
@@ -119,8 +133,7 @@ class ReplyPanel(
         dismiss()
         isShowing = true
 
-        val panel = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+        val panel = ConstraintLayout(context).apply {
             setPadding(28, 24, 28, 24)
             background = GradientDrawable().apply {
                 setColor(PANEL_BG)
@@ -162,6 +175,27 @@ class ReplyPanel(
         } else {
             showSenderList()
         }
+    }
+
+    /** Start invisible so [softFadeInFromScreenWake] can gently reveal after unlock. */
+    fun prepareScreenWakeFadeIn() {
+        val panel: View = panelView ?: return
+        if (!isShowing) return
+        panel.animate().cancel()
+        panel.alpha = 0f
+    }
+
+    fun softFadeInFromScreenWake(durationMs: Long) {
+        val panel: View = panelView ?: return
+        if (!isShowing) return
+        panel.animate().cancel()
+        if (panel.alpha >= 0.99f) {
+            panel.alpha = 0f
+        }
+        panel.animate()
+            .alpha(1f)
+            .setDuration(durationMs)
+            .start()
     }
 
     /**
@@ -544,7 +578,8 @@ class ReplyPanel(
                 override fun onCancelled() {
                     handler.post { clearDictationTargetRefs() }
                 }
-            }
+            },
+            source = "dictation"
         )
     }
 
@@ -562,12 +597,35 @@ class ReplyPanel(
         currentEntry = null
         navRow = null
         pendingCountView = null
-        val panel = panelView ?: return
+        messageBodyColumn = null
+        messageFooterBlock = null
+        messagePanelRelayout = null
+        val panel: ViewGroup = panelView ?: return
         panel.removeAllViews()
         resetPanelHeightToWrap()
         navRow = null
         pendingCountView = null
         newSenderArrow = null
+
+        val listLp: ViewGroup.LayoutParams = if (panel is ConstraintLayout) {
+            ConstraintLayout.LayoutParams(
+                ConstraintLayout.LayoutParams.MATCH_PARENT,
+                ConstraintLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        } else {
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val list = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = listLp
+        }
 
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -595,11 +653,12 @@ class ReplyPanel(
             setPadding(dp(8), dp(4), dp(4), dp(4))
             setOnClickListener { dismiss() }
         })
-        panel.addView(header)
+        list.addView(header)
 
         pending.forEach { entry ->
-            panel.addView(buildSenderListRow(entry))
+            list.addView(buildSenderListRow(entry))
         }
+        panel.addView(list)
     }
 
     private fun buildSenderListRow(entry: ReplyStore.ReplyableMessage): MaterialCardView {
@@ -719,8 +778,37 @@ class ReplyPanel(
 
     private fun showMessage(
         message: ReplyStore.ReplyableMessage,
-        captureOpenSnapshot: Boolean = false
+        captureOpenSnapshot: Boolean = false,
+        animateTransition: Boolean = false
     ) {
+        val panel = panelView as? ConstraintLayout ?: return
+        if (animateTransition && panel.childCount > 0) {
+            val token = ++messageCrossfadeToken
+            panel.animate().cancel()
+            panel.animate()
+                .alpha(0f)
+                .setDuration(MESSAGE_CROSSFADE_MS)
+                .withEndAction {
+                    if (token != messageCrossfadeToken || !isShowing || panelView !== panel) {
+                        return@withEndAction
+                    }
+                    showMessage(
+                        message,
+                        captureOpenSnapshot = captureOpenSnapshot,
+                        animateTransition = false
+                    )
+                    panel.alpha = 0f
+                    panel.animate()
+                        .alpha(1f)
+                        .setDuration(MESSAGE_CROSSFADE_MS)
+                        .start()
+                }
+                .start()
+            return
+        }
+
+        panel.animate().cancel()
+        panel.alpha = 1f
         showingSenderList = false
         pending.indexOfFirst { it.entryId == message.entryId }
             .takeIf { it >= 0 }
@@ -731,11 +819,43 @@ class ReplyPanel(
         }
         viewedKeys.add(message.entryId)
         knownEntryIdsAtOpen.add(message.entryId)
-        val panel = panelView ?: return
         panel.removeAllViews()
         navRow = null
         pendingCountView = null
         newSenderArrow = null
+        messagePanelRelayout = null
+        messageFooterBlock = null
+
+        val contentId = View.generateViewId()
+        val footerId = View.generateViewId()
+
+        // Variable content above the footer (header → chips / new-sender arrow).
+        val body = LinearLayout(context).apply {
+            id = contentId
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ConstraintLayout.LayoutParams(0, 0).apply {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToTop = footerId
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        }
+        messageBodyColumn = body
+
+        // Combined fixed footer: buttons + overflow/demo + nav — never overlaps content.
+        val footer = LinearLayout(context).apply {
+            id = footerId
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ConstraintLayout.LayoutParams(
+                0,
+                ConstraintLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        }
+        messageFooterBlock = footer
 
         if (ReplyStore.isDemoMessage(message) && !demoPanelShownNotified) {
             demoPanelShownNotified = true
@@ -791,7 +911,7 @@ class ReplyPanel(
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         })
-        panel.addView(header)
+        body.addView(header)
 
         // ── Incoming message preview (full text; scrollable if panel is height-capped) ──
         val replyTextSp = SettingsManager.getReplyTextSizeSp(context)
@@ -817,6 +937,62 @@ class ReplyPanel(
                     FrameLayout.LayoutParams.WRAP_CONTENT
                 )
             )
+        }
+        // Existing spacing between message box and chips (was messageArea.bottomMargin).
+        val messageChipGapPx = dp(14)
+        val scrollChevronOuter = messageChipGapPx // fits entirely in the gap — never covers text
+        val scrollChevronIcon = dp(10)
+        val scrollChevron = FrameLayout(context).apply {
+            visibility = View.GONE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(CHIP_BG)
+                setStroke(dp(1), 0x44FFFFFF)
+            }
+            layoutParams = FrameLayout.LayoutParams(scrollChevronOuter, scrollChevronOuter).apply {
+                gravity = Gravity.CENTER
+            }
+            addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_expand_more)
+                imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                contentDescription = "Scroll for more"
+                layoutParams = FrameLayout.LayoutParams(scrollChevronIcon, scrollChevronIcon).apply {
+                    gravity = Gravity.CENTER
+                }
+            })
+        }
+        val messageChipGap = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                messageChipGapPx
+            )
+            addView(scrollChevron)
+        }
+        var lastChevronLog: Triple<Int, Int, Boolean>? = null
+        fun updateMessageScrollChevron() {
+            val layout = messagePreview.layout
+            val contentHeight = if (layout != null && messagePreview.lineCount > 0) {
+                layout.getLineTop(messagePreview.lineCount) +
+                    messagePreview.paddingTop +
+                    messagePreview.paddingBottom
+            } else {
+                messagePreview.measuredHeight
+            }
+            // Viewport = ScrollView height after auto-grow sizing (not TextView wrap height).
+            val visibleHeight = messageScroll.height
+            val isOverflowing = contentHeight > visibleHeight
+            scrollChevron.visibility = if (isOverflowing) View.VISIBLE else View.GONE
+            val state = Triple(contentHeight, visibleHeight, isOverflowing)
+            if (state != lastChevronLog) {
+                lastChevronLog = state
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Chevron check - contentHeight=$contentHeight, visibleHeight=$visibleHeight, " +
+                        "isOverflowing=$isOverflowing, position=in existing gap below message box"
+                )
+            }
         }
         val copyFeedback = TextView(context).apply {
             text = "Copied!"
@@ -865,9 +1041,7 @@ class ReplyPanel(
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dp(14)
-            }
+            )
             addView(messageScroll)
             addView(copyBtn)
             addView(copyFeedback, FrameLayout.LayoutParams(
@@ -879,7 +1053,9 @@ class ReplyPanel(
                 marginEnd = dp(2)
             })
         }
-        panel.addView(messageArea)
+        body.addView(messageArea)
+        // Chevron lives in the same visual gap that used to be messageArea.bottomMargin.
+        body.addView(messageChipGap)
 
         // ── Suggestions container ──
         val chipsContainer = LinearLayout(context).apply {
@@ -891,7 +1067,7 @@ class ReplyPanel(
                 topMargin = dp(2)
             }
         }
-        panel.addView(chipsContainer)
+        body.addView(chipsContainer)
 
         val isGmailMessage = message.packageName.equals("com.google.android.gm", ignoreCase = true)
         // Gmail: preview + Reply in app / Ignore only — no AI chips, mic, or Send.
@@ -1011,10 +1187,9 @@ class ReplyPanel(
         bottomRow.addView(replyInAppBtn)
         bottomRow.addView(ignoreBtn)
         bottomRow.addView(moreBtn)
-        panel.addView(bottomRow)
+        footer.addView(bottomRow)
 
         // Content below the button row (demo instructions + inline overflow menu).
-        // Lives in the panel hierarchy so height auto-sizing includes it.
         val belowButtons = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -1030,19 +1205,50 @@ class ReplyPanel(
             it.visibility = View.GONE
             belowButtons.addView(it)
         }
-        panel.addView(belowButtons)
+        footer.addView(belowButtons)
 
-        // ── Footer: remaining conversations ──
+        // Content constrained above footer; footer pinned to panel bottom.
+        panel.addView(body)
+        panel.addView(footer)
+
+        // Nav row appends inside the footer block (under buttons), not over content.
         updatePendingFooter()
         updateNewSenderIndicator()
+
+        fun logFooterLayout() {
+            panel.post {
+                val buttonRowBottom = bottomRow.bottom
+                val navRowBottom = navRow?.bottom ?: -1
+                val footerTop = footer.top
+                val contentAreaBottom = body.bottom
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Footer layout - button row bottom=$buttonRowBottom, " +
+                        "nav row bottom=$navRowBottom, footer top=$footerTop, " +
+                        "content area bottom=$contentAreaBottom"
+                )
+            }
+        }
 
         fun sizePanelForContent() {
             panel.post {
                 applyAutoPanelHeight(
-                    header, messageArea, messageScroll, messagePreview, chipsContainer, bottomRow, belowButtons
+                    header,
+                    messageArea,
+                    messageScroll,
+                    messagePreview,
+                    chipsContainer,
+                    bottomRow,
+                    belowButtons,
+                    messageGap = messageChipGap,
+                    footerBlock = footer
                 )
+                // Overflow depends on the allotted viewport after auto-grow.
+                messageScroll.post { updateMessageScrollChevron() }
+                logFooterLayout()
             }
         }
+        messagePanelRelayout = { sizePanelForContent() }
 
         moreBtn.setOnClickListener {
             val expanding = overflowMenu.visibility != View.VISIBLE
@@ -1064,6 +1270,8 @@ class ReplyPanel(
         }
 
         lateinit var renderReplies: (List<String>, String) -> Unit
+        /** Once the user expands "AI Replies" (or opens edit), keep chips visible for this message. */
+        var aiRepliesExpanded = false
 
         fun showEditInput(
             initialText: String,
@@ -1071,6 +1279,7 @@ class ReplyPanel(
             engine: String,
             openKeyboard: Boolean = true
         ) {
+            aiRepliesExpanded = true
             releaseSpeechRecognizer()
             chipsContainer.removeAllViews()
             setPanelFocusable(true)
@@ -1080,7 +1289,8 @@ class ReplyPanel(
                     params.softInputMode =
                         WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
                     try {
-                        panelView?.let { windowManager.updateViewLayout(it, params) }
+                        val host: View = panelView ?: return@let
+                        windowManager.updateViewLayout(host, params)
                     } catch (_: Exception) { }
                 }
             }
@@ -1249,7 +1459,8 @@ class ReplyPanel(
                         override fun onCancelled() {
                             handler.post { setContinueIdle() }
                         }
-                    }
+                    },
+                    source = "continue"
                 )
             }
 
@@ -1409,20 +1620,56 @@ class ReplyPanel(
                 })
                 chipsContainer.addView(chipRow)
             }
-            if (currentEntry?.hasRemoteInput != true) {
+
+            fun addAllAiChips() {
+                if (currentEntry?.hasRemoteInput != true) {
+                    chipsContainer.addView(TextView(context).apply {
+                        text = "💡 Tap a suggestion to copy it, or tap ✎ to edit first"
+                        textSize = 12f
+                        setTextColor(MUTED_TEXT)
+                        setPadding(16, 8, 16, 8)
+                    })
+                }
+                suggestions.forEach { suggestion ->
+                    addEditableChip(suggestion)
+                }
+            }
+
+            fun addAiRepliesCollapsedButton() {
                 chipsContainer.addView(TextView(context).apply {
-                    text = "💡 Tap a suggestion to copy it, or tap ✎ to edit first"
-                    textSize = 12f
-                    setTextColor(MUTED_TEXT)
-                    setPadding(16, 8, 16, 8)
+                    text = "AI Replies"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
+                    setTextColor(0xFFF5F3F7.toInt())
+                    gravity = Gravity.CENTER
+                    setPadding(24, 18, 24, 18)
+                    background = GradientDrawable().apply {
+                        setColor(CHIP_BG)
+                        cornerRadius = 28f
+                        setStroke(1, 0x44FFFFFF)
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 6, 0, 6) }
+                    setOnClickListener {
+                        aiRepliesExpanded = true
+                        showReplies(suggestions, engine)
+                    }
                 })
-                suggestions.forEach { suggestion ->
-                    addEditableChip(suggestion)
-                }
+            }
+
+            val lineCount = measurePreviewLineCount(messagePreview)
+            val showCollapsed = lineCount > 2 && !aiRepliesExpanded
+            android.util.Log.d(
+                "ScrollCat",
+                "Message line count: $lineCount - showing: " +
+                    if (showCollapsed) "AI Replies collapsed button" else "3 chips directly"
+            )
+
+            if (showCollapsed) {
+                addAiRepliesCollapsedButton()
             } else {
-                suggestions.forEach { suggestion ->
-                    addEditableChip(suggestion)
-                }
+                addAllAiChips()
             }
             if (RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
                 chipsContainer.addView(
@@ -1822,7 +2069,8 @@ class ReplyPanel(
                     override fun onCancelled() {
                         handler.post { setIdleState() }
                     }
-                }
+                },
+                source = "voice-to-text"
             )
         }
 
@@ -1851,6 +2099,30 @@ class ReplyPanel(
      * Message ScrollView grows with content up to (40% screen − header − chips − buttons);
      * no empty gap below the button row.
      */
+    private fun measurePreviewLineCount(messagePreview: TextView): Int {
+        val text = messagePreview.text ?: return 0
+        if (text.isEmpty()) return 0
+        // Prefer live layout when the preview already has a real width.
+        if (messagePreview.width > 0 && messagePreview.layout != null) {
+            return messagePreview.lineCount
+        }
+        val panel: View? = panelView
+        val contentWidth = if (panel != null) {
+            (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+        } else {
+            PANEL_WIDTH
+        }
+        val textWidth = (contentWidth - messagePreview.paddingLeft - messagePreview.paddingRight)
+            .coerceAtLeast(1)
+        val staticLayout = StaticLayout.Builder
+            .obtain(text, 0, text.length, messagePreview.paint, textWidth)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setLineSpacing(messagePreview.lineSpacingExtra, messagePreview.lineSpacingMultiplier)
+            .setIncludePad(messagePreview.includeFontPadding)
+            .build()
+        return staticLayout.lineCount
+    }
+
     private fun applyAutoPanelHeight(
         header: View,
         messageArea: View,
@@ -1858,9 +2130,11 @@ class ReplyPanel(
         messagePreview: TextView,
         chipsContainer: View,
         bottomRow: View,
-        extraBelowButtons: View? = null
+        extraBelowButtons: View? = null,
+        messageGap: View? = null,
+        footerBlock: View? = null
     ) {
-        val panel = panelView ?: return
+        val panel: ViewGroup = panelView ?: return
         val params = panelParams ?: return
         if (showingSenderList || !isShowing) return
 
@@ -1871,45 +2145,54 @@ class ReplyPanel(
         header.measure(widthSpec, heightUnspec)
         messagePreview.measure(widthSpec, heightUnspec)
         chipsContainer.measure(widthSpec, heightUnspec)
-        bottomRow.measure(widthSpec, heightUnspec)
-        extraBelowButtons?.measure(widthSpec, heightUnspec)
+        messageGap?.measure(widthSpec, heightUnspec)
 
         fun verticalMargins(view: View): Int {
-            val lp = view.layoutParams as? LinearLayout.LayoutParams ?: return 0
+            val lp = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return 0
             return lp.topMargin + lp.bottomMargin
         }
 
-        val nav = navRow
-        val navHeight = nav?.let {
-            it.measure(widthSpec, heightUnspec)
-            it.measuredHeight
-        } ?: 0
-        val arrow = newSenderArrow
-        val arrowHeight = arrow?.let {
-            it.measure(widthSpec, heightUnspec)
-            it.measuredHeight + verticalMargins(it)
+        // Prefer measuring the combined footer as one block (buttons + overflow + nav).
+        val footer: View? = footerBlock ?: messageFooterBlock
+        val footerHeight: Int = if (footer != null) {
+            footer.measure(widthSpec, heightUnspec)
+            footer.measuredHeight + verticalMargins(footer)
+        } else {
+            bottomRow.measure(widthSpec, heightUnspec)
+            extraBelowButtons?.measure(widthSpec, heightUnspec)
+            val nav: View? = navRow
+            nav?.measure(widthSpec, heightUnspec)
+            val extraH: Int = extraBelowButtons?.let { v: View ->
+                v.measuredHeight + verticalMargins(v)
+            } ?: 0
+            val navH: Int = nav?.let { v: View ->
+                v.measuredHeight + verticalMargins(v)
+            } ?: 0
+            bottomRow.measuredHeight + verticalMargins(bottomRow) + extraH + navH
+        }
+
+        val arrow: View? = newSenderArrow
+        val arrowHeight: Int = arrow?.let { v: View ->
+            v.measure(widthSpec, heightUnspec)
+            v.measuredHeight + verticalMargins(v)
         } ?: 0
 
-        // Fixed chrome only — header / chips / buttons are not multiplied.
-        // GONE chips (e.g. Gmail) contribute 0 so the panel doesn't leave empty space.
         val chipsHeight = if (chipsContainer.visibility == View.GONE) {
             0
         } else {
             chipsContainer.measuredHeight + verticalMargins(chipsContainer)
         }
+        val gapHeight: Int = messageGap?.let { v: View ->
+            v.measuredHeight + verticalMargins(v)
+        } ?: 0
         val fixedChrome = panel.paddingTop + panel.paddingBottom +
             header.measuredHeight + verticalMargins(header) +
+            gapHeight +
             chipsHeight +
-            bottomRow.measuredHeight + verticalMargins(bottomRow) +
-            (extraBelowButtons?.let { it.measuredHeight + verticalMargins(it) } ?: 0) +
-            navHeight + (nav?.let { verticalMargins(it) } ?: 0) +
+            footerHeight +
             arrowHeight +
             verticalMargins(messageArea)
 
-        // Message-area allotment boost (Large +25%, Extra Large +45%). Small/Normal unchanged.
-        // The 40% screen fraction is the baseline ceiling; Large/XL scale that ceiling by the
-        // same multiplier so the boosted message allotment can actually take effect on long
-        // messages (otherwise min(natural×1.25, 40%−chrome) collapses back to 40%−chrome).
         val messageHeightMultiplier = when (SettingsManager.getReplyTextSizeOption(context)) {
             "large" -> 1.25f
             "xlarge" -> 1.45f
@@ -1930,7 +2213,7 @@ class ReplyPanel(
         )
         messageScroll.isVerticalScrollBarEnabled = naturalMessageHeight > messageHeight
 
-        // Exact fit: window height == sum of children
+        // Exact fit: content (incl. capped message) + combined footer.
         params.height = fixedChrome + messageHeight
         try {
             windowManager.updateViewLayout(panel, params)
@@ -2106,7 +2389,7 @@ class ReplyPanel(
             pending.isEmpty() -> dismiss()
             else -> {
                 currentIndex = currentIndex.coerceIn(0, pending.size - 1)
-                showMessage(pending[currentIndex])
+                showMessage(pending[currentIndex], animateTransition = true)
             }
         }
     }
@@ -2148,15 +2431,36 @@ class ReplyPanel(
     ) {
         val panel = panelView ?: return
         panel.removeAllViews()
+        messageBodyColumn = null
+        messageFooterBlock = null
+        messagePanelRelayout = null
+        navRow = null
+        pendingCountView = null
         resetPanelHeightToWrap()
-        panel.addView(TextView(context).apply {
+        val label = TextView(context).apply {
             this.text = text
             textSize = 15f
             setTextColor(0xFFF5F3F7.toInt())
             typeface = UiKit.headingTypeface(context)
             gravity = Gravity.CENTER
             setPadding(0, 28, 0, 28)
-        })
+            layoutParams = if (panel is ConstraintLayout) {
+                ConstraintLayout.LayoutParams(
+                    ConstraintLayout.LayoutParams.MATCH_PARENT,
+                    ConstraintLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                    startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                }
+            } else {
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+        panel.addView(label)
         if (notifyDemoSent) {
             // Legacy path — prefer synchronous dispatch from sendReply(demo).
             handler.post {
@@ -2174,7 +2478,7 @@ class ReplyPanel(
                 continueAfterHandling(handled)
             } else if (pending.isNotEmpty()) {
                 currentIndex = currentIndex.coerceIn(0, pending.size - 1)
-                showMessage(pending[currentIndex])
+                showMessage(pending[currentIndex], animateTransition = true)
             } else {
                 dismiss()
             }
@@ -2184,13 +2488,13 @@ class ReplyPanel(
     private fun advance() {
         if (pending.size <= 1) return
         currentIndex = (currentIndex + 1) % pending.size
-        showMessage(pending[currentIndex])
+        showMessage(pending[currentIndex], animateTransition = true)
     }
 
     private fun previous() {
         if (pending.size <= 1) return
         currentIndex = if (currentIndex == 0) pending.size - 1 else currentIndex - 1
-        showMessage(pending[currentIndex])
+        showMessage(pending[currentIndex], animateTransition = true)
     }
 
     /**
@@ -2233,7 +2537,7 @@ class ReplyPanel(
     /** Show a queued entry in-place (panel stays open). Shared by auto-advance and ↓ arrow. */
     private fun showQueuedEntry(entry: ReplyStore.ReplyableMessage) {
         currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
-        showMessage(entry)
+        showMessage(entry, animateTransition = true)
     }
 
     fun refreshPendingFromStore() {
@@ -2289,7 +2593,7 @@ class ReplyPanel(
             }
         } else {
             currentIndex = currentIndex.coerceIn(0, pending.size - 1)
-            showMessage(pending[currentIndex])
+            showMessage(pending[currentIndex], animateTransition = true)
         }
     }
 
@@ -2309,10 +2613,11 @@ class ReplyPanel(
             it.entryId !in knownEntryIdsAtOpen
         }
 
-        // Prefer the arrow already attached to this panel; otherwise create and attach it.
+        // Prefer the arrow already attached to the body column; otherwise create and attach it.
+        val body = messageBodyColumn ?: panel
         var arrow = newSenderArrow
-        if (arrow == null || arrow.parent != panel) {
-            arrow = (panel.findViewWithTag<TextView>(TAG_NEW_SENDER_ARROW))
+        if (arrow == null || arrow.parent != body) {
+            arrow = (body.findViewWithTag<TextView>(TAG_NEW_SENDER_ARROW))
                 ?: TextView(context).apply {
                     tag = TAG_NEW_SENDER_ARROW
                     textSize = 20f
@@ -2325,11 +2630,11 @@ class ReplyPanel(
                     )
                     setOnClickListener { jumpToNextUnviewedSender() }
                 }
-            if (arrow.parent != panel) {
+            if (arrow.parent != body) {
                 try {
                     (arrow.parent as? android.view.ViewGroup)?.removeView(arrow)
                 } catch (_: Exception) { }
-                panel.addView(arrow)
+                body.addView(arrow)
             }
             newSenderArrow = arrow
         }
@@ -2341,9 +2646,8 @@ class ReplyPanel(
             "Arrow shown live on open panel for current sender, while viewing: $currentSenderKey"
         )
 
-        // Fixed panel height from applyAutoPanelHeight would clip a newly added arrow —
-        // expand to wrap so it becomes visible immediately.
-        relayoutOpenPanelHeight()
+        // Re-run auto height so the weighted body shrinks and the nav footer stays pinned.
+        messagePanelRelayout?.invoke() ?: relayoutOpenPanelHeight()
     }
 
     private fun relayoutOpenPanelHeight() {
@@ -2370,6 +2674,9 @@ class ReplyPanel(
         newSenderArrow?.let { arrow ->
             try { (arrow.parent as? android.view.ViewGroup)?.removeView(arrow) } catch (_: Exception) { }
         }
+        messageBodyColumn?.findViewWithTag<View>(TAG_NEW_SENDER_ARROW)?.let { tagged ->
+            try { (tagged.parent as? android.view.ViewGroup)?.removeView(tagged) } catch (_: Exception) { }
+        }
         panelView?.findViewWithTag<View>(TAG_NEW_SENDER_ARROW)?.let { tagged ->
             try { (tagged.parent as? android.view.ViewGroup)?.removeView(tagged) } catch (_: Exception) { }
         }
@@ -2393,7 +2700,7 @@ class ReplyPanel(
     }
 
     private fun updatePendingFooter() {
-        val panel = panelView ?: return
+        val footer = messageFooterBlock ?: return
         if (pending.size <= 1) {
             navRow?.let { row ->
                 try { (row.parent as? android.view.ViewGroup)?.removeView(row) } catch (e: Exception) { }
@@ -2408,6 +2715,10 @@ class ReplyPanel(
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, 12, 0, 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
             }
             row.addView(TextView(context).apply {
                 text = "←"
@@ -2433,8 +2744,13 @@ class ReplyPanel(
                 setOnClickListener { advance() }
             })
             navRow = row
-            panel.addView(row)
         }
+        val row = navRow ?: return
+        // Always last child of the combined footer block (under the button row).
+        try {
+            (row.parent as? android.view.ViewGroup)?.removeView(row)
+        } catch (_: Exception) { }
+        footer.addView(row)
 
         pendingCountView?.text = "${currentIndex + 1} / ${pending.size} waiting"
     }
@@ -2484,7 +2800,7 @@ class ReplyPanel(
         if (pending.isEmpty()) {
             dismiss()
         } else {
-            showMessage(pending[currentIndex])
+            showMessage(pending[currentIndex], animateTransition = true)
         }
     }
 
@@ -2670,10 +2986,12 @@ class ReplyPanel(
     }
 
     fun dismiss() {
+        messageCrossfadeToken++
         handler.removeCallbacksAndMessages(null)
         releaseSpeechRecognizer()
         setPanelFocusable(false)
         panelView?.let {
+            it.animate().cancel()
             try { windowManager.removeView(it) } catch (e: Exception) { }
         }
         panelView = null
@@ -2682,6 +3000,9 @@ class ReplyPanel(
         navRow = null
         pendingCountView = null
         newSenderArrow = null
+        messageBodyColumn = null
+        messageFooterBlock = null
+        messagePanelRelayout = null
         viewedKeys.clear()
         knownEntryIdsAtOpen.clear()
         showingSenderList = false

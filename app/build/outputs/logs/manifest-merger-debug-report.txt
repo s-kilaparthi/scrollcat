@@ -16,9 +16,9 @@ INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-2
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:2:1-216:12
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /home/skilaparthi/.gradle/caches/transforms-4/0be9c367b0e2b973cda2f401ec6523d8/transformed/constraintlayout-2.1.4/AndroidManifest.xml:2:1-11:12
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:2:1-9:12
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/skilaparthi/.gradle/caches/transforms-4/5fbe2e67df5b0f3965ca281cdd6b541d/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
-MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/skilaparthi/.gradle/caches/transforms-4/5b65e318f3f0ef05e4c11954e2c35b3b/transformed/constraintlayout-2.0.1/AndroidManifest.xml:2:1-11:12
 MERGED from [com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:2:1-20:12
 MERGED from [com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/78e6e5f18aebc06f2e93bfff95538db5/transformed/smart-reply-17.0.4/AndroidManifest.xml:17:1-32:12
 MERGED from [com.google.mlkit:language-id:17.0.6] /home/skilaparthi/.gradle/caches/transforms-4/3e18f661ef0c5cba178af8ba31e7d5b8/transformed/language-id-17.0.6/AndroidManifest.xml:2:1-17:12
@@ -227,10 +227,10 @@ ADDED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-215
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-215:19
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
+MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /home/skilaparthi/.gradle/caches/transforms-4/0be9c367b0e2b973cda2f401ec6523d8/transformed/constraintlayout-2.1.4/AndroidManifest.xml:9:5-20
+MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /home/skilaparthi/.gradle/caches/transforms-4/0be9c367b0e2b973cda2f401ec6523d8/transformed/constraintlayout-2.1.4/AndroidManifest.xml:9:5-20
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:7:5-20
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:7:5-20
-MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/skilaparthi/.gradle/caches/transforms-4/5b65e318f3f0ef05e4c11954e2c35b3b/transformed/constraintlayout-2.0.1/AndroidManifest.xml:9:5-20
-MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/skilaparthi/.gradle/caches/transforms-4/5b65e318f3f0ef05e4c11954e2c35b3b/transformed/constraintlayout-2.0.1/AndroidManifest.xml:9:5-20
 MERGED from [com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:10:5-18:19
 MERGED from [com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:10:5-18:19
 MERGED from [com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/78e6e5f18aebc06f2e93bfff95538db5/transformed/smart-reply-17.0.4/AndroidManifest.xml:22:5-30:19
@@ -521,12 +521,12 @@ INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml
 INJECTED from /home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:20:5-44
 MERGED from [com.google.android.material:material:1.12.0] /home/skilaparthi/.gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /home/skilaparthi/.gradle/caches/transforms-4/0be9c367b0e2b973cda2f401ec6523d8/transformed/constraintlayout-2.1.4/AndroidManifest.xml:5:5-7:41
+MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /home/skilaparthi/.gradle/caches/transforms-4/0be9c367b0e2b973cda2f401ec6523d8/transformed/constraintlayout-2.1.4/AndroidManifest.xml:5:5-7:41
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:5:5-44
 MERGED from [com.airbnb.android:lottie:6.4.0] /home/skilaparthi/.gradle/caches/transforms-4/c8e2e50a1fb67ad648a28033bd6d2e13/transformed/lottie-6.4.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/skilaparthi/.gradle/caches/transforms-4/5fbe2e67df5b0f3965ca281cdd6b541d/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/skilaparthi/.gradle/caches/transforms-4/5fbe2e67df5b0f3965ca281cdd6b541d/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:5:5-44
-MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/skilaparthi/.gradle/caches/transforms-4/5b65e318f3f0ef05e4c11954e2c35b3b/transformed/constraintlayout-2.0.1/AndroidManifest.xml:5:5-7:41
-MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/skilaparthi/.gradle/caches/transforms-4/5b65e318f3f0ef05e4c11954e2c35b3b/transformed/constraintlayout-2.0.1/AndroidManifest.xml:5:5-7:41
 MERGED from [com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:5:5-44
 MERGED from [com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/3eef303bb3f905f54182d8a59c2f7ab6/transformed/translate-17.0.3/AndroidManifest.xml:5:5-44
 MERGED from [com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/78e6e5f18aebc06f2e93bfff95538db5/transformed/smart-reply-17.0.4/AndroidManifest.xml:20:5-44

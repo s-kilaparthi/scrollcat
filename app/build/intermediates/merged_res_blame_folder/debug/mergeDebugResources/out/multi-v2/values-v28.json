@@ -4,7 +4,7 @@
             "outputFile": "com.example.scrollcat.app-mergeDebugResources-2:/values-v28/values-v28.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/5f6a09b2d44dbdc3b8642a3e9ae72367/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v28/values-v28.xml",
+                    "source": "/tmp/cursor-sandbox-cache/602cf36c45c84c411906d4ca2b697e6c/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,8",
                         "startColumns": "4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/tmp/cursor-sandbox-cache/5f6a09b2d44dbdc3b8642a3e9ae72367/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-v28/values-v28.xml",
+                    "source": "/tmp/cursor-sandbox-cache/602cf36c45c84c411906d4ca2b697e6c/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4",

@@ -23,6 +23,7 @@ drawable ic_clipboard_list
 drawable ic_close_zone_x
 drawable ic_content_copy
 drawable ic_delete_outline
+drawable ic_expand_more
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_layers

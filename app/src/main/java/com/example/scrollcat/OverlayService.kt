@@ -66,6 +66,8 @@ class OverlayService : Service() {
         var DISTANCE_TRIGGER_THRESHOLD_LIVE = 70
         /** Continuous screen-off before on-device engine idle teardown. */
         private const val ON_DEVICE_IDLE_TEARDOWN_MS = 5 * 60 * 1000L
+        /** Soft fade for an already-open reply panel on screen wake (cat is instant). */
+        private const val SCREEN_WAKE_PANEL_FADE_MS = 350L
     }
 
     private lateinit var windowManager: WindowManager
@@ -99,6 +101,11 @@ class OverlayService : Service() {
             AiReplyGenerator.flushAllBuffers(applicationContext)
             resumeBackgroundWork()
             Logger.d("Screen on - background work resumed")
+            // Cat appears instantly (no container fade). Panel-only soft fade if already open.
+            if (replyPanel?.isShowing == true) {
+                replyPanel?.prepareScreenWakeFadeIn()
+                replyPanel?.softFadeInFromScreenWake(SCREEN_WAKE_PANEL_FADE_MS)
+            }
             maybeInitOnDeviceAi()
         },
         onScreenOff = {
@@ -217,7 +224,16 @@ class OverlayService : Service() {
 
     private fun resumeBackgroundWork() {
         if (isDestroyed) return
-        catAnimator?.showStatic()
+        // Don't replace the edge-dock sleep pose with the idle static frame.
+        if (SettingsManager.isEdgeDockingMode(this) && isEdgeDocked) {
+            catAnimator?.showFrame(69)
+            applyDockedOpacity()
+        } else {
+            catAnimator?.showStatic()
+        }
+        // Ensure no leftover wake-fade left the overlay dimmed.
+        containerView?.animate()?.cancel()
+        containerView?.alpha = 1f
         musicDetector?.resume()
     }
 

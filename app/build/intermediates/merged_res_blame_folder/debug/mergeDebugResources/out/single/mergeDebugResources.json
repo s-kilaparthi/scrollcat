@@ -92,6 +92,10 @@
         "source": "com.example.scrollcat.app-main-6:/drawable/ic_shield.xml"
     },
     {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_expand_more.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_expand_more.xml"
+    },
+    {
         "merged": "com.example.scrollcat.app-debug-4:/xml_file_paths.xml.flat",
         "source": "com.example.scrollcat.app-main-6:/xml/file_paths.xml"
     },
