@@ -144,24 +144,6 @@ class NotificationSettingsActivity : Activity() {
         }
 
         val saveButton = createSaveButton()
-        val bottomBar = MaterialCardView(this).apply {
-            radius = UiKit.dp(this@NotificationSettingsActivity, 20).toFloat()
-            cardElevation = UiKit.dp(this@NotificationSettingsActivity, 8).toFloat()
-            strokeWidth = 1
-            strokeColor = 0x556B6578
-            setCardBackgroundColor(0xFF25252C.toInt())
-            addView(saveButton, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(
-                    UiKit.dp(this@NotificationSettingsActivity, 16),
-                    UiKit.dp(this@NotificationSettingsActivity, 12),
-                    UiKit.dp(this@NotificationSettingsActivity, 16),
-                    UiKit.dp(this@NotificationSettingsActivity, 12)
-                )
-            })
-        }
 
         val outer = FrameLayout(this).apply {
             setBackgroundColor(UiKit.surfaceColor(this@NotificationSettingsActivity))
@@ -169,16 +151,16 @@ class NotificationSettingsActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
-            addView(bottomBar, FrameLayout.LayoutParams(
+            addView(saveButton, FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM
             ).apply {
                 setMargins(
-                    UiKit.dp(this@NotificationSettingsActivity, 12),
+                    UiKit.dp(this@NotificationSettingsActivity, 28),
                     0,
-                    UiKit.dp(this@NotificationSettingsActivity, 12),
-                    UiKit.dp(this@NotificationSettingsActivity, 12)
+                    UiKit.dp(this@NotificationSettingsActivity, 28),
+                    UiKit.dp(this@NotificationSettingsActivity, 24)
                 )
             })
         }
@@ -196,9 +178,9 @@ class NotificationSettingsActivity : Activity() {
                 UiKit.dp(this, 24),
                 UiKit.dp(this, 24) + bottomBarReserve + bottomInset
             )
-            (bottomBar.layoutParams as FrameLayout.LayoutParams).bottomMargin =
-                UiKit.dp(this, 12) + bottomInset
-            bottomBar.requestLayout()
+            (saveButton.layoutParams as FrameLayout.LayoutParams).bottomMargin =
+                UiKit.dp(this, 24) + bottomInset
+            saveButton.requestLayout()
             insets
         }
 
@@ -289,7 +271,7 @@ class NotificationSettingsActivity : Activity() {
             root,
             R.drawable.ic_section_person,
             "People",
-            "Cat alerts you when messages mention these names."
+            "Cat alerts you when messages mention these names. A green notification badge appears on the cat when a message matches."
         ) {
             peopleChipLayout = FlexboxLayout(this@NotificationSettingsActivity)
             addView(buildChipInput(peopleChipLayout, peopleSet, "Type a name"))
@@ -317,7 +299,7 @@ class NotificationSettingsActivity : Activity() {
             root,
             R.drawable.ic_section_key,
             "Keywords",
-            "Cat alerts you when notifications contain these words."
+            "Cat alerts you when notifications contain these words. A green notification badge appears on the cat when a message matches."
         ) {
             keywordsChipLayout = FlexboxLayout(this@NotificationSettingsActivity)
             addView(buildChipInput(keywordsChipLayout, keywordsSet, "Type a keyword"))
@@ -677,6 +659,12 @@ class NotificationSettingsActivity : Activity() {
             finish()
         }.apply {
             minHeight = UiKit.dp(this@NotificationSettingsActivity, 56)
+            strokeWidth = UiKit.dp(this@NotificationSettingsActivity, 2)
+            strokeColor = ColorStateList.valueOf(
+                UiKit.primaryColor(this@NotificationSettingsActivity)
+            )
+            elevation = 0f
+            stateListAnimator = null
         }
     }
 }

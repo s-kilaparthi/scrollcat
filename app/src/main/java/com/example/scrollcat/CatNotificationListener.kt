@@ -41,6 +41,8 @@ class CatNotificationListener : NotificationListenerService() {
 
     private val lastNotificationTime = mutableMapOf<String, Long>()
     private val processedKeys = mutableMapOf<String, Long>()
+    /** Exact posted events already handled, keyed by notification key/id/post time. */
+    private val processedNotificationEvents = mutableMapOf<String, Long>()
     private val DEBOUNCE_MS = 2000L // ignore same app/key within 2 seconds
     private val interactiveMessageBuffers = mutableMapOf<String, MutableList<ReplyStore.BufferedMessage>>()
     private val replyPanelOpenedAt = mutableMapOf<String, Long>()
@@ -115,6 +117,22 @@ class CatNotificationListener : NotificationListenerService() {
         val now = System.currentTimeMillis()
         pruneProcessedKeys(now)
 
+        // Android may deliver the exact same posted event more than once. The existing
+        // key-only debounce intentionally allows replyable updates because messaging apps
+        // reuse one notification key for new messages. This identity includes postTime, so
+        // a genuinely new update still proceeds while a duplicate callback cannot send twice.
+        val notificationEventKey = "$notificationKey:${sbn.id}:${sbn.postTime}"
+        val lastProcessedAt = processedNotificationEvents[notificationEventKey] ?: 0L
+        val wasRecentlyProcessed = now - lastProcessedAt < DEBOUNCE_MS
+        Log.d(
+            TAG,
+            "Auto-reply check - notification key=$notificationKey, " +
+                "already processed recently=$wasRecentlyProcessed, " +
+                "proceeding=${!wasRecentlyProcessed}"
+        )
+        if (wasRecentlyProcessed) return
+        processedNotificationEvents[notificationEventKey] = now
+
         val replyable = ReplyStore.capture(sbn)
         if (replyable != null) {
             processedKeys[notificationKey] = now
@@ -170,7 +188,8 @@ class CatNotificationListener : NotificationListenerService() {
                         context = this,
                         packageName = pkg,
                         sender = replyable.sender,
-                        message = match.rule.reply
+                        message = match.rule.reply,
+                        matchedKeyword = match.matchedKeyword
                     )
                     ReplyStore.removeEntry(replyable.entryId)
                     OverlayService.instance?.showCatMessage("Auto-replied to ${replyable.sender} ✓")
@@ -220,7 +239,11 @@ class CatNotificationListener : NotificationListenerService() {
         // Combine title + best available body for keyword / person matching
         val fullText = "$title $body".trim()
 
-        Log.d(TAG, "Full notification from $pkg: $fullText | keywords: ${SettingsManager.getWatchedKeywords(this)}")
+        Log.d(
+            TAG,
+            "Full notification from $pkg: chars=${fullText.length} " +
+                "keywordCount=${SettingsManager.getWatchedKeywords(this).size}"
+        )
 
         // Badge on filter match for non-replyable notifications
         if (SettingsManager.shouldNotify(this, pkg, fullText)) {
@@ -273,8 +296,14 @@ class CatNotificationListener : NotificationListenerService() {
     }
 
     private fun pruneProcessedKeys(now: Long) {
-        if (processedKeys.size <= 100) return
-        processedKeys.entries.removeAll { now - it.value > DEBOUNCE_MS * 5 }
+        if (processedKeys.size > 100) {
+            processedKeys.entries.removeAll { now - it.value > DEBOUNCE_MS * 5 }
+        }
+        if (processedNotificationEvents.size > 100) {
+            processedNotificationEvents.entries.removeAll {
+                now - it.value > DEBOUNCE_MS * 5
+            }
+        }
     }
 
     private fun handleInteractiveMessage(
@@ -300,7 +329,9 @@ class CatNotificationListener : NotificationListenerService() {
 
             val mergedMessages = messages.toList()
             val mergedText = AiReplyGenerator.mergeMessageTexts(mergedMessages)
-            Logger.d("Interactive merged generation for $senderKey with ${mergedMessages.size} message(s): $mergedText")
+            Logger.d(
+                "Interactive merged generation for $senderKey with ${mergedMessages.size} message(s)"
+            )
             // Store on all queued entries for this conversation (pre-panel merge)
             startInteractiveGeneration(
                 packageName = packageName,
@@ -363,7 +394,7 @@ class CatNotificationListener : NotificationListenerService() {
             val fullReplies = replies.toList()
             android.util.Log.d(
                 "ScrollCat",
-                "Interactive gen storing ${fullReplies.size} replies for entryId=$entryId: $fullReplies"
+                "Interactive gen storing ${fullReplies.size} replies for entryId=$entryId"
             )
             if (storeForWholeConversation) {
                 ReplyStore.storeRepliesForConversation(conversationKey, fullReplies)

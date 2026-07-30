@@ -9,7 +9,6 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.airbnb.lottie.LottieAnimationView
-import com.airbnb.lottie.LottieDrawable
 
 /**
  * Launcher activity: shows the cat for 2 seconds, then routes to
@@ -49,7 +48,7 @@ class SplashActivity : Activity() {
             LottieAnimationView(this).apply {
                 id = R.id.splashLottie
                 setAnimation("cat_paw_loading.lottie")
-                repeatCount = LottieDrawable.INFINITE
+                repeatCount = 0
                 playAnimation()
             },
             LinearLayout.LayoutParams(size, size).apply {

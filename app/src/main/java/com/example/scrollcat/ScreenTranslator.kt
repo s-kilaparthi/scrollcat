@@ -111,7 +111,10 @@ class ScreenTranslator(private val context: Context) {
             .addOnSuccessListener {
                 translator.translate(cleanText)
                     .addOnSuccessListener { translatedText ->
-                        Log.d(TAG, "Translated ($sourceTag→$targetTag): $translatedText")
+                        Log.d(
+                            TAG,
+                            "Translated ($sourceTag→$targetTag): chars=${translatedText.length}"
+                        )
                         onResult(translatedText)
                     }
                     .addOnFailureListener { e ->

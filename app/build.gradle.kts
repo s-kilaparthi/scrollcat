@@ -65,6 +65,6 @@ dependencies {
     implementation("com.google.android.play:review:2.0.1")
     implementation("com.google.android.gms:play-services-base:18.5.0")
     // Temporary LiteRT-LM on-device LLM feasibility test (TestLlmService only — delete after).
-    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.14.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

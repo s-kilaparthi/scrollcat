@@ -9,6 +9,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -131,29 +132,62 @@ class SmartVoiceActivity : Activity() {
             )
         )
 
-        UiKit.addButton(
-            root,
-            UiKit.primaryButton(this, "Save") {
-                persistDraft()
-                Toast.makeText(this, "Smart Voice settings saved", Toast.LENGTH_SHORT).show()
-                finish()
-            }
-        )
+        val saveButton = UiKit.primaryButton(this, "Save") {
+            persistDraft()
+            Toast.makeText(this, "Smart Voice settings saved", Toast.LENGTH_SHORT).show()
+            finish()
+        }.apply {
+            minHeight = UiKit.dp(this@SmartVoiceActivity, 56)
+            strokeWidth = UiKit.dp(this@SmartVoiceActivity, 2)
+            strokeColor = ColorStateList.valueOf(UiKit.primaryColor(this@SmartVoiceActivity))
+            elevation = 0f
+            stateListAnimator = null
+        }
 
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(UiKit.surfaceColor(this@SmartVoiceActivity))
             addView(root)
         }
-        setContentView(scrollView)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+        val outer = FrameLayout(this).apply {
+            setBackgroundColor(UiKit.surfaceColor(this@SmartVoiceActivity))
+            addView(
+                scrollView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+            addView(
+                saveButton,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.BOTTOM
+                ).apply {
+                    setMargins(
+                        UiKit.dp(this@SmartVoiceActivity, 28),
+                        0,
+                        UiKit.dp(this@SmartVoiceActivity, 28),
+                        UiKit.dp(this@SmartVoiceActivity, 24)
+                    )
+                }
+            )
+        }
+        setContentView(outer)
+        val bottomBarReserve = UiKit.dp(this, 96)
+        ViewCompat.setOnApplyWindowInsetsListener(outer) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            v.setPadding(
+            val bottomInset = maxOf(bars.bottom, ime.bottom)
+            root.setPadding(
                 UiKit.dp(this, 24),
                 bars.top + UiKit.dp(this, 16),
                 UiKit.dp(this, 24),
-                UiKit.dp(this, 24) + maxOf(bars.bottom, ime.bottom)
+                UiKit.dp(this, 24) + bottomBarReserve + bottomInset
             )
+            (saveButton.layoutParams as FrameLayout.LayoutParams).bottomMargin =
+                UiKit.dp(this, 24) + bottomInset
+            saveButton.requestLayout()
             insets
         }
     }

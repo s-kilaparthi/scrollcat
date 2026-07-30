@@ -44,6 +44,8 @@ object AutoReplyManager {
         val sender: String,
         /** The auto-reply message text that was actually sent. */
         val message: String,
+        /** Keyword that triggered the rule (empty for legacy entries). */
+        val matchedKeyword: String = "",
         val cleared: Boolean = false
     )
 
@@ -129,21 +131,27 @@ object AutoReplyManager {
         packageName: String,
         sender: String,
         message: String,
+        matchedKeyword: String = "",
         timestamp: Long = System.currentTimeMillis()
     ) {
         val entries = purgeExpired(loadTrackerEntries(context)).toMutableList()
-        entries.add(
-            0,
-            TrackerEntry(
-                id = UUID.randomUUID().toString(),
-                packageName = packageName,
-                timestamp = timestamp,
-                sender = sender,
-                message = message,
-                cleared = false
-            )
+        val entry = TrackerEntry(
+            id = UUID.randomUUID().toString(),
+            packageName = packageName,
+            timestamp = timestamp,
+            sender = sender,
+            message = message,
+            matchedKeyword = matchedKeyword,
+            cleared = false
         )
+        entries.add(0, entry)
         saveTrackerEntries(context, entries)
+        AutoReplyAlertNotifier.notify(
+            context = context,
+            sender = sender,
+            matchedKeyword = matchedKeyword,
+            replyText = message
+        )
     }
 
     fun clearTrackerEntry(context: Context, entryId: String) {
@@ -162,6 +170,7 @@ object AutoReplyManager {
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 // Prefer "message"; fall back to legacy "keyword" field if present
+                // (legacy "keyword" stored the reply text, not the trigger keyword).
                 val message = obj.optString("message")
                     .ifBlank { obj.optString("keyword", "") }
                 entries.add(
@@ -171,6 +180,7 @@ object AutoReplyManager {
                         timestamp = obj.optLong("timestamp", 0L),
                         sender = obj.optString("sender", ""),
                         message = message,
+                        matchedKeyword = obj.optString("matchedKeyword", ""),
                         cleared = obj.optBoolean("cleared", obj.optBoolean("handled", false))
                     )
                 )
@@ -196,6 +206,7 @@ object AutoReplyManager {
                 put("timestamp", entry.timestamp)
                 put("sender", entry.sender)
                 put("message", entry.message)
+                put("matchedKeyword", entry.matchedKeyword)
                 put("cleared", entry.cleared)
             })
         }

@@ -323,6 +323,7 @@ class OverlayService : Service() {
         isDestroyed = false
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startAsForeground()
+        DailyDigestNotifier.maybeShow(this)
         addCatView()
         replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
         if (SettingsManager.isEdgeDockingMode(this)) {
@@ -1681,7 +1682,7 @@ class OverlayService : Service() {
         translationHandler.removeCallbacksAndMessages(null)
         translationHandler.postDelayed({ hideTranslationBubble() }, 5000)
 
-        Logger.d("Translation bubble shown: $translated")
+        Logger.d("Translation bubble shown: chars=${translated.length}")
     }
 
     fun hideTranslationBubble() {

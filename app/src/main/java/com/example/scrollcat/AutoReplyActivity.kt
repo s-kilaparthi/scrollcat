@@ -48,6 +48,7 @@ class AutoReplyActivity : Activity() {
         val root = UiKit.pageRoot(this)
         addToolbar(root)
         root.addView(UiKit.body(this, "Cat replies automatically when these keywords are detected", muted = true))
+        root.addView(summonRequiredTip())
 
         rulesContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -94,6 +95,38 @@ class AutoReplyActivity : Activity() {
         }
 
         renderRules()
+    }
+
+    private fun summonRequiredTip(): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@AutoReplyActivity, 14).toFloat()
+            cardElevation = 0f
+            strokeWidth = 1
+            strokeColor = 0xFFB39DDB.toInt()
+            setCardBackgroundColor(0xFF2E2A3A.toInt())
+            isClickable = false
+            isFocusable = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = UiKit.dp(this@AutoReplyActivity, 4)
+                bottomMargin = UiKit.dp(this@AutoReplyActivity, 12)
+            }
+        }
+        card.addView(TextView(this).apply {
+            text =
+                "The cat needs to be summoned for auto-replies to work — they won't fire while the cat is dismissed."
+            textSize = 13f
+            setTextColor(0xFFF5F3F7.toInt())
+            setPadding(
+                UiKit.dp(this@AutoReplyActivity, 16),
+                UiKit.dp(this@AutoReplyActivity, 14),
+                UiKit.dp(this@AutoReplyActivity, 16),
+                UiKit.dp(this@AutoReplyActivity, 14)
+            )
+        })
+        return card
     }
 
     private fun addToolbar(root: LinearLayout) {

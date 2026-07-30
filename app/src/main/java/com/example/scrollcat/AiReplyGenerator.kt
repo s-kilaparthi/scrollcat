@@ -50,13 +50,6 @@ class AiReplyGenerator(private val context: Context) {
             return String(android.util.Base64.decode(BUNDLED_KEY_ENCODED, android.util.Base64.DEFAULT))
         }
 
-        // Free tier: 10 AI replies per day, reset at midnight
-        const val FREE_DAILY_LIMIT = 10
-        const val ENGINE_LIMIT_REACHED = "limit_reached"
-        const val UPGRADE_MESSAGE =
-            "You've used your 10 free AI replies today. Upgrade to Creator for unlimited! ⭐"
-        private const val USAGE_PREFS = "usage_prefs"
-
         private val httpClient by lazy {
             OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
@@ -102,47 +95,6 @@ class AiReplyGenerator(private val context: Context) {
             "night" to listOf("Good night!", "Sleep well!", "Night!")
         )
 
-        /** Remaining free generations today (Int.MAX_VALUE for Pro users). */
-        fun remainingFreeReplies(context: Context): Int {
-            val limit = getDailyLimit(context)
-            if (limit == Int.MAX_VALUE) return Int.MAX_VALUE
-            return (limit - getDailyUsage(context)).coerceAtLeast(0)
-        }
-
-        fun getDailyLimit(context: Context): Int {
-            val hasOwnKey = SettingsManager.getActiveAiKey(context).isNotEmpty()
-            if (hasOwnKey) return Int.MAX_VALUE
-
-            return when (BillingManager.getSubscriptionTier(context)) {
-                "business" -> Int.MAX_VALUE
-                "creator" -> 200
-                else -> 10
-            }
-        }
-
-        fun getDailyUsage(context: Context): Int {
-            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
-            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                .format(java.util.Date())
-            val savedDate = prefs.getString("usage_date", "")
-
-            return if (savedDate == today) {
-                prefs.getInt("daily_usage", 0)
-            } else {
-                prefs.edit()
-                    .putString("usage_date", today)
-                    .putInt("daily_usage", 0)
-                    .apply()
-                0
-            }
-        }
-
-        fun incrementDailyUsage(context: Context) {
-            val prefs = context.getSharedPreferences(USAGE_PREFS, Context.MODE_PRIVATE)
-            val current = getDailyUsage(context)
-            prefs.edit().putInt("daily_usage", current + 1).apply()
-        }
-
         fun generateReplies(
             context: Context,
             packageName: String,
@@ -176,13 +128,13 @@ class AiReplyGenerator(private val context: Context) {
                 if (messages.isEmpty()) continue
 
                 val mergedText = mergeMessageTexts(messages)
-                Logger.d("Flushing $senderKey with ${messages.size} message(s): $mergedText")
+                Logger.d("Flushing $senderKey with ${messages.size} message(s)")
                 val parts = senderKey.split(":", limit = 2)
                 val packageName = parts.getOrElse(0) { "" }
                 val senderName = parts.getOrElse(1) { "" }
 
                 generateReplies(context, packageName, senderName, mergedText) { replies ->
-                    Logger.d("Groq replies stored for $senderKey: $replies")
+                    Logger.d("Groq replies stored for $senderKey: count=${replies.size}")
                     val targets = ReplyStore.getAll().filter { msg ->
                         msg.packageName == packageName && (
                             if (packageName == "com.whatsapp") {
@@ -242,28 +194,6 @@ class AiReplyGenerator(private val context: Context) {
         val model = if (activeModel.isNotEmpty()) activeModel else BUNDLED_MODEL
 
         Logger.d("Using ${if (activeKey.isNotEmpty()) "user" else "bundled"} API key")
-
-        val usage = getDailyUsage(context)
-        val limit = getDailyLimit(context)
-
-        if (usage >= limit) {
-            Logger.d("Daily limit reached: $usage/$limit")
-            mainHandler.post {
-                OverlayService.instance?.showCatMessage(
-                    if (limit == 10)
-                        "You've used your 10 free AI replies today. Upgrade to Pro for 200 replies!"
-                    else
-                        "Daily limit reached. Upgrade to Business for unlimited replies!"
-                )
-                onResult(
-                    listOf("Upgrade to Pro for more AI replies", "Sure!", "Let me check"),
-                    ENGINE_LIMIT_REACHED
-                )
-            }
-            return
-        }
-
-        incrementDailyUsage(context)
 
         val providerMessage = truncateForProviderPrompt(message)
         val userMessage = """Message to reply to:
@@ -553,7 +483,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         val cleanedResponse = stripMarkdownCodeFences(content)
         android.util.Log.d(
             "ScrollCat",
-            "Cleaned on-device response before parsing: $cleanedResponse"
+            "Cleaned on-device response before parsing: chars=${cleanedResponse.length}"
         )
 
         val jsonCandidate = extractJsonArrayCandidate(cleanedResponse)
@@ -671,7 +601,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         val valid = mutableListOf<String>()
         for (reply in replies) {
             if (isIncompleteFragment(reply)) {
-                android.util.Log.d("ScrollCat", "Filtered malformed reply: '$reply'")
+                android.util.Log.d("ScrollCat", "Filtered malformed reply: chars=${reply.length}")
             } else {
                 valid.add(reply)
             }
@@ -735,7 +665,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
         Logger.d("Final endpoint: $endpoint")
         Logger.d("Final model: $model")
 
-        Log.d(TAG, "Using API key: ${if (apiKey.isEmpty()) "EMPTY - will fallback" else "SET (${apiKey.take(8)}...)"}")
+        Log.d(TAG, "Using API key: ${if (apiKey.isEmpty()) "EMPTY - will fallback" else "SET"}")
 
         if (apiKey.isEmpty()) {
             Log.d(TAG, "No API key found - falling back")
@@ -799,11 +729,11 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
 
                 val response = httpClient.newCall(requestBuilder.build()).execute()
                 val responseBody = response.body?.string().orEmpty()
+                val httpOk = response.isSuccessful
 
-                Logger.d("AI provider response: $responseBody")
-
-                if (!response.isSuccessful) {
-                    throw Exception("HTTP ${response.code}: ${responseBody.take(200)}")
+                if (!httpOk) {
+                    Logger.d("AI provider response: success=false http=${response.code} bodyChars=${responseBody.length}")
+                    throw Exception("HTTP ${response.code}")
                 }
 
                 val json = JSONObject(responseBody)
@@ -827,11 +757,13 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
 
                 val replies = parseReplies(content)
 
+                Logger.d(
+                    "AI provider response: success=true http=${response.code} replyCount=${replies.size}"
+                )
+
                 if (replies.isEmpty()) {
                     throw Exception("No replies parsed from provider response")
                 }
-
-                Logger.d("Replies from AI provider: $replies")
 
                 mainHandler.post {
                     callback(replies.filter { it.isNotBlank() }, null)

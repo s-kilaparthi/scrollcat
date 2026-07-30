@@ -70,7 +70,7 @@ ScrollCat is built to be private by design. This policy explains exactly what th
 
 • Your profile settings. Your name, niche/business type, reply tone and auto-reply rules are stored only in the app's local storage on your device.
 
-• Usage counters. The app keeps simple local counters (e.g. replies used today) to enforce free-tier limits and improve your experience. These never leave your device.
+• App preferences. Settings you choose in the app are stored only in local storage on your device.
 
 2. WHAT WE DO NOT COLLECT
 

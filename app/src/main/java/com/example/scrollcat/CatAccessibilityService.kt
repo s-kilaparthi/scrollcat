@@ -88,11 +88,11 @@ class CatAccessibilityService : AccessibilityService() {
             val fromFocus = editableFromInputFocus(root)
             if (fromFocus != null) {
                 root.recycle()
-                return fromFocus
+                return rejectIfPassword(fromFocus)
             }
             val fromTree = searchEditableFocused(root)
             root.recycle()
-            if (fromTree != null) return fromTree
+            if (fromTree != null) return rejectIfPassword(fromTree)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -102,14 +102,53 @@ class CatAccessibilityService : AccessibilityService() {
                 val fromFocus = editableFromInputFocus(wr)
                 if (fromFocus != null) {
                     wr.recycle()
-                    return fromFocus
+                    return rejectIfPassword(fromFocus)
                 }
                 val fromTree = searchEditableFocused(wr)
                 wr.recycle()
-                if (fromTree != null) return fromTree
+                if (fromTree != null) return rejectIfPassword(fromTree)
             }
         }
         return null
+    }
+
+    /**
+     * Password fields are never dictation targets. Returning null makes callers behave
+     * exactly as if no editable field were focused at all.
+     */
+    private fun rejectIfPassword(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (!isPasswordField(node)) return node
+        Log.d(TAG, "findFocusedEditableNode - skipping password field, isPassword=true")
+        node.recycle()
+        return null
+    }
+
+    /** True for nodes flagged as passwords, including IME-reported password input types. */
+    private fun isPasswordField(node: AccessibilityNodeInfo): Boolean {
+        if (node.isPassword) return true
+        val inputType = try {
+            node.inputType
+        } catch (_: Exception) {
+            0
+        }
+        if (inputType == 0) return false
+        val variation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+        val isTextClass =
+            (inputType and android.text.InputType.TYPE_MASK_CLASS) ==
+                android.text.InputType.TYPE_CLASS_TEXT
+        val isNumberClass =
+            (inputType and android.text.InputType.TYPE_MASK_CLASS) ==
+                android.text.InputType.TYPE_CLASS_NUMBER
+        return when {
+            isTextClass && variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD -> true
+            isTextClass &&
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD -> true
+            isTextClass &&
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD -> true
+            isNumberClass &&
+                variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD -> true
+            else -> false
+        }
     }
 
     fun hasFocusedEditableField(): Boolean {
@@ -244,6 +283,10 @@ class CatAccessibilityService : AccessibilityService() {
         text: String,
         snapshot: EditableTargetSnapshot?
     ): Boolean {
+        if (isPasswordField(node)) {
+            Log.d(TAG, "findFocusedEditableNode - skipping password field, isPassword=true")
+            return false
+        }
         try {
             // Prefer focusing the field again if focus was stolen.
             node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
@@ -382,7 +425,7 @@ class CatAccessibilityService : AccessibilityService() {
         snapshot: EditableTargetSnapshot
     ): AccessibilityNodeInfo? {
         fun search(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-            if (node.isEditable) {
+            if (node.isEditable && !isPasswordField(node)) {
                 val pkg = node.packageName?.toString()
                 val viewId = node.viewIdResourceName
                 val bounds = Rect()

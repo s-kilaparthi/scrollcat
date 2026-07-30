@@ -2,6 +2,7 @@ package com.example.scrollcat
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,8 +13,10 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 
 /**
@@ -167,19 +170,19 @@ class MainActivity : Activity() {
         root.addView(catControlsRow)
 
         dashboardSection(root, "Smart Replies") {
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "\uD83D\uDCCB Auto-Reply Rules") {
+            UiKit.addButton(this, dashboardIconButton("Auto-Reply Rules", R.drawable.ic_clipboard_list) {
                 startActivity(Intent(this@MainActivity, AutoReplyActivity::class.java))
             })
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "Smart Voice") {
+            UiKit.addButton(this, dashboardIconButton("Smart Voice", R.drawable.ic_mic) {
                 startActivity(Intent(this@MainActivity, SmartVoiceActivity::class.java))
             })
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "My AI Settings") {
+            UiKit.addButton(this, dashboardIconButton("My AI Settings", R.drawable.ic_auto_awesome) {
                 startActivity(Intent(this@MainActivity, AiSettingsActivity::class.java))
             })
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "Smart Notifications") {
+            UiKit.addButton(this, dashboardIconButton("Smart Notifications", R.drawable.ic_notifications) {
                 startActivity(Intent(this@MainActivity, NotificationSettingsActivity::class.java))
             })
-            UiKit.addButton(this, UiKit.tonalButton(this@MainActivity, "\u2699\uFE0F Settings") {
+            UiKit.addButton(this, dashboardIconButton("Settings", R.drawable.ic_settings) {
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
             })
         }
@@ -204,6 +207,23 @@ class MainActivity : Activity() {
             root,
             UiKit.tonalButton(this, "Give Feedback") {
                 startActivity(Intent(this@MainActivity, FeedbackActivity::class.java))
+            }
+        )
+        UiKit.addButton(
+            root,
+            UiKit.tonalButton(this, "Privacy & Security") {
+                startActivity(Intent(this@MainActivity, PrivacySecurityActivity::class.java))
+            }.apply {
+                icon = ContextCompat.getDrawable(
+                    this@MainActivity,
+                    R.drawable.ic_shield
+                )
+                iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+                iconPadding = UiKit.dp(this@MainActivity, 10)
+                iconSize = UiKit.dp(this@MainActivity, 20)
+                iconTint = ColorStateList.valueOf(
+                    UiKit.primaryColor(this@MainActivity)
+                )
             }
         )
 
@@ -238,6 +258,20 @@ class MainActivity : Activity() {
                 UiKit.dp(this, 24) + bars.bottom
             )
             insets
+        }
+    }
+
+    private fun dashboardIconButton(
+        label: String,
+        iconRes: Int,
+        onClick: () -> Unit
+    ): MaterialButton {
+        return UiKit.tonalButton(this, label, onClick).apply {
+            icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            iconPadding = UiKit.dp(this@MainActivity, 10)
+            iconSize = UiKit.dp(this@MainActivity, 20)
+            iconTint = ColorStateList.valueOf(UiKit.primaryColor(this@MainActivity))
         }
     }
 
@@ -488,6 +522,7 @@ class MainActivity : Activity() {
         refreshAccessibilityBanner()
         refreshTodayStats()
         RateUsManager.maybeShowRatePrompt(this)
+        DailyDigestNotifier.maybeShow(this)
     }
 
     override fun onPause() {

@@ -1,5 +1,16 @@
 # ScrollCat ProGuard Rules
 
+# Strip Log.* calls from release builds (defense in depth — Logcat must not
+# retain message bodies, API key material, or provider response payloads).
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+    public static int w(...);
+    public static int e(...);
+}
+
 # Keep all app classes
 -keep class com.example.scrollcat.** { *; }
 

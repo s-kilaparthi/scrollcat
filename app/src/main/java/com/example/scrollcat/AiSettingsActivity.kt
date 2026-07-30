@@ -296,8 +296,14 @@ class AiSettingsActivity : Activity() {
         if (!success) {
             progressBar.visibility = View.GONE
             progressLabel.visibility = View.GONE
-            statusText.text = "Download failed. Check network/storage and try again."
-            Toast.makeText(this, "On-device model download failed", Toast.LENGTH_LONG).show()
+            val reason = ModelDownloadManager.lastFailureReason()
+            statusText.text = reason
+                ?: "Download failed. Check network/storage and try again."
+            Toast.makeText(
+                this,
+                reason ?: "On-device model download failed",
+                Toast.LENGTH_LONG
+            ).show()
             refreshOnDeviceUi()
             return
         }

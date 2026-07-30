@@ -680,12 +680,40 @@ object SettingsManager {
             .edit().putString("rate_card_message", value).apply()
     }
 
+    private const val LEGACY_ACTIVE_AI_KEY = "active_ai_key"
+
+    @Volatile
+    private var activeKeyMigrationDone = false
+
+    /**
+     * Moves the pre-encryption plaintext `active_ai_key` into [ApiKeyStore] and deletes
+     * it from scrollcat_prefs. Runs once per process.
+     */
+    fun migrateLegacyActiveAiKey(context: Context) {
+        if (activeKeyMigrationDone) return
+        synchronized(this) {
+            if (activeKeyMigrationDone) return
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.contains(LEGACY_ACTIVE_AI_KEY)) {
+                val legacy = prefs.getString(LEGACY_ACTIVE_AI_KEY, "").orEmpty()
+                if (legacy.isNotBlank()) {
+                    ApiKeyStore.setActiveApiKey(context, legacy)
+                    Logger.d("Migrated 1 plaintext active AI key to encrypted storage")
+                }
+                prefs.edit().remove(LEGACY_ACTIVE_AI_KEY).commit()
+            }
+            activeKeyMigrationDone = true
+        }
+    }
+
     fun setActiveAiProvider(context: Context, endpoint: String, model: String, apiKey: String) {
+        migrateLegacyActiveAiKey(context)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
             .putString("active_ai_endpoint", endpoint)
             .putString("active_ai_model", model)
-            .putString("active_ai_key", apiKey)
+            .remove(LEGACY_ACTIVE_AI_KEY)
             .apply()
+        ApiKeyStore.setActiveApiKey(context, apiKey)
     }
 
     fun getActiveAiEndpoint(context: Context): String =
@@ -697,9 +725,10 @@ object SettingsManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString("active_ai_model", "llama-3.1-8b-instant") ?: "llama-3.1-8b-instant"
 
-    fun getActiveAiKey(context: Context): String =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString("active_ai_key", "") ?: ""
+    fun getActiveAiKey(context: Context): String {
+        migrateLegacyActiveAiKey(context)
+        return ApiKeyStore.getActiveApiKey(context)
+    }
 
     data class FeedbackEntry(val text: String, val timestamp: Long)
 

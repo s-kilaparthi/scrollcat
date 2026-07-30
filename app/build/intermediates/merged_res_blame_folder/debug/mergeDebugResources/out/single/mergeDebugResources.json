@@ -20,8 +20,20 @@
         "source": "com.example.scrollcat.app-main-6:/xml/accessibility_service_config.xml"
     },
     {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_lock.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_lock.xml"
+    },
+    {
         "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_content_copy.xml.flat",
         "source": "com.example.scrollcat.app-main-6:/drawable/ic_content_copy.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_accessibility.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_accessibility.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_settings.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_settings.xml"
     },
     {
         "merged": "com.example.scrollcat.app-debug-4:/xml_backup_rules.xml.flat",
@@ -74,6 +86,10 @@
     {
         "merged": "com.example.scrollcat.app-debug-4:/font_baloo2.xml.flat",
         "source": "com.example.scrollcat.app-main-6:/font/baloo2.xml"
+    },
+    {
+        "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_cloud.xml.flat",
+        "source": "com.example.scrollcat.app-main-6:/drawable/ic_cloud.xml"
     },
     {
         "merged": "com.example.scrollcat.app-debug-4:/drawable_ic_section_block.xml.flat",

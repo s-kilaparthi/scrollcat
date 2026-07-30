@@ -250,6 +250,7 @@ class RecordAudioPermissionActivity : Activity() {
         finished = true
         destroyRecognizer()
         releaseAudioFocus(applicationContext)
+        StatsTracker.recordVoiceUse(applicationContext)
         val cb = pendingCallback
         pendingCallback = null
         cb?.onTranscript(text)

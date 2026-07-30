@@ -24,6 +24,9 @@ import com.android.billingclient.api.QueryPurchasesParams
  * Entitlement state is mirrored into SharedPreferences so isPro() works
  * instantly on launch even before the billing connection is ready, and
  * survives temporary Play outages.
+ *
+ * Note: subscription entitlements do NOT gate or limit AI reply generation —
+ * the app is free with unlimited replies. Billing is unused for reply quotas.
  */
 class BillingManager private constructor(private val context: Context) : PurchasesUpdatedListener {
 

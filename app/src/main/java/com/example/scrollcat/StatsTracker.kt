@@ -13,10 +13,14 @@ object StatsTracker {
     private const val KEY_DATE = "date"
     private const val KEY_REPLIES_TODAY = "replies_sent_today"
     private const val KEY_AUTO_TODAY = "auto_replies_today"
+    private const val KEY_VOICE_USES_TODAY = "voice_uses_today"
     private const val KEY_TOTAL = "total_replies_sent"
 
     /** Rough estimate of typing time saved per reply, for the share card. */
     private const val MINUTES_SAVED_PER_REPLY = 1.5
+
+    /** Rough estimate of typing time saved per successful voice-to-text use. */
+    private const val MINUTES_SAVED_PER_VOICE_USE = 1.5
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -38,6 +42,7 @@ object StatsTracker {
                 .putString(KEY_DATE, todayKey())
                 .putInt(KEY_REPLIES_TODAY, 0)
                 .putInt(KEY_AUTO_TODAY, 0)
+                .putInt(KEY_VOICE_USES_TODAY, 0)
                 .apply()
         }
     }
@@ -49,6 +54,7 @@ object StatsTracker {
             .putInt(KEY_REPLIES_TODAY, p.getInt(KEY_REPLIES_TODAY, 0) + 1)
             .putInt(KEY_TOTAL, p.getInt(KEY_TOTAL, 0) + 1)
             .apply()
+        DailyDigestNotifier.maybeShow(context)
     }
 
     fun recordAutoReply(context: Context) {
@@ -57,6 +63,16 @@ object StatsTracker {
         p.edit()
             .putInt(KEY_AUTO_TODAY, p.getInt(KEY_AUTO_TODAY, 0) + 1)
             .apply()
+    }
+
+    /** One successful voice transcription (Voice-to-text, Continue, or any-app dictation). */
+    fun recordVoiceUse(context: Context) {
+        rollover(context)
+        val p = prefs(context)
+        p.edit()
+            .putInt(KEY_VOICE_USES_TODAY, p.getInt(KEY_VOICE_USES_TODAY, 0) + 1)
+            .apply()
+        DailyDigestNotifier.maybeShow(context)
     }
 
     fun getRepliesSentToday(context: Context): Int {
@@ -69,6 +85,11 @@ object StatsTracker {
         return prefs(context).getInt(KEY_AUTO_TODAY, 0)
     }
 
+    fun getVoiceUsesToday(context: Context): Int {
+        rollover(context)
+        return prefs(context).getInt(KEY_VOICE_USES_TODAY, 0)
+    }
+
     fun getTotalRepliesSent(context: Context): Int =
         prefs(context).getInt(KEY_TOTAL, 0)
 
@@ -76,5 +97,10 @@ object StatsTracker {
         // Share Stats / "AI cat replied" — AI sends only, not keyword auto-replies.
         val replies = getRepliesSentToday(context)
         return (replies * MINUTES_SAVED_PER_REPLY).toInt()
+    }
+
+    fun getVoiceMinutesSavedToday(context: Context): Int {
+        val uses = getVoiceUsesToday(context)
+        return (uses * MINUTES_SAVED_PER_VOICE_USE).toInt()
     }
 }

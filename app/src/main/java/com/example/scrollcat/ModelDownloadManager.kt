@@ -4,7 +4,9 @@ import android.content.Context
 import android.os.StatFs
 import android.util.Log
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -15,6 +17,20 @@ import okhttp3.Request
 object ModelDownloadManager {
 
     private const val TAG = "ScrollCat"
+
+    /**
+     * If the hosted model file on R2 is ever replaced/updated, this hash MUST be updated to match,
+     * or all future downloads will fail integrity verification.
+     *
+     * SHA-256 of the currently hosted gemma-4-e2b-it.litertlm
+     * (https://pub-adc9f313f0f847699104e000bd529687.r2.dev/gemma-4-e2b-it.litertlm,
+     * Content-Length 2588147712).
+     */
+    private const val EXPECTED_MODEL_SHA256 =
+        "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+
+    private const val INTEGRITY_FAILURE_MESSAGE =
+        "Download verification failed, please try again"
 
     /** Hosted Gemma 4 E2B LiteRT-LM model (~2.6GB). */
     const val DOWNLOAD_URL =
@@ -39,11 +55,15 @@ object ModelDownloadManager {
     @Volatile private var lastPercent: Int = 0
     @Volatile private var lastDownloaded: Long = 0L
     @Volatile private var lastTotal: Long = 0L
+    @Volatile private var lastFailureMessage: String? = null
 
     fun isDownloading(): Boolean = downloadInFlight.get()
 
     fun lastProgress(): Triple<Int, Long, Long> =
         Triple(lastPercent, lastDownloaded, lastTotal)
+
+    /** Non-null after a failed download with a specific user-facing reason (e.g. integrity). */
+    fun lastFailureReason(): String? = lastFailureMessage
 
     fun addListener(listener: Listener) {
         listeners.addIfAbsent(listener)
@@ -116,6 +136,7 @@ object ModelDownloadManager {
         lastPercent = 0
         lastDownloaded = 0L
         lastTotal = 0L
+        lastFailureMessage = null
         Thread {
             val dest = File(OnDeviceAiEngine.defaultModelPath(appContext))
             val partial = File(dest.parentFile, "${dest.name}.partial")
@@ -185,6 +206,18 @@ object ModelDownloadManager {
                         }
                     }
 
+                    val actualHash = sha256Hex(partial)
+                    if (!actualHash.equals(EXPECTED_MODEL_SHA256, ignoreCase = true)) {
+                        Log.e(
+                            TAG,
+                            "ModelDownload: integrity check failed " +
+                                "(expected=$EXPECTED_MODEL_SHA256 actual=$actualHash)"
+                        )
+                        cleanupPartial(partial)
+                        finishDownload(false, INTEGRITY_FAILURE_MESSAGE)
+                        return@Thread
+                    }
+
                     if (dest.exists() && !dest.delete()) {
                         Log.e(TAG, "ModelDownload: could not replace existing model")
                         cleanupPartial(partial)
@@ -245,9 +278,24 @@ object ModelDownloadManager {
         }
     }
 
-    private fun finishDownload(success: Boolean) {
+    private fun finishDownload(success: Boolean, failureReason: String? = null) {
+        lastFailureMessage = if (success) null else failureReason
         downloadInFlight.set(false)
         notifyComplete(success)
+    }
+
+    /** Chunked SHA-256 so a ~2.6GB model is never fully loaded into memory. */
+    private fun sha256Hex(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { b -> "%02x".format(b) }
     }
 
     private fun cleanupPartial(partial: File) {

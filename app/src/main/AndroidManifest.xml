@@ -145,6 +145,11 @@
             android:label="Privacy Policy" />
 
         <activity
+            android:name=".PrivacySecurityActivity"
+            android:exported="false"
+            android:label="Privacy &amp; Security" />
+
+        <activity
             android:name=".ShareCardActivity"
             android:exported="false"
             android:label="Share My Stats" />

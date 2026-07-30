@@ -108,7 +108,7 @@ Each reply must be under 15 words. Output only the 3 replies, one per line, numb
     private fun parseResponse(response: Response): List<String> {
         val bodyString = response.body?.string().orEmpty()
         if (!response.isSuccessful) {
-            Log.e(TAG, "Claude API HTTP ${response.code}: ${bodyString.take(200)}")
+            Log.e(TAG, "Claude API HTTP ${response.code}: bodyChars=${bodyString.length}")
             return emptyList()
         }
         val content = JSONObject(bodyString).optJSONArray("content") ?: return emptyList()

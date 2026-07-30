@@ -66,7 +66,7 @@ object ReplyStore {
     fun bufferMessage(senderKey: String, text: String) {
         val list = screenOffBuffer.getOrPut(senderKey) { mutableListOf() }
         list.add(BufferedMessage(text, System.currentTimeMillis()))
-        Logger.d("Buffered message for $senderKey (buffer size now ${list.size}): $text")
+        Logger.d("Buffered message for $senderKey (buffer size now ${list.size})")
     }
 
     @Synchronized
@@ -86,7 +86,7 @@ object ReplyStore {
         val repliesArray = replies.map { it }.toList()
         android.util.Log.d(
             "ScrollCat",
-            "Storing full replies array for $entryId: $repliesArray"
+            "Storing replies for $entryId: count=${repliesArray.size}"
         )
         storedReplies[entryId] = repliesArray
     }
@@ -100,7 +100,7 @@ object ReplyStore {
             val repliesArray = replies.map { it }.toList()
             android.util.Log.d(
                 "ScrollCat",
-                "Storing full replies array for ${entry.entryId}: $repliesArray"
+                "Storing replies for ${entry.entryId}: count=${repliesArray.size}"
             )
             storedReplies[entry.entryId] = repliesArray
         }
@@ -116,7 +116,7 @@ object ReplyStore {
         android.util.Log.d(
             "ScrollCat",
             "getStoredReplies looking for entryId: $entryId, found: ${result != null}, " +
-                "values: $result"
+                "count: ${result?.size ?: 0}"
         )
         return result
     }
@@ -185,7 +185,10 @@ object ReplyStore {
 
         if (messageText.isBlank()) return null
 
-        Logger.d("Capturing notification from: $packageName sender: $senderName message: $messageText")
+        Logger.d(
+            "Capturing notification from: $packageName senderPresent=${senderName.isNotBlank()} " +
+                "messageChars=${messageText.length}"
+        )
         val hasRemoteInput = remoteInputAction != null
         Logger.d("Has RemoteInput: $hasRemoteInput")
 

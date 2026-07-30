@@ -103,19 +103,71 @@ class AiProviderActivity : Activity() {
 
         val PRESETS = PROVIDER_OPTIONS.associate { it.key to Triple(it.endpoint, it.model, it.keyLinkText) }
 
+        private const val LEGACY_KEY_FIELD = "apiKey"
+
+        @Volatile
+        private var plaintextKeyMigrationDone = false
+
+        /**
+         * Moves any pre-encryption plaintext keys out of the provider JSON into
+         * [ApiKeyStore] and rewrites the JSON without the key field. Runs once per process.
+         */
+        fun migratePlaintextProviderKeys(context: android.content.Context) {
+            if (plaintextKeyMigrationDone) return
+            synchronized(this) {
+                if (plaintextKeyMigrationDone) return
+                val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                val json = prefs.getString("providers", null)
+                if (json.isNullOrBlank()) {
+                    plaintextKeyMigrationDone = true
+                    return
+                }
+                try {
+                    val arr = org.json.JSONArray(json)
+                    val rewritten = org.json.JSONArray()
+                    var migrated = 0
+                    var hadKeyField = false
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        if (obj.has(LEGACY_KEY_FIELD)) hadKeyField = true
+                        val id = obj.optString("id")
+                        val legacyKey = obj.optString(LEGACY_KEY_FIELD, "")
+                        if (id.isNotBlank() && legacyKey.isNotBlank()) {
+                            ApiKeyStore.setProviderApiKey(context, id, legacyKey)
+                            migrated++
+                        }
+                        obj.remove(LEGACY_KEY_FIELD)
+                        rewritten.put(obj)
+                    }
+                    if (hadKeyField) {
+                        // commit() so the plaintext is off disk before any later read
+                        prefs.edit().putString("providers", rewritten.toString()).commit()
+                    }
+                    if (migrated > 0) {
+                        Logger.d("Migrated $migrated plaintext provider API key(s) to encrypted storage")
+                    }
+                } catch (e: Exception) {
+                    Logger.e("Provider key migration failed: ${e.message}", e)
+                }
+                plaintextKeyMigrationDone = true
+            }
+        }
+
         fun loadProviderList(context: android.content.Context): MutableList<AiProvider> {
+            migratePlaintextProviderKeys(context)
             val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             val json = prefs.getString("providers", null) ?: return mutableListOf()
             return try {
                 val arr = org.json.JSONArray(json)
                 (0 until arr.length()).map { i ->
                     val obj = arr.getJSONObject(i)
+                    val id = obj.getString("id")
                     AiProvider(
-                        id = obj.getString("id"),
+                        id = id,
                         name = obj.getString("name"),
                         endpoint = obj.getString("endpoint"),
                         model = obj.getString("model"),
-                        apiKey = obj.getString("apiKey"),
+                        apiKey = ApiKeyStore.getProviderApiKey(context, id),
                         isActive = obj.getBoolean("isActive")
                     )
                 }.toMutableList()
@@ -124,8 +176,25 @@ class AiProviderActivity : Activity() {
             }
         }
 
+        private fun storedProviderIds(context: android.content.Context): Set<String> {
+            val json = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString("providers", null) ?: return emptySet()
+            return try {
+                val arr = org.json.JSONArray(json)
+                (0 until arr.length())
+                    .mapNotNull { arr.getJSONObject(it).optString("id").takeIf { id -> id.isNotBlank() } }
+                    .toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+        }
+
         /** Persist providers and sync the active one into SettingsManager / key stores. */
         fun saveProviderList(context: android.content.Context, providers: List<AiProvider>) {
+            migratePlaintextProviderKeys(context)
+            val previousIds = storedProviderIds(context)
+
+            // Key values live only in ApiKeyStore; the JSON keeps non-sensitive metadata.
             val arr = org.json.JSONArray()
             providers.forEach { p ->
                 arr.put(org.json.JSONObject().apply {
@@ -133,10 +202,14 @@ class AiProviderActivity : Activity() {
                     put("name", p.name)
                     put("endpoint", p.endpoint)
                     put("model", p.model)
-                    put("apiKey", p.apiKey)
                     put("isActive", p.isActive)
                 })
+                ApiKeyStore.setProviderApiKey(context, p.id, p.apiKey)
             }
+            (previousIds - providers.map { it.id }.toSet()).forEach { staleId ->
+                ApiKeyStore.removeProviderApiKey(context, staleId)
+            }
+
             context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
                 .putString("providers", arr.toString())
@@ -257,6 +330,14 @@ class AiProviderActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         loadProviders()
+
+        if (ApiKeyStore.consumeInMemoryFallbackWarning(this)) {
+            Toast.makeText(
+                this,
+                "Secure storage isn't available on this device right now — your API key will need to be re-entered if you restart the app.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
