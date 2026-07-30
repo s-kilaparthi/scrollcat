@@ -2296,6 +2296,11 @@ class ReplyPanel(
         }
         input.setText(combined)
         input.setSelection(combined.length)
+        // Overlay height is a fixed px from applyAutoPanelHeight — remeasure so the
+        // taller EditText (and Cancel/Continue/Send row) aren't clipped/overlapped.
+        // Same path showEditInput uses for a long initial transcript.
+        messagePanelRelayout?.invoke()
+            ?: input.post { relayoutOpenPanelHeight() }
     }
 
     /**

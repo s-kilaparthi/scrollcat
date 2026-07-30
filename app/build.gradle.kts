@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -23,9 +25,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Upload the R8 mapping so Crashlytics stack traces are de-obfuscated.
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = true
+            }
         }
         debug {
             isMinifyEnabled = false
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
         }
     }
     compileOptions {
@@ -64,6 +73,11 @@ dependencies {
     implementation("com.android.billingclient:billing:6.2.1")
     implementation("com.google.android.play:review:2.0.1")
     implementation("com.google.android.gms:play-services-base:18.5.0")
+    // Firebase Analytics + Crashlytics (developer visibility; the local
+    // CrashReportingHelper user-facing dialog is unaffected)
+    implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-crashlytics")
     // On-device LLM inference (OnDeviceAiEngine)
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.14.0")
     // >= 1.9.0 required by litertlm-android 0.14.0's POM

@@ -14,6 +14,15 @@
 # Keep all app classes
 -keep class com.skilaparthi.scrollcat.** { *; }
 
+# Crashlytics: retain line numbers so uploaded mappings yield readable stack traces.
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+
+# Crashlytics references android.os.ProfilingTrigger (API 36) behind a runtime
+# version check; it is absent from compileSdk 35 but present on API 36 devices.
+-dontwarn android.os.ProfilingTrigger$Builder
+-dontwarn android.os.ProfilingTrigger
+
 # Google ML Kit
 -keep class com.google.mlkit.** { *; }
 -dontwarn com.google.mlkit.**

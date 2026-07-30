@@ -434,6 +434,18 @@ object SettingsManager {
         edit.apply()
     }
 
+    // ── Firebase Analytics (opt-out; default ON for new installs) ──
+
+    fun isAnalyticsEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("analytics_enabled", true)
+    }
+
+    fun setAnalyticsEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("analytics_enabled", enabled).apply()
+    }
+
     // ── On-device model manual override (testing) ──
 
     /** Stored values: [OVERRIDE_E2B], [OVERRIDE_270M], or null = automatic RAM tier. */

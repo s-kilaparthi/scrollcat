@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.provider.Settings
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
@@ -15,6 +16,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.firebase.analytics.FirebaseAnalytics
 
 /**
  * Privacy & Security explainer: what ScrollCat never does, what each permission
@@ -48,6 +51,7 @@ class PrivacySecurityActivity : Activity() {
 
         addNeverDoSection(root)
         addPermissionsSection(root)
+        addAnalyticsSection(root)
         addAiProcessingSection(root)
         addPrivacyPolicyLink(root)
 
@@ -172,6 +176,52 @@ class PrivacySecurityActivity : Activity() {
                     "Microphone — only active while actively using voice-to-text, never in the background."
                 )
             )
+        }
+    }
+
+    private fun addAnalyticsSection(root: LinearLayout) {
+        val materialContext = ContextThemeWrapper(this, R.style.Theme_ScrollCat)
+        UiKit.section(root, "Usage analytics") {
+            addView(
+                infoRow(
+                    R.drawable.ic_auto_awesome,
+                    "Anonymous usage analytics — helps us understand how ScrollCat is used, so we can improve it. You can turn this off below."
+                )
+            )
+            addView(divider())
+            val row = LinearLayout(this@PrivacySecurityActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(
+                    0,
+                    UiKit.dp(this@PrivacySecurityActivity, 4),
+                    0,
+                    UiKit.dp(this@PrivacySecurityActivity, 4)
+                )
+            }
+            row.addView(TextView(this@PrivacySecurityActivity).apply {
+                text = "Share anonymous usage analytics"
+                textSize = 15f
+                setTextColor(TEXT)
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                ).apply { marginEnd = UiKit.dp(this@PrivacySecurityActivity, 12) }
+            })
+            row.addView(SwitchMaterial(materialContext).apply {
+                isChecked = SettingsManager.isAnalyticsEnabled(this@PrivacySecurityActivity)
+                setOnCheckedChangeListener { _, enabled ->
+                    SettingsManager.setAnalyticsEnabled(this@PrivacySecurityActivity, enabled)
+                    FirebaseAnalytics.getInstance(this@PrivacySecurityActivity)
+                        .setAnalyticsCollectionEnabled(enabled)
+                    android.util.Log.d(
+                        "ScrollCat",
+                        "Analytics collection enabled=$enabled"
+                    )
+                }
+            })
+            addView(row)
         }
     }
 

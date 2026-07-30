@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "name": "Black cat ,slim , cute , animated",
+  "nameSlug": "black-cat-slim-cute-animated",
+  "category": "Magic",
+  "categorySlug": "magic",
+  "description": "Black cat ,slim , cute , animated",
+  "bundleVersion": 1,
+  "minAppVersion": 94,
+  "levels": 3,
+  "origin": "LOCAL",
+  "animationSchema": {
+    "path": "animation.json",
+    "schemaId": "default",
+    "version": 1
+  },
+  "sprites": {
+    "type": "SEQUENCE",
+    "basePath": "sprites/",
+    "filePattern": "%04d.webp",
+    "spriteCount": 118,
+    "size": [
+      512,
+      512
+    ]
+  },
+  "preview": {
+    "thumbnail": "thumbnail.webp"
+  },
+  "author": {
+    "name": "Local Creator"
+  },
+  "license": {
+    "type": "CUSTOM",
+    "text": "Exported from Shimeji",
+    "attribution": "Local Creator"
+  }
+}

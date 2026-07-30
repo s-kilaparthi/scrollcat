@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.skilaparthi.scrollcat.app-mergeDebugResources-2:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "com.skilaparthi.scrollcat.app-mergeDebugResources-5:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/7173d715f43680468a8703eb8330b4b1/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-watch-v20/values-watch-v20.xml",
+                    "source": "/tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e8f124dece0ef5d3319453f8d31fc364/transformed/appcompat-1.7.0/res/values-watch-v20/values-watch-v20.xml",
                     "from": {
                         "startLines": "2,5,8",
                         "startColumns": "4,4,4",
