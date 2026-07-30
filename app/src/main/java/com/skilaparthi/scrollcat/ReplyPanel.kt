@@ -515,6 +515,10 @@ class ReplyPanel(
         }
     }
 
+    /** True while the compact voice-dictation bubble is showing (no pending replies). */
+    val isDictationMode: Boolean
+        get() = dictationMode
+
     /** Snapshot of the focused field, taken before recognition starts. */
     private var dictationTargetSnapshot:
         CatAccessibilityService.EditableTargetSnapshot? = null
@@ -851,14 +855,47 @@ class ReplyPanel(
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        textCol.addView(TextView(themed).apply {
+        val senderHeader = LinearLayout(themed).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        senderHeader.addView(TextView(themed).apply {
             text = entry.sender
             textSize = 14f
             setTextColor(0xFFF5F3F7.toInt())
             typeface = UiKit.headingTypeface(context)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
         })
+        val headerCollapseChevron = FrameLayout(themed).apply {
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(CHIP_BG)
+                setStroke(dp(1), 0x44FFFFFF)
+            }
+            contentDescription = "Show less"
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+                marginStart = dp(6)
+                marginEnd = dp(4)
+            }
+            addView(ImageView(themed).apply {
+                setImageResource(R.drawable.ic_expand_more)
+                imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
+                rotation = 180f
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                layoutParams = FrameLayout.LayoutParams(dp(12), dp(12)).apply {
+                    gravity = Gravity.CENTER
+                }
+            })
+        }
+        senderHeader.addView(headerCollapseChevron)
+        textCol.addView(senderHeader)
         val preview = TextView(themed).apply {
             text = entry.message
             setTextSize(
@@ -873,7 +910,9 @@ class ReplyPanel(
             setPadding(0, dp(2), 0, 0)
         }
         textCol.addView(preview)
-        textCol.addView(buildSenderListExpandChevron(themed, preview))
+        textCol.addView(
+            buildSenderListExpandChevron(themed, preview, headerCollapseChevron)
+        )
         row.addView(textCol)
 
         if (entry.priority) {
@@ -928,7 +967,11 @@ class ReplyPanel(
      * Same expand affordance as the reply panel's overflow chevron: shown only when the
      * capped preview hides text, tapping it reveals the rest in place.
      */
-    private fun buildSenderListExpandChevron(themed: Context, preview: TextView): FrameLayout {
+    private fun buildSenderListExpandChevron(
+        themed: Context,
+        preview: TextView,
+        headerCollapseChevron: View
+    ): FrameLayout {
         // Every card starts collapsed; only the chevron may reveal the full message.
         preview.isSingleLine = false
         preview.maxLines = SENDER_LIST_PREVIEW_MAX_LINES
@@ -957,13 +1000,17 @@ class ReplyPanel(
             }
             addView(chevronIcon)
         }
-        var expanded = false
         chevron.setOnClickListener {
-            expanded = !expanded
-            preview.maxLines = if (expanded) Integer.MAX_VALUE else SENDER_LIST_PREVIEW_MAX_LINES
-            chevronIcon.rotation = if (expanded) 180f else 0f
-            chevronIcon.contentDescription =
-                if (expanded) "Show less" else "Show full message"
+            preview.maxLines = Integer.MAX_VALUE
+            preview.ellipsize = null
+            chevron.visibility = View.GONE
+            headerCollapseChevron.visibility = View.VISIBLE
+        }
+        headerCollapseChevron.setOnClickListener {
+            preview.maxLines = SENDER_LIST_PREVIEW_MAX_LINES
+            preview.ellipsize = android.text.TextUtils.TruncateAt.END
+            headerCollapseChevron.visibility = View.GONE
+            chevron.visibility = View.VISIBLE
         }
         preview.post {
             val width = preview.width - preview.paddingLeft - preview.paddingRight

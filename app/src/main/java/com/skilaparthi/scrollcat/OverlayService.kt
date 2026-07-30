@@ -261,7 +261,8 @@ class OverlayService : Service() {
             Logger.d("Dock visibility timer fired but reply panel is open — skipping re-dock")
             return@Runnable
         }
-        // Focus-held visibility wins over the notification dock timer.
+        // Focus-held visibility wins over the notification dock timer — but only when
+        // there are no pending replies (pending always takes priority).
         if (isHeldByEditableFocus()) {
             Logger.d("Dock visibility timer fired but text field focused — keeping undocked")
             return@Runnable
@@ -1172,6 +1173,13 @@ class OverlayService : Service() {
     }
 
     private fun isHeldByEditableFocus(): Boolean {
+        // Pending replies continuously win over focus-hold (not only at focus-gain).
+        if (ReplyStore.count() > 0) {
+            if (heldByTextFocus) {
+                heldByTextFocus = false
+            }
+            return false
+        }
         if (heldByTextFocus) return true
         if (CatAccessibilityService.instance?.hasFocusedEditableField() == true) {
             heldByTextFocus = true
@@ -1478,8 +1486,25 @@ class OverlayService : Service() {
         if (!SettingsManager.isEdgeDockingMode(this)) return
         cancelInitialSettleTimer()
         awaitingInitialDock = false
+
+        // Focus-triggered visibility only checks pending at focus-gain. Re-evaluate here so a
+        // notification that arrives while already undocked for dictation takes over.
+        if (heldByTextFocus) {
+            android.util.Log.d(
+                "ScrollCat",
+                "New message arrived while in focus-triggered mode - switching to pending-message priority"
+            )
+            heldByTextFocus = false
+            cancelTextFocusHide()
+        }
+        // Close an open dictation bubble so the badge/pending state is visible (same priority
+        // as tap: pending always wins over voice dictation).
+        if (replyPanel?.isDictationMode == true) {
+            replyPanel?.dismiss()
+        }
+
         // Notification priority: start/reset the normal dock visibility timer.
-        // If already undocked (e.g. focus-held), do not restart the pop-out animation.
+        // If already undocked (e.g. was focus-held), do not restart the pop-out animation.
         if (isEdgeDocked) {
             undockToFloat(animate = true, startVisibilityTimer = true)
         } else {
