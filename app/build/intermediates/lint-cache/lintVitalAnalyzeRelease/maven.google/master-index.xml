@@ -191,6 +191,7 @@
   <com.android.lint/>
   <com.android.ndk.thirdparty/>
   <com.android.privacy-sandbox-sdk/>
+  <com.android.r8/>
   <com.android.reporting/>
   <com.android.security.autorepro/>
   <com.android.security.autorepro.apptest/>

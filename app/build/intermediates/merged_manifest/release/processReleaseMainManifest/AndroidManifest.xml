@@ -102,7 +102,7 @@
         </activity>
         <activity
             android:name="com.example.scrollcat.MainActivity"
-            android:exported="true" >
+            android:exported="false" >
         </activity>
         <activity
             android:name="com.example.scrollcat.NotificationSettingsActivity"
@@ -193,16 +193,6 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating companion overlay that the user interacts with" />
-        </service>
-
-        <!-- Temporary LiteRT-LM feasibility test — delete with TestLlmService.kt -->
-        <service
-            android:name="com.example.scrollcat.TestLlmService"
-            android:exported="true"
-            android:foregroundServiceType="specialUse" >
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Temporary on-device LLM feasibility test only" />
         </service>
 
         <!--

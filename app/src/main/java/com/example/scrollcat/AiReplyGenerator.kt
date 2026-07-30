@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
  *
  * AI chain:
  * 1. On-device LiteRT-LM (if OnDeviceAiEngine.isReady())
- * 2. Groq/Llama3 (bundled or user key)
+ * 2. Groq/Llama3 (user key only — skipped when no key is configured)
  * 3. Claude API (if user has key, after Groq failure)
  * 4. ML Kit Smart Reply
  * 5. Hardcoded fallback
@@ -38,17 +38,12 @@ class AiReplyGenerator(private val context: Context) {
         const val SUGGESTION_COUNT = 3
         private const val GENERATION_TIMEOUT_MS = 10_000L
 
-        private const val BUNDLED_KEY_ENCODED = "Z3NrX1lPVVJfQUNUVUFMX0dST1FfS0VZX0hFUkU="
         private const val BUNDLED_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
         private const val BUNDLED_MODEL = "llama-3.1-8b-instant"
         private const val CLAUDE_ENDPOINT = "https://api.anthropic.com/v1/messages"
         private const val CLAUDE_MODEL = "claude-haiku-4-5"
         private const val PROVIDER_MESSAGE_CHAR_LIMIT = 800
         private const val MERGED_MESSAGE_CHAR_LIMIT = 1500
-
-        private fun getBundledKey(): String {
-            return String(android.util.Base64.decode(BUNDLED_KEY_ENCODED, android.util.Base64.DEFAULT))
-        }
 
         private val httpClient by lazy {
             OkHttpClient.Builder()
@@ -189,11 +184,13 @@ class AiReplyGenerator(private val context: Context) {
         val activeEndpoint = SettingsManager.getActiveAiEndpoint(context)
         val activeModel = SettingsManager.getActiveAiModel(context)
 
-        val apiKey = if (activeKey.isNotEmpty()) activeKey else getBundledKey()
+        // No bundled key: an unconfigured provider must fail straight through to the
+        // existing "no API key" handling rather than issue a doomed request.
+        val apiKey = activeKey
         val endpoint = if (activeEndpoint.isNotEmpty()) activeEndpoint else BUNDLED_ENDPOINT
         val model = if (activeModel.isNotEmpty()) activeModel else BUNDLED_MODEL
 
-        Logger.d("Using ${if (activeKey.isNotEmpty()) "user" else "bundled"} API key")
+        Logger.d("Active API key configured: ${activeKey.isNotEmpty()}")
 
         val providerMessage = truncateForProviderPrompt(message)
         val userMessage = """Message to reply to:

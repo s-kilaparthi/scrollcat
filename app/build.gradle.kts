@@ -66,5 +66,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-base:18.5.0")
     // On-device LLM inference (OnDeviceAiEngine)
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.14.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // >= 1.9.0 required by litertlm-android 0.14.0's POM
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

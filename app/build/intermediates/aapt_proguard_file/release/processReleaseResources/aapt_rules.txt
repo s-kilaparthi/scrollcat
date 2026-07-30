@@ -25,7 +25,6 @@
 -keep class com.example.scrollcat.SmartVoiceActivity { <init>(); }
 -keep class com.example.scrollcat.SplashActivity { <init>(); }
 -keep class com.example.scrollcat.SubscriptionActivity { <init>(); }
--keep class com.example.scrollcat.TestLlmService { <init>(); }
 -keep class com.google.android.datatransport.runtime.backends.TransportBackendDiscovery { <init>(); }
 -keep class com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver { <init>(); }
 -keep class com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService { <init>(); }

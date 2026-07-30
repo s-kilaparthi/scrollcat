@@ -11365,6 +11365,7 @@ com.google.ai.edge.litertlm.ConversationConfig:
 com.google.ai.edge.litertlm.Engine$Companion:
     public final void setNativeMinLogSeverity(com.google.ai.edge.litertlm.LogSeverity)
 com.google.ai.edge.litertlm.Engine:
+    public static synthetic com.google.ai.edge.litertlm.Conversation createConversation$default(com.google.ai.edge.litertlm.Engine,com.google.ai.edge.litertlm.ConversationConfig,int,java.lang.Object)
     public final com.google.ai.edge.litertlm.Session createSession(com.google.ai.edge.litertlm.SessionConfig)
     public static synthetic com.google.ai.edge.litertlm.Session createSession$default(com.google.ai.edge.litertlm.Engine,com.google.ai.edge.litertlm.SessionConfig,int,java.lang.Object)
     public final com.google.ai.edge.litertlm.EngineConfig getEngineConfig()
@@ -38217,6 +38218,7 @@ com.google.ai.edge.litertlm.Engine:
     public static final com.google.ai.edge.litertlm.Engine$Companion Companion
     static void <clinit>()
     public final void checkInitialized()
+    public static com.google.ai.edge.litertlm.Conversation createConversation()
     public final boolean isInitialized()
 com.google.ai.edge.litertlm.EngineConfig:
     public static com.google.ai.edge.litertlm.Backend getAudioBackend()

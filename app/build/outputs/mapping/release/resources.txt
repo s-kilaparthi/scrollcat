@@ -679,6 +679,7 @@ getClassId
 sendOnNoWaiterSuspend
 extractToDirectory
 root
+memoryKeys
 Age
 com.google.android.apps.aicore.aidl.I...
 getExceptionOrNull
@@ -785,6 +786,7 @@ numSamples
 inWholeHours
 MINIMUM_BLOCK_SIZE
 ULongArray
+storedProviderIds
 Theme.AppCompat
 DOWNLOAD_ERROR
 ACTIVE
@@ -1336,6 +1338,7 @@ coordinatorWaiting
 assertEqualTypes
 withSuppressed
 sealed
+removeProviderApiKey
 closeZoneInterpolator
 parameterAnnotation
 playcore_version_code
@@ -2284,6 +2287,7 @@ p2
 np
 p3
 p4
+getProviderApiKey
 p5
 ns
 p6
@@ -2571,6 +2575,7 @@ recordVoiceUse
 encodedQueryNamesAndValues
 parseReturnType
 maxAge
+migratePlaintextProviderKeys
 LocksKt
 writeWindowUpdateLater
 findPropertyDescriptor
@@ -2581,6 +2586,7 @@ HSPAP
 replaceWithNonApproximatingSubstitution
 FRAGMENT_ENCODE_SET
 onLowMemory
+lastFailureReason
 getReplyTextSizeSp
 findDefaultConstructor
 KEY_WINDOW_TOKEN
@@ -3139,7 +3145,6 @@ getCallerFrame
 getCreationStackBottom$kotlinx_corout...
 javax.annotation.ParametersAreNonnull...
 advance
-TestLlmWorker
 java.vendor.url
 MIN_SECOND
 _absentArguments
@@ -3279,6 +3284,7 @@ loadProviders
 isVoiceTranslateEnabled
 loadAt
 getLayoutAlignment
+provider_key_
 portColonOffset
 BoundConstructor
 mergeForChild
@@ -3361,8 +3367,8 @@ UNINITIALIZED
 forEachBlock
 maximumValue
 Origin
-getNetworkInterceptors$okhttp
 apiKey
+getNetworkInterceptors$okhttp
 SAPI_PER_DEVICE_BATTERY_USE_QUOTA_EXC...
 cookieHeader
 CustomMethod
@@ -3416,7 +3422,6 @@ typeAlias
 $context_receiver
 configureSharing$FlowKt__ShareKt
 ica
-resolveModelPath
 findAnnotations
 OBJECT_PARAMETER_NON_GENERIC
 com.google.android.gms.mlkit_image_ca...
@@ -3488,6 +3493,7 @@ connectSocket
 xlarge
 EMPTY_BYTE_ARRAY
 START_PUNCTUATION
+setActiveApiKey
 kotlin.Function20
 writeContinuationFrames
 kotlin.Function21
@@ -3808,6 +3814,7 @@ getAfterBoundaryOptions
 trySelectInternal
 newSource
 formattedType$okhttp
+purgeLegacyPlaintextFallback
 parameterNamesAndValues
 getInternal
 completeCancel
@@ -4097,7 +4104,7 @@ toFloatOrNull
 replaceAfterLast
 cleanWeakRef
 SEGMENT_SEPARATOR
-scrollcat_test_llm
+readKey
 ACTION_DRAG_CANCEL
 getZero
 android.bigText
@@ -4376,6 +4383,7 @@ cloudLogoDetectionLogEvent
 globalBlockingQueue
 isCaseSensitive
 loadResource
+181938105e0eefd105961417e8da75903eacd...
 EVDO_A
 getMemberExtensionFunctions
 EVDO_B
@@ -4439,7 +4447,6 @@ isShowing
 API_DISABLED
 featureVariant
 isReifiedTypeParameter
-MEMORY_INTERVAL_MS
 POSITIVE_BUTTON_CONTENT_DESCRIPTION_R...
 com.microsoft.office.outlook
 setTouchable
@@ -4508,7 +4515,6 @@ Small
 launchIn
 setCompleted
 isArrayOf
-logMemory
 writeSuccessCount
 getLastObservedThreadName
 measureTimedValue
@@ -4553,6 +4559,7 @@ unsafeCursor
 voice_custom_languages_2
 pathSegment
 cipherSuites
+KEY_ACTIVE
 MODULATE
 appContext
 auxFuture
@@ -4771,7 +4778,6 @@ repliesTodayCountView
 UBYTE
 getDebugString
 len
-LIB_VERSION
 merge
 minusPolymorphicKey
 let
@@ -5170,6 +5176,7 @@ millis
 UNDISPATCHED
 emitter
 onSettings
+migrateLegacyActiveAiKey
 org.conscrypt.Conscrypt$Version
 UNRESOLVED_DECLARATION
 uintToULong
@@ -5240,6 +5247,7 @@ nextBits
 qualifiedNames
 isPrivate
 sizeDp
+encryptedPrefs
 connectEnd
 min
 evictAll
@@ -5589,6 +5597,7 @@ HORIZONTAL_TRIGGER_THRESHOLD
 copyOfRange
 copyright
 SubList
+INTEGRITY_FAILURE_MESSAGE
 typeParameterUpperBoundEraser
 queryProducts
 kotlinx.coroutines.internal.StackTrac...
@@ -6136,6 +6145,7 @@ isCancelled$annotations
 kotlin/reflect/jvm/internal/impl/reso...
 FILE_READ_RETURNED_INVALID_DATA
 maxValue
+pendingInMemoryWarning
 lazyOf
 compareValuesBy
 indentWidth
@@ -6157,7 +6167,6 @@ inParcel
 okhttp3/internal/concurrent/TaskRunne...
 android.hardware.strongbox_keystore
 kotlinx.coroutines.channels.ChannelsK...
-overridePath
 addImpl
 lookupLocation
 COROUTINE_SUSPENDED
@@ -6619,6 +6628,7 @@ _cur
 createSubstitutedCopy
 KEY_DIMEN_BOTTOM
 removeSurrounding
+LEGACY_PLAINTEXT_FALLBACK
 setUpperCase
 sumOfFloat
 TYPE_UNKNOWN
@@ -6635,7 +6645,6 @@ conversationKey
 OnRequestInstallCallback
 ValuesItr
 nativeRunPrefill
-TestLlmService.kt
 extensionRegistryLite
 STATE_WRITING_REQUEST_BODY
 booleanExpression
@@ -6713,7 +6722,6 @@ nextHashCode
 check$okhttp
 isBusinessTier
 CLASS
-getBundledKey
 P21
 P20
 P22
@@ -7491,7 +7499,6 @@ globalLevel
 kotlin/reflect/jvm/internal/impl/load...
 sslSocket
 addCatView
-runFeasibilityTest
 getTotalBytesDownloaded
 getExtensionDelegate
 gesture_
@@ -7816,7 +7823,6 @@ possiblyOverriddenProperty
 isVisibleForOverride
 useBoxedBoundReceiver
 aiCoreClient
-getPrefs
 isPositive
 RAW
 awaitFirstOrElse
@@ -8054,6 +8060,7 @@ encodingWith
 asJavaRandom
 syncLang2FromLang1
 src
+setProviderApiKey
 getLeftGuillemete$annotations
 mlkit.docscan.ui
 getMAX_VALUE$annotations
@@ -8070,6 +8077,7 @@ getFrames
 delta
 numberOfSlots
 toBits
+isUsingInMemoryFallback
 guessNamedFloatConstant
 kotlin/NumbersKt__NumbersJVMKt
 undispatchedCompletion
@@ -8183,7 +8191,6 @@ containerContext
 safeAddView
 REMOTE_MODEL_INVALID
 com.android.annotations
-HOLD_MS
 getSource$okhttp
 ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
 keywordsSet
@@ -8664,6 +8671,7 @@ kotlinx/coroutines/flow/FlowKt__LimitKt
 CHANNEL_CLOSED
 AI_PATH_CLOUD
 appFilterChip
+plaintextKeyMigrationDone
 storeAt
 saveCustomNamedProvider
 ON_DEVICE_FACE_CREATE
@@ -9061,7 +9069,6 @@ app_version
 canParseAsIpAddress
 inStack
 getBoxMethod
-/data/local/tmp/llm/model.litertlm
 kotlin/collections/ArraysKt
 loop
 APP_ASSET
@@ -9357,7 +9364,6 @@ dexopt/baseline.prof
 nextFrame
 getContainingClass
 scrollcat_prefs
-stopSelfSafely
 safeRemoveView
 ON_DEVICE_IMAGE_LABEL_DETECT
 cacheRequestClosed
@@ -9465,6 +9471,7 @@ onStartCommand
 rated
 pollBuffer
 caller
+getActiveApiKey
 kotlin/sequences/SequencesKt__Sequenc...
 PATH_SEGMENT_ENCODE_SET
 onVisitFileFailed
@@ -9667,7 +9674,6 @@ bytesReceived
 addQueryParameter
 encodeIntoByteArrayImpl$kotlin_stdlib
 resolveModel
-CANDIDATE_PATHS
 kotlinx.coroutines.flow.FlowKt__Emitt...
 getEffectiveTldPlusOne
 KEY_IGNORED_CHATS
@@ -9944,7 +9950,6 @@ loadDictionaryErrorCode
 TLS_DH_anon_WITH_AES_256_CBC_SHA256
 probeCoroutineResumed$kotlinx_corouti...
 ON_DEVICE_DOCUMENT_SCANNER_UI_FINISH
-model_path
 createAsync
 getEncodedUsername$okhttp
 iterator
@@ -10016,7 +10021,6 @@ globalIndex
 toMap
 closed
 rebuildJournal$okhttp
-memoryRunnable
 compressed
 isJsonLogging
 mapOf
@@ -11442,7 +11446,6 @@ emptySequence
 awaitingPong
 ifBlank
 blockingTasksInBuffer
-.litertlm
 ACCENT
 noImpl
 .webp
@@ -11529,6 +11532,7 @@ getContainer
 snapshot$okhttp
 TYPE_FOR_GENERATED_ERROR_EXPRESSION
 qualifiers
+consumeInMemoryFallbackWarning
 setBytesPerLine
 ON_DEVICE_DIGITAL_INK_SEGMENTATION_CR...
 bounds
@@ -11713,7 +11717,6 @@ _value
 FLAG_END_STREAM
 parseIsoString
 hierarchyToString
-SAMPLE_MESSAGE
 androidx.test.services.storage.runfiles
 edu.umd.cs.findbugs.annotations.Possi...
 HMACSHA512
@@ -12085,6 +12088,7 @@ match
 ON_STOP
 pendingCountView
 visitPropertyDescriptor
+writeKey
 findTrustAnchorByIssuerAndSignature
 keyQualifiedName
 java.vm.version
@@ -12259,6 +12263,7 @@ subClass
 timeNow
 isLeapYear
 left_swipe_behavior
+PROVIDER_KEY_PREFIX
 getAnnotations
 getLongAt
 constraint
@@ -12343,6 +12348,7 @@ nextId
 exceptionCtors
 AtomicReferenceArray
 emitAll
+activeKeyMigrationDone
 parseIso
 redact
 night
@@ -12648,7 +12654,6 @@ currentEpoch
 truncateForErrorMessage$UuidKt__UuidKt
 NAME_TO_FIRST_INDEX
 startNode
-BUNDLED_KEY_ENCODED
 fieldsCount
 tryReleaseClaimedContinuation
 createFormData
@@ -12961,6 +12966,7 @@ javaTypeParameter
 kotlin/coroutines/jvm/internal/DebugP...
 RECEIVED_MILLIS
 returnType
+LEGACY_ACTIVE_AI_KEY
 internal
 constrainOnce
 renderCallable
@@ -13201,6 +13207,7 @@ ON_DEVICE_OBJECT_INFERENCE
 walkBottomUp
 shouldSkipDump
 payload_encoding
+failureReason
 onUndeliveredElement
 IS_DATA
 maxCacheSizeBytes
@@ -13263,7 +13270,6 @@ reportStrategy
 com.google.android.gms.chimera
 ZBCS
 Interruptible.kt
-/storage/emulated/0/Android/data/com....
 getClassDescriptorFactories
 getNextNode
 WORK_STEALING_TIME_RESOLUTION_NS
@@ -13556,7 +13562,6 @@ CAMERA1_SOURCE_CANT_START_ERROR
 copyByteBufferInto
 throwable
 getClassFlags
-memoryTick
 formatReceivedTime
 java.library.path
 java.vendor
@@ -13754,7 +13759,6 @@ java.util.Map
 updateLang2Availability
 getObject
 SAPI_AICORE_INCOMPATIBLE
-bundled
 edit
 parameterizedTypeArguments
 getStarProjectedType$annotations
@@ -13825,6 +13829,7 @@ TLS_DHE_RSA_WITH_DES_CBC_SHA
 _returnType
 serviceActionBundleKey
 OPTIONAL_MODULE_BARCODE_DETECTION_REL...
+sha256Hex
 moveForward
 destination
 Twitter
@@ -14063,7 +14068,6 @@ toArray
 getValueCount$okhttp
 setSanitizeStackTraces$kotlinx_corout...
 fullPackage
-com/example/scrollcat/TestLlmService$...
 spdy/3.1
 vetoable
 KEY_WATCHED_PEOPLE
@@ -14414,6 +14418,7 @@ REMOTE_CONFIG_FETCH
 actualTrace
 FILE_HEADER_SIZE
 __androidx_security_crypto_encrypted_...
+EXPECTED_MODEL_SHA256
 getDropState
 _signature
 kotlin.Cloneable
@@ -14634,6 +14639,7 @@ finishDownload
 android.webkit.
 kotlinx.coroutines.flow.FlowKt__Trans...
 getWriteBytesMaximum
+usingInMemoryFallback
 AVAILABLE_PROCESSORS
 ABSTRACT
 sendConnectionPreface
@@ -14748,6 +14754,7 @@ currentPushRequests
 channels
 invokeSafely
 conflict
+LEGACY_KEY_FIELD
 decodeImpl
 showTranslationBubble
 update
@@ -14816,7 +14823,6 @@ URI_EXPIRED
 org.telegram.messenger
 event
 muted
-com.example.scrollcat.TestLlmService$...
 onInterrupt
 TYPE_PUSH_PROMISE
 mViewFlags
@@ -15525,6 +15531,7 @@ formatEntryWhen
 OUTLINE
 idleSleepEnabled
 select
+createEncryptedPrefs
 invoke
 clipboard
 sendException
@@ -15852,6 +15859,7 @@ languageNameOrTag
 typeSystemContext
 FOR_ALREADY_TRACKED
 ERASED_RECEIVER_TYPE_SCOPE
+lastFailureMessage
 getIndex$kotlin_stdlib
 cas
 getClaudeApiKey

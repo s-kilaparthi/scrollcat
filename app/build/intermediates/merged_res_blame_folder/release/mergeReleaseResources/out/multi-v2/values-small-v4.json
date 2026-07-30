@@ -4,7 +4,7 @@
             "outputFile": "com.example.scrollcat.app-mergeReleaseResources-2:/values-small-v4/values-small-v4.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/b8fa3bb528ec6a6ca6a5fc07e4f32e92/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-small-v4/values-small-v4.xml",
+                    "source": "/tmp/cursor-sandbox-cache/1079a3c32badc865795838316a769c26/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-small-v4/values-small-v4.xml",
                     "from": {
                         "startLines": "2,3,4,5",
                         "startColumns": "4,4,4,4",
