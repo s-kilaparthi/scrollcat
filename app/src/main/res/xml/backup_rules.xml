@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+    <!-- API keys (EncryptedSharedPreferences) and AI provider configuration -->
+    <exclude domain="sharedpref" path="scrollcat_secure.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_secure_fallback.xml"/>
+    <exclude domain="sharedpref" path="ai_providers.xml"/>
+
+    <!-- User settings, message-derived data and reply history -->
     <exclude domain="sharedpref" path="scrollcat_prefs.xml"/>
     <exclude domain="sharedpref" path="app_reactions.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_auto_reply.xml"/>
+
+    <!-- Usage, entitlement and diagnostic state -->
+    <exclude domain="sharedpref" path="scrollcat_stats.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_billing.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_crash.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_rate_us.xml"/>
+    <exclude domain="sharedpref" path="scrollcat_daily_digest.xml"/>
+
+    <!--
+        On-device model files. Restoring a model from a backup would bypass the
+        SHA-256 integrity check, which only runs on a fresh download.
+    -->
+    <exclude domain="external" path="gemma-4-e2b-it.litertlm"/>
+    <exclude domain="external" path="gemma-3-270m-it.litertlm"/>
+    <exclude domain="file" path="gemma-4-e2b-it.litertlm"/>
+    <exclude domain="file" path="gemma-3-270m-it.litertlm"/>
 </full-backup-content>
