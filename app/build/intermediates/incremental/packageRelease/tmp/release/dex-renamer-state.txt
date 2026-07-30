@@ -1,4 +1,0 @@
-#Thu Jul 30 11:20:42 MDT 2026
-base.0=/home/skilaparthi/scrollcat/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-renamed.0=classes.dex
-path.0=classes.dex

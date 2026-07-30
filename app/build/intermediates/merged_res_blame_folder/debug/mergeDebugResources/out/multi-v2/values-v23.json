@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.scrollcat.app-mergeDebugResources-2:/values-v23/values-v23.xml",
+            "outputFile": "com.skilaparthi.scrollcat.app-mergeDebugResources-2:/values-v23/values-v23.xml",
             "map": [
                 {
-                    "source": "/tmp/cursor-sandbox-cache/1079a3c32badc865795838316a769c26/gradle/caches/transforms-4/1d2a93acffbdb22a8d8e09ed6dd17754/transformed/cardview-1.0.0/res/values-v23/values-v23.xml",
+                    "source": "/tmp/cursor-sandbox-cache/7173d715f43680468a8703eb8330b4b1/gradle/caches/transforms-4/1d2a93acffbdb22a8d8e09ed6dd17754/transformed/cardview-1.0.0/res/values-v23/values-v23.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/tmp/cursor-sandbox-cache/1079a3c32badc865795838316a769c26/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-v23/values-v23.xml",
+                    "source": "/tmp/cursor-sandbox-cache/7173d715f43680468a8703eb8330b4b1/gradle/caches/transforms-4/6a9407590ac7a3377fe27809ed3fe4fe/transformed/material-1.12.0/res/values-v23/values-v23.xml",
                     "from": {
                         "startLines": "2,5,9,13,16,19,22,25,28,32",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4",
@@ -42,7 +42,7 @@
                     }
                 },
                 {
-                    "source": "/tmp/cursor-sandbox-cache/1079a3c32badc865795838316a769c26/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v23/values-v23.xml",
+                    "source": "/tmp/cursor-sandbox-cache/7173d715f43680468a8703eb8330b4b1/gradle/caches/transforms-4/ab773fbacfb303d2f8a3cc372626facd/transformed/appcompat-1.7.0/res/values-v23/values-v23.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,20,34,35,36,39,43,44,45,46",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",

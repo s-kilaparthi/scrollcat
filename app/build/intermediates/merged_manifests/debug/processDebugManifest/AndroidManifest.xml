@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.scrollcat"
+    package="com.skilaparthi.scrollcat"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -63,13 +63,13 @@
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <permission
-        android:name="com.example.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.skilaparthi.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.example.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.skilaparthi.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
-        android:name="com.example.scrollcat.MainApplication"
+        android:name="com.skilaparthi.scrollcat.MainApplication"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -78,7 +78,6 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:testOnly="true"
         android:theme="@style/Theme.ScrollCat" >
 
         <!-- Required for LiteRT-LM / GPU OpenCL access on API 31+ -->
@@ -93,7 +92,7 @@
             android:required="false" />
 
         <activity
-            android:name="com.example.scrollcat.SplashActivity"
+            android:name="com.skilaparthi.scrollcat.SplashActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" >
             <intent-filter>
@@ -103,74 +102,74 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.example.scrollcat.MainActivity"
+            android:name="com.skilaparthi.scrollcat.MainActivity"
             android:exported="false" >
         </activity>
         <activity
-            android:name="com.example.scrollcat.NotificationSettingsActivity"
+            android:name="com.skilaparthi.scrollcat.NotificationSettingsActivity"
             android:exported="false"
             android:label="Notification Settings"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.SettingsActivity"
+            android:name="com.skilaparthi.scrollcat.SettingsActivity"
             android:exported="false"
             android:label="Settings" />
         <activity
-            android:name="com.example.scrollcat.AiProviderActivity"
+            android:name="com.skilaparthi.scrollcat.AiProviderActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.AiSetupActivity"
+            android:name="com.skilaparthi.scrollcat.AiSetupActivity"
             android:exported="false"
             android:label="Set up AI"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.AiSettingsActivity"
+            android:name="com.skilaparthi.scrollcat.AiSettingsActivity"
             android:exported="false"
             android:label="My AI Settings"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.AutoReplyActivity"
+            android:name="com.skilaparthi.scrollcat.AutoReplyActivity"
             android:exported="false"
             android:label="Auto-Reply Rules"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.SmartVoiceActivity"
+            android:name="com.skilaparthi.scrollcat.SmartVoiceActivity"
             android:exported="false"
             android:label="Smart Voice"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.AutoReplyTrackerActivity"
+            android:name="com.skilaparthi.scrollcat.AutoReplyTrackerActivity"
             android:exported="false"
             android:label="Auto Reply Tracker" />
         <activity
-            android:name="com.example.scrollcat.FeedbackActivity"
+            android:name="com.skilaparthi.scrollcat.FeedbackActivity"
             android:exported="false"
             android:label="Give Feedback"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.OnboardingActivity"
+            android:name="com.skilaparthi.scrollcat.OnboardingActivity"
             android:exported="false"
             android:label="Welcome to ScrollCat"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.example.scrollcat.SubscriptionActivity"
+            android:name="com.skilaparthi.scrollcat.SubscriptionActivity"
             android:exported="false"
             android:label="ScrollCat Pro" />
         <activity
-            android:name="com.example.scrollcat.PrivacyPolicyActivity"
+            android:name="com.skilaparthi.scrollcat.PrivacyPolicyActivity"
             android:exported="false"
             android:label="Privacy Policy" />
         <activity
-            android:name="com.example.scrollcat.PrivacySecurityActivity"
+            android:name="com.skilaparthi.scrollcat.PrivacySecurityActivity"
             android:exported="false"
             android:label="Privacy &amp; Security" />
         <activity
-            android:name="com.example.scrollcat.ShareCardActivity"
+            android:name="com.skilaparthi.scrollcat.ShareCardActivity"
             android:exported="false"
             android:label="Share My Stats" />
         <activity
-            android:name="com.example.scrollcat.RecordAudioPermissionActivity"
+            android:name="com.skilaparthi.scrollcat.RecordAudioPermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
@@ -179,7 +178,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.example.scrollcat.fileprovider"
+            android:authorities="com.skilaparthi.scrollcat.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true" >
             <meta-data
@@ -189,7 +188,7 @@
 
         <!-- The floating cat overlay -->
         <service
-            android:name="com.example.scrollcat.OverlayService"
+            android:name="com.skilaparthi.scrollcat.OverlayService"
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property
@@ -202,7 +201,7 @@
              or the service silently won't appear in Accessibility settings
         -->
         <service
-            android:name="com.example.scrollcat.CatAccessibilityService"
+            android:name="com.skilaparthi.scrollcat.CatAccessibilityService"
             android:exported="false"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
@@ -215,7 +214,7 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
         <service
-            android:name="com.example.scrollcat.CatNotificationListener"
+            android:name="com.skilaparthi.scrollcat.CatNotificationListener"
             android:exported="false"
             android:label="ScrollCat Notification Reader"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
@@ -249,7 +248,7 @@
 
         <provider
             android:name="com.google.mlkit.common.internal.MlKitInitProvider"
-            android:authorities="com.example.scrollcat.mlkitinitprovider"
+            android:authorities="com.skilaparthi.scrollcat.mlkitinitprovider"
             android:exported="false"
             android:initOrder="99" />
 
@@ -274,7 +273,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.example.scrollcat.androidx-startup"
+            android:authorities="com.skilaparthi.scrollcat.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

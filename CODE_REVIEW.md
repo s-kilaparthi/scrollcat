@@ -46,7 +46,7 @@ Generated: July 2026
 ## Notification Listener Fixes
 
 - **CatNotificationListener.kt** — Added per-notification-key debounce (`processedKeys` map) to prevent duplicate processing of the same notification update within 2 seconds.
-- **CatNotificationListener.kt** — Auto-reply blocked for own packages: both `com.example.scrollcat` and `com.example.scrollcat.debug`.
+- **CatNotificationListener.kt** — Auto-reply blocked for own packages: both `com.skilaparthi.scrollcat` and `com.skilaparthi.scrollcat.debug`.
 - **CatNotificationListener.kt** — `onNotificationRemoved` cleans `ReplyStore` entry and removes key from `processedKeys`.
 - **CatNotificationListener.kt** — App-level debounce retained for badge increment; replyable capture still happens before debounce so multi-sender messages aren't lost.
 
@@ -66,4 +66,4 @@ Generated: July 2026
 - Null-safe `OverlayService.instance?.` pattern is used consistently across services; the `isDestroyed` guard adds an additional layer for in-service async callbacks.
 - AI reply fallback chain (Claude → Gemini Nano → Smart Reply → hardcoded) is well-structured with clear engine labels for debugging.
 - SharedPreferences usage is fragmented across multiple pref files (`scrollcat_prefs`, `scrollcat_billing`, `scrollcat_stats`, etc.); consider a single settings facade long-term.
-- ProGuard rules keep all app classes (`-keep class com.example.scrollcat.** { *; }`) which prevents R8 from stripping code but limits APK size reduction. Tightening rules after release testing could yield additional savings.
+- ProGuard rules keep all app classes (`-keep class com.skilaparthi.scrollcat.** { *; }`) which prevents R8 from stripping code but limits APK size reduction. Tightening rules after release testing could yield additional savings.

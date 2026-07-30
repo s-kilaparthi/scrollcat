@@ -12,7 +12,7 @@
 }
 
 # Keep all app classes
--keep class com.example.scrollcat.** { *; }
+-keep class com.skilaparthi.scrollcat.** { *; }
 
 # Google ML Kit
 -keep class com.google.mlkit.** { *; }
