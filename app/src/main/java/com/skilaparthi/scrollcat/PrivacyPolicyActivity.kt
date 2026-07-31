@@ -66,37 +66,45 @@ ScrollCat is built to be private by design. This policy explains exactly what th
 
 1. WHAT DATA WE COLLECT
 
-• Notification content. To offer smart replies, ScrollCat reads the notifications you allow it to access (sender name and message text from messaging apps). This content is processed locally on your device to generate reply suggestions.
+- Notification content. To offer smart replies, ScrollCat reads the notifications you allow it to access (sender name and message text from messaging apps). This content is processed to generate reply suggestions and is never persisted — held in memory only long enough to generate a suggestion, then discarded.
 
-• Your profile settings. Your name, niche/business type, reply tone and auto-reply rules are stored only in the app's local storage on your device.
+- Your profile settings, auto-reply rules, and app preferences. Stored only in local storage on your device.
 
-• App preferences. Settings you choose in the app are stored only in local storage on your device.
+- Anonymous usage analytics. ScrollCat uses Firebase Analytics to understand how the app is used, so we can improve it. This is on by default but can be turned off anytime in Privacy & Security in the app.
+
+- Crash reports. If the app crashes, technical crash data (via Firebase Crashlytics) helps us fix bugs. This never includes your messages or personal content.
 
 2. WHAT WE DO NOT COLLECT
 
-• Your messages are NOT stored on our servers. ScrollCat has no server of its own — there is nothing for us to store, read or sell.
+- Your messages are never stored on our servers — ScrollCat has no backend of its own.
 
-• We do not collect analytics, advertising identifiers, contacts, location, or browsing history.
+- We never read or interact with password fields, in any app, under any circumstance.
 
-• Notification content is never persisted; it is held in memory only long enough to generate a suggestion and is discarded afterwards.
+- ScrollCat never reads notifications from banking or payment apps.
 
-3. THIRD-PARTY SERVICES
+- We do not collect contacts, location, or browsing history.
 
-• Google ML Kit (on-device). Reply suggestions are generated on your device using Google ML Kit (Gemini Nano and Smart Reply). Message text does not leave your phone when these engines are used.
+3. AI PROCESSING — ON-DEVICE OR CLOUD, YOUR CHOICE
 
-• Anthropic API (optional). If you choose to enter your own Claude API key, the message you are replying to is sent to Anthropic (api.anthropic.com) to generate suggestions, under Anthropic's own privacy policy. This is entirely opt-in — without an API key, everything stays on your device. Your API key is stored encrypted on your device and is only sent to Anthropic.
+- On-device (default on capable devices). Replies are generated entirely on your phone using an on-device AI model (downloaded once, verified for integrity, and never leaves your device). Nothing about your messages is sent anywhere.
 
-• Google Play Billing. Subscriptions are processed by Google Play. We never see your payment details.
+- Cloud providers (optional, user-provided key). If you choose to connect Groq, Anthropic Claude, OpenAI, or another provider with your own API key, the message you're replying to is sent to that provider to generate a suggestion, under that provider's own privacy policy. This is entirely opt-in. Your API key is stored encrypted on your device and is only ever sent to the provider you configured it for.
+
+- ML Kit (on-device). Basic reply suggestions, language translation, and script romanization can also run via Google's on-device ML Kit, entirely on your phone.
 
 4. PERMISSIONS
 
-• Notification access — to read incoming messages and send replies through each app's own reply mechanism.
-• Display over other apps — to show the floating cat.
-• Accessibility — to perform scroll gestures on your behalf. Accessibility data is never logged or transmitted.
+- Notification access — reads incoming messages so ScrollCat can suggest replies, sent through each app's own reply mechanism.
+
+- Display over other apps — shows the floating cat.
+
+- Accessibility (optional) — lets you dictate directly into any app's text field, and lets the cat scroll Reels/Shorts on your behalf. ScrollCat never reads or interacts with password fields, and accessibility data is never logged or transmitted.
+
+- Microphone — only active while you're actively using voice-to-text; never active in the background.
 
 5. YOUR CHOICES
 
-You can revoke any permission at any time in Android Settings. Uninstalling the app deletes all locally stored data.
+You can revoke any permission anytime in Android Settings, and turn off analytics anytime in Privacy & Security within the app. Uninstalling ScrollCat deletes all locally stored data — we don't keep anything on a server.
 
 6. CHILDREN
 
@@ -104,11 +112,11 @@ ScrollCat is not directed at children under 13.
 
 7. CHANGES
 
-We will update this policy inside the app if our practices change.
+We'll update this policy here and in the app if our practices change.
 
 8. CONTACT
 
-Questions or concerns: privacy@scrollcat.app
+Questions or concerns: shipproof.app@gmail.com
         """.trimIndent()
     }
 }

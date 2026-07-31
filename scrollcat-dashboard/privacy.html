@@ -8,7 +8,7 @@
     :root {
       --bg: #0a0a0a;
       --card: #1a1a1a;
-      --accent: #4a90d9;
+      --accent: #b39ddb;
       --text: #ffffff;
       --muted: #9a9ab0;
       --border: rgba(255, 255, 255, 0.08);
@@ -51,49 +51,46 @@
 <body>
   <div class="container">
     <a class="back" href="index.html">← Back to ScrollCat</a>
-    <h1>🐱 ScrollCat Privacy Policy</h1>
+    <h1>ScrollCat Privacy Policy</h1>
     <p class="updated">Last updated: July 2026</p>
 
     <div class="card">
-      <h2>Our Promise</h2>
-      <p>ScrollCat is built to be private by design. We do not operate servers that store your messages, contacts, or conversations. Your data stays on your device.</p>
+      <p>ScrollCat is built to be private by design. This policy explains exactly what the app does with your data.</p>
 
-      <h2>What We Collect</h2>
-      <p><strong>Nothing is collected on our servers.</strong> ScrollCat has no backend. All AI processing happens on your device using Google ML Kit (Gemini Nano and Smart Reply). Your messages are never uploaded to ScrollCat.</p>
-      <p>Locally on your device, ScrollCat may store:</p>
-      <ul>
-        <li>Your app settings (reply tone, cat size, auto-reply rules)</li>
-        <li>Daily usage counters (replies used today) to enforce free-tier limits</li>
-        <li>Your Claude API key, encrypted, if you choose to provide one</li>
-      </ul>
+      <h2>1. WHAT DATA WE COLLECT</h2>
+      <p>- Notification content. To offer smart replies, ScrollCat reads the notifications you allow it to access (sender name and message text from messaging apps). This content is processed to generate reply suggestions and is never persisted — held in memory only long enough to generate a suggestion, then discarded.</p>
+      <p>- Your profile settings, auto-reply rules, and app preferences. Stored only in local storage on your device.</p>
+      <p>- Anonymous usage analytics. ScrollCat uses Firebase Analytics to understand how the app is used, so we can improve it. This is on by default but can be turned off anytime in Privacy &amp; Security in the app.</p>
+      <p>- Crash reports. If the app crashes, technical crash data (via Firebase Crashlytics) helps us fix bugs. This never includes your messages or personal content.</p>
 
-      <h2>Notification Access</h2>
-      <p>ScrollCat reads incoming notification content (sender name and message text) solely to generate reply suggestions and send replies through each app's own reply mechanism. Notification content is held in memory only long enough to generate a suggestion and is never persisted to disk or transmitted to any server.</p>
+      <h2>2. WHAT WE DO NOT COLLECT</h2>
+      <p>- Your messages are never stored on our servers — ScrollCat has no backend of its own.</p>
+      <p>- We never read or interact with password fields, in any app, under any circumstance.</p>
+      <p>- ScrollCat never reads notifications from banking or payment apps.</p>
+      <p>- We do not collect contacts, location, or browsing history.</p>
 
-      <h2>Accessibility Service</h2>
-      <p>The accessibility service is used only for gesture control — scrolling, back button, and volume — when you interact with the floating cat. ScrollCat does not read passwords, banking apps, or sensitive form fields. It does not log or transmit accessibility data.</p>
+      <h2>3. AI PROCESSING — ON-DEVICE OR CLOUD, YOUR CHOICE</h2>
+      <p>- On-device (default on capable devices). Replies are generated entirely on your phone using an on-device AI model (downloaded once, verified for integrity, and never leaves your device). Nothing about your messages is sent anywhere.</p>
+      <p>- Cloud providers (optional, user-provided key). If you choose to connect Groq, Anthropic Claude, OpenAI, or another provider with your own API key, the message you're replying to is sent to that provider to generate a suggestion, under that provider's own privacy policy. This is entirely opt-in. Your API key is stored encrypted on your device and is only ever sent to the provider you configured it for.</p>
+      <p>- ML Kit (on-device). Basic reply suggestions, language translation, and script romanization can also run via Google's on-device ML Kit, entirely on your phone.</p>
 
-      <h2>Claude API (Optional)</h2>
-      <p>If you provide your own Anthropic Claude API key, the message you are replying to is sent to Anthropic's servers (api.anthropic.com) to generate suggestions, under <a href="https://www.anthropic.com/privacy">Anthropic's privacy policy</a>. This is entirely opt-in. Without an API key, all processing stays on your device.</p>
+      <h2>4. PERMISSIONS</h2>
+      <p>- Notification access — reads incoming messages so ScrollCat can suggest replies, sent through each app's own reply mechanism.</p>
+      <p>- Display over other apps — shows the floating cat.</p>
+      <p>- Accessibility (optional) — lets you dictate directly into any app's text field, and lets the cat scroll Reels/Shorts on your behalf. ScrollCat never reads or interacts with password fields, and accessibility data is never logged or transmitted.</p>
+      <p>- Microphone — only active while you're actively using voice-to-text; never active in the background.</p>
 
-      <h2>Chrome Extension</h2>
-      <p>The ScrollCat Chrome extension reads the current conversation on supported sites (WhatsApp Web, Instagram, etc.) to generate reply suggestions. Your API key is stored locally in Chrome storage. No data is sent to ScrollCat servers.</p>
+      <h2>5. YOUR CHOICES</h2>
+      <p>You can revoke any permission anytime in Android Settings, and turn off analytics anytime in Privacy &amp; Security within the app. Uninstalling ScrollCat deletes all locally stored data — we don't keep anything on a server.</p>
 
-      <h2>Third-Party Services</h2>
-      <ul>
-        <li><strong>Google ML Kit</strong> — on-device AI for reply suggestions</li>
-        <li><strong>Google Play Billing</strong> — subscription payments processed by Google</li>
-        <li><strong>Anthropic API</strong> — optional, user-provided API key only</li>
-      </ul>
-
-      <h2>Your Choices</h2>
-      <p>You can revoke any permission at any time in Android Settings or Chrome extension settings. Uninstalling the app or extension deletes all locally stored data.</p>
-
-      <h2>Children</h2>
+      <h2>6. CHILDREN</h2>
       <p>ScrollCat is not directed at children under 13.</p>
 
-      <h2>Contact</h2>
-      <p>Questions or concerns: <a href="mailto:privacy@scrollcat.app">privacy@scrollcat.app</a></p>
+      <h2>7. CHANGES</h2>
+      <p>We'll update this policy here and in the app if our practices change.</p>
+
+      <h2>8. CONTACT</h2>
+      <p>Questions or concerns: <a href="mailto:shipproof.app@gmail.com">shipproof.app@gmail.com</a></p>
     </div>
   </div>
 </body>

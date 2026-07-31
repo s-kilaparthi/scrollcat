@@ -23,8 +23,10 @@ class SubscriptionActivity : Activity() {
 
     companion object {
         private const val ACCENT = 0xFF4A90D9.toInt()
-        private const val TERMS_URL = "https://scrollcat.app/terms"
-        private const val PRIVACY_URL = "https://scrollcat.app/privacy"
+        // No terms.html yet — link is hidden until one exists. Keep URL for when it does.
+        private const val TERMS_URL = "https://s-kilaparthi.github.io/scrollcat/terms.html"
+        private const val PRIVACY_URL = "https://s-kilaparthi.github.io/scrollcat-legal/"
+        private const val TERMS_AVAILABLE = false
     }
 
     private lateinit var billing: BillingManager
@@ -81,28 +83,31 @@ class SubscriptionActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, 24, 0, 0) })
 
-        // Legal links
+        // Legal links — Privacy opens the in-app policy (kept in sync with hosted).
+        // Terms is hidden until a real terms page exists (TERMS_URL currently 404s).
         val legalRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 16, 0, 0)
         }
-        legalRow.addView(TextView(this).apply {
-            text = "Terms of Service"
-            textSize = 12f
-            setTextColor(ACCENT)
-            setPadding(16, 8, 16, 8)
-            setOnClickListener {
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL)))
-                } catch (e: Exception) { }
-            }
-        })
-        legalRow.addView(TextView(this).apply {
-            text = "·"
-            textSize = 12f
-            setTextColor(0xFF888888.toInt())
-        })
+        if (TERMS_AVAILABLE) {
+            legalRow.addView(TextView(this).apply {
+                text = "Terms of Service"
+                textSize = 12f
+                setTextColor(ACCENT)
+                setPadding(16, 8, 16, 8)
+                setOnClickListener {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL)))
+                    } catch (_: Exception) { }
+                }
+            })
+            legalRow.addView(TextView(this).apply {
+                text = "·"
+                textSize = 12f
+                setTextColor(0xFF888888.toInt())
+            })
+        }
         legalRow.addView(TextView(this).apply {
             text = "Privacy Policy"
             textSize = 12f
