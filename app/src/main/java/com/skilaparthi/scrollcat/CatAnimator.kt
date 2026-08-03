@@ -66,7 +66,7 @@ class CatAnimator(
     private var idleTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isIdleSleeping = false
     private var idleSleepEnabled = true
-    private val IDLE_TIMEOUT_MS = 10_000L // 10 seconds
+    private val IDLE_TIMEOUT_MS = 3_000L // 3 seconds
 
     // Show static frame — no animation loop
     fun showStatic() {

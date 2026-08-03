@@ -25,6 +25,7 @@ drawable ic_close_zone_x
 drawable ic_cloud
 drawable ic_content_copy
 drawable ic_delete_outline
+drawable ic_edit
 drawable ic_expand_more
 drawable ic_launcher_background
 drawable ic_launcher_foreground

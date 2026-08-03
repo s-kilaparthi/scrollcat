@@ -74,6 +74,7 @@ class CatAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        SettingsManager.setAccessibilityWasEverEnabled(this, true)
         Log.i(TAG, "Accessibility service connected")
         // Sync initial focus state after connect (e.g. user already in a text field).
         scheduleEditableFocusEvaluate(delayMs = 200L)

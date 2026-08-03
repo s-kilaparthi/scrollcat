@@ -17,7 +17,7 @@
     <color name="scrollcat_surface">#1A1A1E</color>
     <color name="scrollcat_surface_variant">#25252C</color>
     <item name="splashLottie" type="id"/>
-    <string name="accessibility_service_description">Lets the ScrollCat companion perform scroll gestures on your behalf when you flick the cat, reducing repeated thumb swipes.</string>
+    <string name="accessibility_service_description">Lets ScrollCat scroll for you when you flick the cat, and lets you dictate with your voice into any app\'s text field.</string>
     <string name="accessibility_service_label">ScrollCat Gesture Helper</string>
     <string name="app_name">ScrollCat</string>
     <string name="com.google.firebase.crashlytics.mapping_file_id" ns1:ignore="UnusedResources,TypographyDashes" translatable="false">00000000000000000000000000000000</string>

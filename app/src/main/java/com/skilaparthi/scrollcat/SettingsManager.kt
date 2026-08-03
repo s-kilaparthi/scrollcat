@@ -125,7 +125,7 @@ object SettingsManager {
             .edit().putInt("cat_size", size).apply()
     }
 
-    // Cat display mode: "always_visible" (default) | "edge_docking"
+    // Cat display mode: "always_visible" | "edge_docking" (default)
     private const val KEY_CAT_DISPLAY_MODE = "cat_display_mode"
     private const val KEY_CAT_DOCK_SIDE = "cat_dock_side"
     private const val KEY_CAT_FLOAT_X = "cat_float_x"
@@ -444,6 +444,18 @@ object SettingsManager {
     fun setAnalyticsEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("analytics_enabled", enabled).apply()
+    }
+
+    // ── Accessibility — remember if it was ever granted (repair nudge if later revoked) ──
+
+    fun wasAccessibilityEverEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("accessibility_was_ever_enabled", false)
+    }
+
+    fun setAccessibilityWasEverEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("accessibility_was_ever_enabled", enabled).apply()
     }
 
     // ── On-device model manual override (testing) ──

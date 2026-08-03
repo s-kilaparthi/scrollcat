@@ -27,8 +27,10 @@ class MainActivity : Activity() {
 
     private var aiKeyBanner: MaterialCardView? = null
     private var accessibilityBanner: MaterialCardView? = null
+    private var accessibilityRepairBanner: MaterialCardView? = null
     /** In-memory only — ✕ hides for this dashboard visit; resets on next app open. */
     private var accessibilityBannerDismissedThisSession = false
+    private var accessibilityRepairBannerDismissedThisSession = false
     private var dashboardCatAnimator: CatAnimator? = null
     private var repliesTodayCountView: TextView? = null
     private var autoRepliesTodayCountView: TextView? = null
@@ -100,6 +102,11 @@ class MainActivity : Activity() {
 
         accessibilityBanner = buildAccessibilityBanner()
         root.addView(accessibilityBanner, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
+        accessibilityRepairBanner = buildAccessibilityRepairBanner()
+        root.addView(accessibilityRepairBanner, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, 0, 0, UiKit.dp(this@MainActivity, 16)) })
@@ -496,6 +503,63 @@ class MainActivity : Activity() {
         return card
     }
 
+    /** Shown when Accessibility was granted before but is now off (regression / OS reset). */
+    private fun buildAccessibilityRepairBanner(): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = UiKit.dp(this@MainActivity, 14).toFloat()
+            cardElevation = UiKit.dp(this@MainActivity, 2).toFloat()
+            strokeWidth = 2
+            strokeColor = 0xFFF59E0B.toInt()
+            setCardBackgroundColor(0xFF3A2E1A.toInt())
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                UiKit.dp(this@MainActivity, 18),
+                UiKit.dp(this@MainActivity, 14),
+                UiKit.dp(this@MainActivity, 12),
+                UiKit.dp(this@MainActivity, 14)
+            )
+        }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        top.addView(TextView(this).apply {
+            text = "Accessibility got turned off — voice dictation and gestures won't work until it's re-enabled"
+            textSize = 14f
+            setTextColor(0xFFFFF7E6.toInt())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        top.addView(TextView(this).apply {
+            text = "✕"
+            textSize = 16f
+            setTextColor(0xFFFBBF24.toInt())
+            setPadding(
+                UiKit.dp(this@MainActivity, 10),
+                UiKit.dp(this@MainActivity, 4),
+                UiKit.dp(this@MainActivity, 4),
+                UiKit.dp(this@MainActivity, 4)
+            )
+            setOnClickListener {
+                accessibilityRepairBannerDismissedThisSession = true
+                refreshAccessibilityBanner()
+            }
+        })
+        row.addView(top)
+        row.addView(TextView(this).apply {
+            text = "Re-enable Accessibility"
+            textSize = 13f
+            setTextColor(0xFFFBBF24.toInt())
+            setPadding(0, UiKit.dp(this@MainActivity, 10), 0, 0)
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        })
+        card.addView(row)
+        return card
+    }
+
     private fun isAiConfigured(): Boolean =
         AiSetupActivity.hasCompletedAiSetup(this) ||
             SettingsManager.getActiveAiKey(this).isNotBlank()
@@ -507,12 +571,23 @@ class MainActivity : Activity() {
     }
 
     private fun refreshAccessibilityBanner() {
-        val banner = accessibilityBanner ?: return
+        val firstTime = accessibilityBanner
+        val repair = accessibilityRepairBanner
         val a11yEnabled = CatAccessibilityService.instance != null
-        val show = isAiConfigured() &&
+        if (a11yEnabled) {
+            SettingsManager.setAccessibilityWasEverEnabled(this, true)
+        }
+        val wasEver = SettingsManager.wasAccessibilityEverEnabled(this)
+        val showFirst = isAiConfigured() &&
             !a11yEnabled &&
+            !wasEver &&
             !accessibilityBannerDismissedThisSession
-        banner.visibility = if (show) View.VISIBLE else View.GONE
+        val showRepair = isAiConfigured() &&
+            !a11yEnabled &&
+            wasEver &&
+            !accessibilityRepairBannerDismissedThisSession
+        firstTime?.visibility = if (showFirst) View.VISIBLE else View.GONE
+        repair?.visibility = if (showRepair) View.VISIBLE else View.GONE
     }
 
     override fun onResume() {

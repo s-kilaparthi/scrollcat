@@ -11,6 +11,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -57,7 +58,7 @@ class OverlayService : Service() {
         const val MOVE_CANCEL_SLOP = 60 // px of movement that cancels a pending long-press
         const val MODE_FEED = false
         const val MODE_REELS = true
-        const val DOCK_VISIBILITY_MS = 4_000L
+        const val DOCK_VISIBILITY_MS = 3_000L
         const val INITIAL_SETTLE_DOCK_MS = 10_000L
         const val MOVE_MODE_TIMEOUT_MS = 10_000L
         /** Debounce before docking after an editable field loses focus (avoids form-tab flicker). */
@@ -1241,13 +1242,59 @@ class OverlayService : Service() {
         return (SettingsManager.getCatSize(this) * 0.55f).toInt().coerceAtLeast(72)
     }
 
-    private fun dockedEdgeX(dockSize: Int): Int {
-        val screenWidth = resources.displayMetrics.widthPixels
+    private fun dockedEdgeX(
+        dockSize: Int,
+        screenWidth: Int = resources.displayMetrics.widthPixels,
+    ): Int {
         return if (SettingsManager.getCatDockSide(this) == "left") {
             -dockSize / 2
         } else {
             screenWidth - dockSize / 2
         }
+    }
+
+    /** Fresh display size for dock math (avoids stale portrait metrics after rotation). */
+    private fun currentDisplaySize(): Pair<Int, Int> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = windowManager.currentWindowMetrics.bounds
+            bounds.width() to bounds.height()
+        } else {
+            val dm = resources.displayMetrics
+            dm.widthPixels to dm.heightPixels
+        }
+    }
+
+    /**
+     * Recompute left/right edge dock X (and clamp Y) against the *current* screen size.
+     * Call after orientation / configuration changes so a portrait edge X is not reused
+     * as a fixed pixel value in landscape.
+     */
+    private fun recalculateDockPositionForCurrentDisplay() {
+        if (isDestroyed || !isEdgeDocked || !SettingsManager.isEdgeDockingMode(this)) return
+        val params = layoutParams ?: return
+        val view = containerView ?: return
+        if (!::windowManager.isInitialized) return
+
+        cancelDockAnimator()
+        val (newWidth, newHeight) = currentDisplaySize()
+        val dockSize = dockedIconSize()
+        val newX = dockedEdgeX(dockSize, newWidth)
+        val newY = params.y.coerceIn(40, (newHeight - dockSize - 40).coerceAtLeast(40))
+        params.width = dockSize
+        params.height = dockSize
+        params.x = newX
+        params.y = newY
+        safeUpdateViewLayout(view, params)
+        android.util.Log.d(
+            "ScrollCat",
+            "Orientation change detected - new width=$newWidth, new height=$newHeight, " +
+                "recalculated dock position=($newX, $newY)",
+        )
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        recalculateDockPositionForCurrentDisplay()
     }
 
     private fun cancelDockAnimator() {
@@ -1356,9 +1403,10 @@ class OverlayService : Service() {
         replyPanel?.dismiss()
 
         val dockSize = dockedIconSize()
-        val targetX = dockedEdgeX(dockSize)
+        val (screenWidth, screenHeight) = currentDisplaySize()
+        val targetX = dockedEdgeX(dockSize, screenWidth)
         val targetY = SettingsManager.getCatFloatY(this)
-            .coerceIn(40, (resources.displayMetrics.heightPixels - dockSize - 40).coerceAtLeast(40))
+            .coerceIn(40, (screenHeight - dockSize - 40).coerceAtLeast(40))
         val startX = params.x
         val startY = params.y
         val startW = params.width
@@ -1806,7 +1854,7 @@ class OverlayService : Service() {
             val dockSize = (size * 0.55f).toInt().coerceAtLeast(72)
             params.width = dockSize
             params.height = dockSize
-            params.x = dockedEdgeX(dockSize)
+            params.x = dockedEdgeX(dockSize, currentDisplaySize().first)
             view.post { safeUpdateViewLayout(view, params) }
             return
         }
