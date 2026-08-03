@@ -52,18 +52,18 @@ class ReplyPanel(
         /** One leg of the directional content slide (out or in). */
         private const val MESSAGE_SLIDE_MS = 150L
         private const val ACCENT = 0xFFB39DDB.toInt()
-        private const val PANEL_BG = 0xF21E1E28.toInt()
-        private const val CHIP_BG = 0xFF2A2A36.toInt()
-        private const val VOICE_CHIP_BG = 0xFF3D3555.toInt()
+        private const val PANEL_BG = 0xF21A1A24.toInt()
+        private const val CHIP_BG = 0xFF35323F.toInt()
+        private const val VOICE_CHIP_BG = 0xFF453A63.toInt()
         private const val VOICE_CHIP_STROKE = 0xFFB39DDB.toInt()
         private const val MAX_PANEL_HEIGHT_FRACTION = 0.4f
         private const val TAG_NEW_SENDER_ARROW = "scrollcat_new_sender_arrow"
         private const val MUTED_TEXT = 0xFFA39BB0.toInt()
         private const val SOFT_TEXT = 0xFFE8E4EF.toInt()
         private const val DANGER = 0xFFFCA5A5.toInt()
-        private const val BUTTON_BG = 0xFF2E2A3A.toInt()
-        private const val INPUT_BG = 0xFF25252C.toInt()
-        private const val PLACEHOLDER_BG = 0xFF3A3548.toInt()
+        private const val BUTTON_BG = 0xFF3A3648.toInt()
+        private const val INPUT_BG = 0xFF23222E.toInt()
+        private const val PLACEHOLDER_BG = 0xFF2E2C3A.toInt()
         private const val NAV_ACCENT = 0xFFC4B5E0.toInt()
         private const val TIP_ACCENT = 0xFFE9D5FF.toInt()
         /** Poll after overlay Grant Access opens system Accessibility settings (~30s). */
@@ -1918,6 +1918,7 @@ class ReplyPanel(
                 setSelection(text.length)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
                 setTextColor(0xFFF5F3F7.toInt())
+                hint = "Type your message..."
                 setHintTextColor(MUTED_TEXT)
                 setSingleLine(false)
                 minLines = 1
