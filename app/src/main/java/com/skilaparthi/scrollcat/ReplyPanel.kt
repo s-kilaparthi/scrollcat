@@ -3055,6 +3055,12 @@ class ReplyPanel(
                 text = "2. Tap any option to send it as your reply."
                 textSize = 11f
                 setTextColor(MUTED_TEXT)
+                setPadding(0, 0, 0, dp(2))
+            })
+            addView(TextView(context).apply {
+                text = "3. You can also speak your reply — and Smart Voice on the dashboard supports many languages, including translation."
+                textSize = 11f
+                setTextColor(MUTED_TEXT)
             })
         }
     }
