@@ -1,0 +1,2 @@
+# Release signing credentials — never commit (contains keystore passwords)
+app/keystore.properties
