@@ -14,7 +14,10 @@ import android.text.StaticLayout
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -29,6 +32,7 @@ import com.google.android.material.card.MaterialCardView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * Floating panel shown above the cat with 3 AI reply suggestions for the
@@ -51,6 +55,12 @@ class ReplyPanel(
         private const val CONFIRMATION_MS = 3000L
         /** One leg of the directional content slide (out or in). */
         private const val MESSAGE_SLIDE_MS = 150L
+        /** Live drag nav: commit if dragged this fraction of slide width, or flicked fast. */
+        private const val SWIPE_COMMIT_FRACTION = 0.35f
+        private const val SWIPE_MIN_VELOCITY_PX_S = 900f
+        private const val SWIPE_HORIZONTAL_DOMINANCE = 1.5f
+        /** Rubber-band factor when there's nowhere to navigate (single pending message). */
+        private const val SWIPE_RUBBER_BAND = 0.28f
         private const val ACCENT = 0xFFB39DDB.toInt()
         private const val PANEL_BG = 0xF21A1A24.toInt()
         private const val CHIP_BG = 0xFF35323F.toInt()
@@ -85,6 +95,8 @@ class ReplyPanel(
     private var currentIndex = 0
     /** Invalidates in-flight message content slides when a newer navigation starts. */
     private var messageSlideToken = 0
+    /** True while a ←/→ (or swipe) slide-out/slide-in sequence is running. */
+    private var messageSlideInProgress = false
     private var navRow: LinearLayout? = null
     private var pendingCountView: TextView? = null
     private var newSenderArrow: TextView? = null
@@ -1226,6 +1238,7 @@ class ReplyPanel(
         if (slideDirection != null && existingSlide != null && existingSlide.parent != null) {
             val previousEntryId = currentEntry?.entryId ?: "none"
             val token = ++messageSlideToken
+            messageSlideInProgress = true
             val widthPx = existingSlide.width
                 .takeIf { it > 0 }
                 ?: (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
@@ -1257,6 +1270,7 @@ class ReplyPanel(
                             "###NAV_BUG_DEBUG### EARLY RETURN HIT - rebuild skipped, " +
                                 "but slide-in may still proceed with stale/missing content"
                         )
+                        messageSlideInProgress = false
                         return@withEndAction
                     }
                     showMessage(
@@ -1291,7 +1305,11 @@ class ReplyPanel(
                             "panel.background=${panel.background != null}, " +
                             "footer.visibility=${footerView?.visibility}"
                     )
-                    val newSlide = messageSlideColumn ?: return@withEndAction
+                    val newSlide = messageSlideColumn
+                    if (newSlide == null) {
+                        messageSlideInProgress = false
+                        return@withEndAction
+                    }
                     newSlide.animate().cancel()
                     newSlide.translationX = inFrom
                     android.util.Log.e(
@@ -1307,6 +1325,7 @@ class ReplyPanel(
                         .translationX(0f)
                         .setDuration(MESSAGE_SLIDE_MS)
                         .setInterpolator(DecelerateInterpolator())
+                        .withEndAction { messageSlideInProgress = false }
                         .start()
                 }
                 .start()
@@ -1642,7 +1661,142 @@ class ReplyPanel(
             addView(chipsContainer)
         }
         messageSlideColumn = slideColumn
-        val slideClip = FrameLayout(context).apply {
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        // Live finger-follow horizontal drag on the same region that animates for ←/→.
+        // Intercept only after a clearly horizontal move so vertical ScrollView still works.
+        val slideClip = object : FrameLayout(context) {
+            private var downX = 0f
+            private var downY = 0f
+            private var downRawX = 0f
+            private var dragging = false
+            private var velocityTracker: VelocityTracker? = null
+
+            private fun recycleTracker() {
+                velocityTracker?.recycle()
+                velocityTracker = null
+            }
+
+            private fun track(ev: MotionEvent) {
+                if (velocityTracker == null) {
+                    velocityTracker = VelocityTracker.obtain()
+                }
+                velocityTracker?.addMovement(ev)
+            }
+
+            private fun applyFingerFollow(rawX: Float) {
+                val dx = rawX - downRawX
+                val width = slideColumn.width.takeIf { it > 0 }
+                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                        .coerceAtLeast(1)
+                slideColumn.translationX = if (pending.size <= 1) {
+                    // Rubber-band: limited give, no navigation possible.
+                    val capped = dx.coerceIn(-width.toFloat(), width.toFloat())
+                    SWIPE_RUBBER_BAND * capped
+                } else {
+                    dx
+                }
+            }
+
+            private fun endDrag(ev: MotionEvent) {
+                if (!dragging) {
+                    recycleTracker()
+                    return
+                }
+                dragging = false
+                track(ev)
+                velocityTracker?.computeCurrentVelocity(1000)
+                val vx = velocityTracker?.xVelocity ?: 0f
+                recycleTracker()
+
+                val tx = slideColumn.translationX
+                val width = slideColumn.width.takeIf { it > 0 }
+                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                        .coerceAtLeast(1)
+                val commitDist = width * SWIPE_COMMIT_FRACTION
+
+                if (pending.size <= 1 || messageSlideInProgress) {
+                    snapSlideBackToCenter(slideColumn)
+                    return
+                }
+
+                val flickedNext = vx <= -SWIPE_MIN_VELOCITY_PX_S
+                val flickedPrev = vx >= SWIPE_MIN_VELOCITY_PX_S
+                val draggedNext = tx <= -commitDist
+                val draggedPrev = tx >= commitDist
+
+                when {
+                    flickedNext || draggedNext -> advance()
+                    flickedPrev || draggedPrev -> previous()
+                    else -> snapSlideBackToCenter(slideColumn)
+                }
+            }
+
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                if (messageSlideInProgress) return false
+                track(ev)
+                when (ev.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = ev.x
+                        downY = ev.y
+                        downRawX = ev.rawX
+                        dragging = false
+                        return false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = abs(ev.x - downX)
+                        val dy = abs(ev.y - downY)
+                        if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                            dragging = true
+                            slideColumn.animate().cancel()
+                            // Capture current contact as drag origin so content doesn't jump.
+                            downRawX = ev.rawX - slideColumn.translationX
+                            applyFingerFollow(ev.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        recycleTracker()
+                    }
+                }
+                return false
+            }
+
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                if (messageSlideInProgress && !dragging) return false
+                track(event)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.x
+                        downY = event.y
+                        downRawX = event.rawX
+                        dragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!dragging) {
+                            val dx = abs(event.x - downX)
+                            val dy = abs(event.y - downY)
+                            if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                                dragging = true
+                                slideColumn.animate().cancel()
+                                downRawX = event.rawX - slideColumn.translationX
+                                parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                        }
+                        if (dragging) {
+                            applyFingerFollow(event.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        endDrag(event)
+                        return true
+                    }
+                }
+                return dragging || super.onTouchEvent(event)
+            }
+        }.apply {
             clipChildren = true
             clipToPadding = true
             layoutParams = LinearLayout.LayoutParams(
@@ -3263,15 +3417,25 @@ class ReplyPanel(
     }
 
     private fun advance() {
-        if (pending.size <= 1) return
+        if (pending.size <= 1 || messageSlideInProgress) return
         currentIndex = (currentIndex + 1) % pending.size
         showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.NEXT)
     }
 
     private fun previous() {
-        if (pending.size <= 1) return
+        if (pending.size <= 1 || messageSlideInProgress) return
         currentIndex = if (currentIndex == 0) pending.size - 1 else currentIndex - 1
         showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.PREVIOUS)
+    }
+
+    /** Snap a mid-drag slide column back to rest without changing the queued message. */
+    private fun snapSlideBackToCenter(slide: View) {
+        slide.animate().cancel()
+        slide.animate()
+            .translationX(0f)
+            .setDuration(MESSAGE_SLIDE_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
     }
 
     /**
@@ -3782,6 +3946,7 @@ class ReplyPanel(
         if (isShowing) notePanelCloseForDebug()
         cancelAccessibilityGrantPoll()
         messageSlideToken++
+        messageSlideInProgress = false
         handler.removeCallbacksAndMessages(null)
         releaseSpeechRecognizer()
         setPanelFocusable(false)
