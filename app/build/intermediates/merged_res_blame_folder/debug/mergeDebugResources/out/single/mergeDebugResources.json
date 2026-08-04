@@ -1,290 +1,222 @@
 [
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_edit.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_edit.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_shield.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_shield.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher_background.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher_background.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xhdpi/ic_launcher.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher_foreground.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/xml_file_paths.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/xml/file_paths.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_romanize.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_romanize.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxxhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_chat_bubble.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_chat_bubble.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/xml_accessibility_service_config.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/xml/accessibility_service_config.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher_round.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-mdpi_ic_launcher_background.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-mdpi/ic_launcher_background.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_accessibility.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_accessibility.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/xml_data_extraction_rules.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher_background.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher_background.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_edit.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_edit.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher_foreground.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_pets.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_pets.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_translate.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_translate.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_section_apps.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_section_apps.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/xml_accessibility_service_config.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/xml/accessibility_service_config.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxhdpi_ic_launcher_background.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxhdpi/ic_launcher_background.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_pets.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_pets.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_delete_outline.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_delete_outline.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_splash_screen.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/splash_screen.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxxhdpi_ic_launcher_background.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxxhdpi/ic_launcher_background.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-mdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-anydpi-v26/ic_launcher_round.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_section_person.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_section_person.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_expand_more.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_expand_more.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher_background.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher_background.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_mic.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_mic.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxhdpi/ic_launcher.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xhdpi_ic_launcher_background.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xhdpi/ic_launcher_background.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/xml_backup_rules.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/xml/backup_rules.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/xml_file_paths.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/xml/file_paths.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_section_key.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_section_key.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/xml_backup_rules.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/xml/backup_rules.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/font_baloo2_semibold.ttf.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/font/baloo2_semibold.ttf"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_layers.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_layers.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_section_person.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_section_person.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_auto_awesome.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_auto_awesome.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-mdpi/ic_launcher.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_content_copy.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_content_copy.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-anydpi-v26/ic_launcher.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_cloud.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_cloud.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_shield.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_shield.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_bolt.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_bolt.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_settings.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_settings.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_settings.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_settings.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher_foreground.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_splash_screen.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/splash_screen.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_launcher_background.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_launcher_background.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-hdpi_ic_launcher_background.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-hdpi/ic_launcher_background.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_translate.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_translate.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_expand_more.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_expand_more.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/font_baloo2.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/font/baloo2.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-anydpi-v26/ic_launcher_round.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_chat_bubble.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_chat_bubble.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_section_apps.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_section_apps.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxxhdpi/ic_launcher.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_clipboard_list.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_clipboard_list.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-hdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher_round.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_romanize.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_romanize.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/font_baloo2.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/font/baloo2.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_accessibility.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_accessibility.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_bolt.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_bolt.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_clipboard_list.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_clipboard_list.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-mdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-hdpi/ic_launcher.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_content_copy.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_content_copy.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher_foreground.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/font_baloo2_bold.ttf.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/font/baloo2_bold.ttf"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/xml_data_extraction_rules.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/xml/data_extraction_rules.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_layers.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_layers.xml"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher_round.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_close_zone_x.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_close_zone_x.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher_round.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_send.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_send.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_lock.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_lock.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_notifications.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_notifications.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_close_zone_x.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_close_zone_x.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-xxxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher_round.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher_round.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_section_block.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_section_block.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher_background.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher_background.png"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/drawable_ic_auto_awesome.xml.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/drawable/ic_auto_awesome.xml"
     },
     {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxhdpi_ic_launcher_round.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xxhdpi/ic_launcher_round.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher_foreground.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-hdpi_ic_launcher_background.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-hdpi/ic_launcher_background.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_section_block.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_section_block.xml"
-    },
-    {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher_round.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher_round.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_lock.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_lock.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/font_baloo2_bold.ttf.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/font/baloo2_bold.ttf"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-xhdpi_ic_launcher_round.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-xhdpi/ic_launcher_round.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/font_baloo2_semibold.ttf.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/font/baloo2_semibold.ttf"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_launcher_foreground.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_cloud.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_cloud.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_section_key.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_section_key.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_notifications.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_notifications.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_send.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_send.xml"
-    },
-    {
-        "merged": "com.skilaparthi.scrollcat.app-debug-7:/mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "com.skilaparthi.scrollcat.app-main-9:/mipmap-xxxhdpi/ic_launcher.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/mipmap-mdpi_ic_launcher_foreground.png.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/mipmap-mdpi/ic_launcher_foreground.png"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_mic.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_mic.xml"
-    },
-    {
-        "merged": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-debug-7:/drawable_ic_delete_outline.xml.flat",
-        "source": "/tmp/cursor-sandbox-cache/57019c8c0a02ec1a1869c2ed87f6d0a7/gradle/daemon/8.7/com.skilaparthi.scrollcat.app-main-9:/drawable/ic_delete_outline.xml"
+        "merged": "com.skilaparthi.scrollcat.app-debug-49:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.skilaparthi.scrollcat.app-main-51:/mipmap-hdpi/ic_launcher_round.png"
     }
 ]

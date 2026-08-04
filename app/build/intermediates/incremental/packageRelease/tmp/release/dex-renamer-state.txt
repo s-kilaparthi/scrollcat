@@ -1,7 +1,0 @@
-#Thu Jul 30 14:17:35 MDT 2026
-base.1=/home/skilaparthi/scrollcat/app/build/intermediates/dex/release/minifyReleaseWithR8/classes2.dex
-path.1=classes2.dex
-base.0=/home/skilaparthi/scrollcat/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-renamed.1=classes2.dex
-renamed.0=classes.dex
-path.0=classes.dex

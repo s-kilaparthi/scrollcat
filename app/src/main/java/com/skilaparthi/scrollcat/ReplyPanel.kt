@@ -1386,6 +1386,8 @@ class ReplyPanel(
         val footerId = View.generateViewId()
 
         // Variable content above the footer (header → chips / new-sender arrow).
+        // Shared by all message types: MATCH_CONSTRAINT so body fills space above the
+        // bottom-pinned footer (buttons/nav never clip when window height is short).
         val body = LinearLayout(context).apply {
             id = contentId
             orientation = LinearLayout.VERTICAL
@@ -1399,6 +1401,7 @@ class ReplyPanel(
         messageBodyColumn = body
 
         // Combined fixed footer: buttons + overflow/demo + nav — never overlaps content.
+        // bottomToBottom keeps the button/nav row pinned to the window bottom (critical).
         val footer = LinearLayout(context).apply {
             id = footerId
             orientation = LinearLayout.VERTICAL
@@ -1406,6 +1409,7 @@ class ReplyPanel(
                 0,
                 ConstraintLayout.LayoutParams.WRAP_CONTENT
             ).apply {
+                topToBottom = contentId
                 bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
                 startToStart = ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
@@ -2464,9 +2468,33 @@ class ReplyPanel(
         }
 
         // Gmail: no reply chips / mic / Groq — message + button row only.
+        // Timing fix (Gmail-only): sync applyPanelHeightNow() so the overlay window gets
+        // its real height before MATCH_CONSTRAINT body measures against it. A WRAP_CONTENT
+        // window + height-0 body collapses to 0; posting sizePanelForContent() was too late.
         if (isGmailMessage) {
             Logger.d("Gmail message — skipping reply chips and AI generation")
-            sizePanelForContent()
+            android.util.Log.e(
+                "ScrollCat",
+                "###GMAIL_HEIGHT_DEBUG### isGmailMessage path - " +
+                    "header exists=${true}, header included in measurement=yes " +
+                    "(same applyAutoPanelHeight args as normal), " +
+                    "body exists=${body != null}, messageArea exists=${messageArea != null}, " +
+                    "chipsContainer.visibility=${chipsContainer.visibility}, " +
+                    "body.lp.height=${(body.layoutParams as? ConstraintLayout.LayoutParams)?.height}, " +
+                    "footer.lp.bottomToBottom=${(footer.layoutParams as? ConstraintLayout.LayoutParams)?.bottomToBottom}, " +
+                    "panelParams.h=${panelParams?.height}, " +
+                    "values BEFORE sync applyPanelHeightNow " +
+                    "header.h=${header.height}, body.h=${body.height}, " +
+                    "messageArea.h=${messageArea.height}, slideColumn.h=${slideColumn.height}"
+            )
+            applyPanelHeightNow()
+            android.util.Log.e(
+                "ScrollCat",
+                "###GMAIL_HEIGHT_DEBUG### AFTER sync applyPanelHeightNow - " +
+                    "header.h=${header.height}, body.h=${body.height}, " +
+                    "messageArea.h=${messageArea.height}, slideColumn.h=${slideColumn.height}, " +
+                    "footer.h=${footer.height}, panelParams.h=${panelParams?.height}"
+            )
             return
         }
 

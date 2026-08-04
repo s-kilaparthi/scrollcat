@@ -2002,7 +2002,7 @@
     <string name="abc_shareactionprovider_share_with">Share with</string>
     <string name="abc_shareactionprovider_share_with_application">Share with <ns2:g example="Mail" id="application_name">%s</ns2:g></string>
     <string name="abc_toolbar_collapse_description">Collapse</string>
-    <string name="accessibility_service_description">Lets the ScrollCat companion perform scroll gestures on your behalf when you flick the cat, reducing repeated thumb swipes.</string>
+    <string name="accessibility_service_description">Lets ScrollCat scroll for you when you flick the cat, and lets you dictate with your voice into any app\'s text field.</string>
     <string name="accessibility_service_label">ScrollCat Gesture Helper</string>
     <string name="androidx_startup" translatable="false">androidx.startup</string>
     <string name="app_name">ScrollCat</string>
@@ -2024,7 +2024,7 @@
     <string name="character_counter_overflowed_content_description">Character limit exceeded %1$d of %2$d</string>
     <string name="character_counter_pattern" translatable="false">%1$d/%2$d</string>
     <string name="clear_text_end_icon_content_description">Clear text</string>
-    <string name="com.google.firebase.crashlytics.mapping_file_id" ns1:ignore="UnusedResources,TypographyDashes" translatable="false">fb54724c116b47ba996d7fd0ee94a5ea</string>
+    <string name="com.google.firebase.crashlytics.mapping_file_id" ns1:ignore="UnusedResources,TypographyDashes" translatable="false">321c945cfc3b402ba80970263dc4d85a</string>
     <string name="com.google.firebase.crashlytics.version_control_info">"generate_error_reason: NO_VALID_GIT_FOUND\n"</string>
     <string msgid="2523291102206661146" name="common_google_play_services_enable_button">Enable</string>
     <string msgid="227660514972886228" name="common_google_play_services_enable_text"><ns2:g id="app_name">%1$s</ns2:g> won\'t work unless you enable Google Play services.</string>

@@ -114,61 +114,61 @@
 52        </intent>
 53
 54        <package android:name="com.google.android.aicore" />
-54-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:12:9-61
-54-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:12:18-58
+54-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /home/skilaparthi/.gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:12:9-61
+54-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /home/skilaparthi/.gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:12:18-58
 55
 56        <intent>
-56-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:13:9-15:18
+56-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:13:9-15:18
 57            <action android:name="com.android.vending.billing.InAppBillingService.BIND" />
-57-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:14:13-91
-57-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:14:21-88
+57-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:14:13-91
+57-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:14:21-88
 58        </intent>
 59    </queries>
 60
 61    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-61-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:7:5-79
-61-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:7:22-76
+61-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:7:5-79
+61-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:7:22-76
 62    <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
-62-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:9:5-91
-62-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:9:22-88
+62-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /home/skilaparthi/.gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:9:5-91
+62-->[com.google.mlkit:genai-prompt:1.0.0-beta2] /home/skilaparthi/.gradle/caches/transforms-4/36f6964c5a30f480a7f24489d291aaee/transformed/genai-prompt-1.0.0-beta2/AndroidManifest.xml:9:22-88
 63    <uses-permission android:name="com.android.vending.BILLING" />
-63-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:10:5-67
-63-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:10:22-64
+63-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:10:5-67
+63-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:10:22-64
 64    <uses-permission android:name="android.permission.WAKE_LOCK" />
-64-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:25:5-68
-64-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:25:22-65
+64-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:25:5-68
+64-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:25:22-65
 65    <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE" />
-65-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:26:5-110
-65-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:26:22-107
+65-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:26:5-110
+65-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:26:22-107
 66    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
-66-->[com.google.android.gms:play-services-measurement-impl:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c5b5ae612afe568d84571035edf8bc01/transformed/play-services-measurement-impl-23.2.0/AndroidManifest.xml:27:5-79
-66-->[com.google.android.gms:play-services-measurement-impl:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c5b5ae612afe568d84571035edf8bc01/transformed/play-services-measurement-impl-23.2.0/AndroidManifest.xml:27:22-76
+66-->[com.google.android.gms:play-services-measurement-impl:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c5b5ae612afe568d84571035edf8bc01/transformed/play-services-measurement-impl-23.2.0/AndroidManifest.xml:27:5-79
+66-->[com.google.android.gms:play-services-measurement-impl:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c5b5ae612afe568d84571035edf8bc01/transformed/play-services-measurement-impl-23.2.0/AndroidManifest.xml:27:22-76
 67    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" />
-67-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:26:5-88
-67-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:26:22-85
+67-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:26:5-88
+67-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:26:22-85
 68    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" />
-68-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:27:5-82
-68-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:27:22-79
+68-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:27:5-82
+68-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:27:22-79
 69
 70    <permission
-70-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
+70-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
 71        android:name="com.skilaparthi.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-71-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
+71-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
 72        android:protectionLevel="signature" />
-72-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
+72-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
 73
 74    <uses-permission android:name="com.skilaparthi.scrollcat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-74-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
-74-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
+74-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
+74-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
 75
 76    <application
-76-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-210:19
+76-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:45:5-211:19
 77        android:name="com.skilaparthi.scrollcat.MainApplication"
 77-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:46:9-40
 78        android:allowBackup="true"
 78-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:47:9-35
 79        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-79-->[androidx.core:core:1.13.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
+79-->[androidx.core:core:1.13.1] /home/skilaparthi/.gradle/caches/transforms-4/f5202fbc1c63ac66c264863f11d814e3/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
 80        android:dataExtractionRules="@xml/data_extraction_rules"
 80-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:49:9-65
 81        android:extractNativeLibs="true"
@@ -177,598 +177,600 @@
 83        android:icon="@mipmap/ic_launcher"
 83-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:50:9-43
 84        android:label="@string/app_name"
-84-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:51:9-41
-85        android:theme="@style/Theme.ScrollCat" >
-85-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:52:9-47
-86
-87        <!-- Required for LiteRT-LM / GPU OpenCL access on API 31+ -->
-88        <uses-native-library
-88-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:55:9-57:40
-89            android:name="libOpenCL.so"
-89-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:13-40
-90            android:required="false" />
-90-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-37
-91        <uses-native-library
-91-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:55:9-57:40
-92            android:name="libOpenCL-car.so"
-92-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:13-40
-93            android:required="false" />
-93-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-37
-94        <uses-native-library
-94-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:55:9-57:40
-95            android:name="libOpenCL-pixel.so"
-95-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:13-40
-96            android:required="false" />
-96-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-37
-97
-98        <activity
-98-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:65:9-73:20
-99            android:name="com.skilaparthi.scrollcat.SplashActivity"
-99-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:66:13-43
-100            android:exported="true"
-100-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:67:13-36
-101            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" >
-101-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:68:13-77
-102            <intent-filter>
-102-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:69:13-72:29
-103                <action android:name="android.intent.action.MAIN" />
-103-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:40:13-65
-103-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:40:21-62
-104
-105                <category android:name="android.intent.category.LAUNCHER" />
-105-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:13-73
-105-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:23-70
-106            </intent-filter>
-107        </activity>
-108        <activity
-108-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:75:9-78:20
-109            android:name="com.skilaparthi.scrollcat.MainActivity"
-109-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:76:13-41
-110            android:exported="false" >
-110-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:77:13-37
-111        </activity>
-112        <activity
-112-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:80:9-84:58
-113            android:name="com.skilaparthi.scrollcat.NotificationSettingsActivity"
-113-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:81:13-57
-114            android:exported="false"
-114-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:82:13-37
-115            android:label="Notification Settings"
-115-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:83:13-50
-116            android:windowSoftInputMode="adjustResize" />
-116-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:84:13-55
-117        <activity
-117-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:86:9-89:40
-118            android:name="com.skilaparthi.scrollcat.SettingsActivity"
-118-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:87:13-45
-119            android:exported="false"
-119-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:88:13-37
-120            android:label="Settings" />
+84-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:52:9-41
+85        android:roundIcon="@mipmap/ic_launcher_round"
+85-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:51:9-54
+86        android:theme="@style/Theme.ScrollCat" >
+86-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:53:9-47
+87
+88        <!-- Required for LiteRT-LM / GPU OpenCL access on API 31+ -->
+89        <uses-native-library
+89-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:9-58:40
+90            android:name="libOpenCL.so"
+90-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-40
+91            android:required="false" />
+91-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:58:13-37
+92        <uses-native-library
+92-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:9-58:40
+93            android:name="libOpenCL-car.so"
+93-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-40
+94            android:required="false" />
+94-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:58:13-37
+95        <uses-native-library
+95-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:56:9-58:40
+96            android:name="libOpenCL-pixel.so"
+96-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:57:13-40
+97            android:required="false" />
+97-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:58:13-37
+98
+99        <activity
+99-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:66:9-74:20
+100            android:name="com.skilaparthi.scrollcat.SplashActivity"
+100-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:67:13-43
+101            android:exported="true"
+101-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:68:13-36
+102            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" >
+102-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:69:13-77
+103            <intent-filter>
+103-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:70:13-73:29
+104                <action android:name="android.intent.action.MAIN" />
+104-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:40:13-65
+104-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:40:21-62
+105
+106                <category android:name="android.intent.category.LAUNCHER" />
+106-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:13-73
+106-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:41:23-70
+107            </intent-filter>
+108        </activity>
+109        <activity
+109-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:76:9-79:20
+110            android:name="com.skilaparthi.scrollcat.MainActivity"
+110-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:77:13-41
+111            android:exported="false" >
+111-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:78:13-37
+112        </activity>
+113        <activity
+113-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:81:9-85:58
+114            android:name="com.skilaparthi.scrollcat.NotificationSettingsActivity"
+114-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:82:13-57
+115            android:exported="false"
+115-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:83:13-37
+116            android:label="Notification Settings"
+116-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:84:13-50
+117            android:windowSoftInputMode="adjustResize" />
+117-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:85:13-55
+118        <activity
+118-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:87:9-90:40
+119            android:name="com.skilaparthi.scrollcat.SettingsActivity"
+119-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:88:13-45
+120            android:exported="false"
 120-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:89:13-37
-121        <activity
-121-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:91:9-94:58
-122            android:name="com.skilaparthi.scrollcat.AiProviderActivity"
-122-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:92:13-47
-123            android:exported="false"
-123-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:93:13-37
-124            android:windowSoftInputMode="adjustResize" />
-124-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:94:13-55
-125        <activity
-125-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:96:9-100:58
-126            android:name="com.skilaparthi.scrollcat.AiSetupActivity"
-126-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:97:13-44
-127            android:exported="false"
-127-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:98:13-37
-128            android:label="Set up AI"
-128-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:99:13-38
-129            android:windowSoftInputMode="adjustResize" />
-129-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:100:13-55
-130        <activity
-130-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:102:9-106:58
-131            android:name="com.skilaparthi.scrollcat.AiSettingsActivity"
-131-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:103:13-47
-132            android:exported="false"
-132-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:104:13-37
-133            android:label="My AI Settings"
-133-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:105:13-43
-134            android:windowSoftInputMode="adjustResize" />
-134-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:106:13-55
-135        <activity
-135-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:108:9-112:58
-136            android:name="com.skilaparthi.scrollcat.AutoReplyActivity"
-136-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:109:13-46
-137            android:exported="false"
-137-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:110:13-37
-138            android:label="Auto-Reply Rules"
-138-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:111:13-45
-139            android:windowSoftInputMode="adjustResize" />
-139-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:112:13-55
-140        <activity
-140-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:114:9-118:58
-141            android:name="com.skilaparthi.scrollcat.SmartVoiceActivity"
-141-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:115:13-47
-142            android:exported="false"
-142-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:116:13-37
-143            android:label="Smart Voice"
-143-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:117:13-40
-144            android:windowSoftInputMode="adjustResize" />
-144-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:118:13-55
-145        <activity
-145-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:120:9-123:50
-146            android:name="com.skilaparthi.scrollcat.AutoReplyTrackerActivity"
-146-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:121:13-53
-147            android:exported="false"
-147-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:122:13-37
-148            android:label="Auto Reply Tracker" />
-148-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:123:13-47
-149        <activity
-149-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:125:9-129:58
-150            android:name="com.skilaparthi.scrollcat.FeedbackActivity"
-150-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:126:13-45
-151            android:exported="false"
-151-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:127:13-37
-152            android:label="Give Feedback"
-152-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:128:13-42
-153            android:windowSoftInputMode="adjustResize" />
-153-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:129:13-55
-154        <activity
-154-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:131:9-135:58
-155            android:name="com.skilaparthi.scrollcat.OnboardingActivity"
-155-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:132:13-47
-156            android:exported="false"
-156-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:133:13-37
-157            android:label="Welcome to ScrollCat"
-157-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:134:13-49
-158            android:windowSoftInputMode="adjustResize" />
-158-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:135:13-55
-159        <activity
-159-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:137:9-140:45
-160            android:name="com.skilaparthi.scrollcat.SubscriptionActivity"
-160-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:138:13-49
-161            android:exported="false"
-161-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:139:13-37
-162            android:label="ScrollCat Pro" />
-162-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:140:13-42
-163        <activity
-163-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:142:9-145:46
-164            android:name="com.skilaparthi.scrollcat.PrivacyPolicyActivity"
-164-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:143:13-50
-165            android:exported="false"
-165-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:144:13-37
-166            android:label="Privacy Policy" />
-166-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:145:13-43
-167        <activity
-167-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:147:9-150:54
-168            android:name="com.skilaparthi.scrollcat.PrivacySecurityActivity"
-168-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:148:13-52
-169            android:exported="false"
-169-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:149:13-37
-170            android:label="Privacy &amp; Security" />
-170-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:150:13-51
-171        <activity
-171-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:152:9-155:46
-172            android:name="com.skilaparthi.scrollcat.ShareCardActivity"
-172-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:153:13-46
-173            android:exported="false"
-173-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:154:13-37
-174            android:label="Share My Stats" />
-174-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:155:13-43
-175        <activity
-175-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:157:9-163:75
-176            android:name="com.skilaparthi.scrollcat.RecordAudioPermissionActivity"
-176-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:158:13-58
-177            android:excludeFromRecents="true"
-177-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:161:13-46
-178            android:exported="false"
-178-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:159:13-37
-179            android:noHistory="true"
-179-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:162:13-37
-180            android:taskAffinity=""
-180-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:160:13-36
-181            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-181-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:163:13-72
-182
-183        <provider
-184            android:name="androidx.core.content.FileProvider"
-184-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:166:13-62
-185            android:authorities="com.skilaparthi.scrollcat.fileprovider"
-185-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:167:13-64
-186            android:exported="false"
-186-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:168:13-37
-187            android:grantUriPermissions="true" >
-187-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:169:13-47
-188            <meta-data
-188-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:170:13-172:54
-189                android:name="android.support.FILE_PROVIDER_PATHS"
-189-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:171:17-67
-190                android:resource="@xml/file_paths" />
-190-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:172:17-51
-191        </provider>
-192
-193        <!-- The floating cat overlay -->
-194        <service
-194-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:176:9-183:19
-195            android:name="com.skilaparthi.scrollcat.OverlayService"
-195-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:177:13-43
-196            android:exported="false"
-196-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:178:13-37
-197            android:foregroundServiceType="specialUse" >
-197-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:179:13-55
-198            <property
-198-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:180:13-182:91
-199                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-199-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:181:17-76
-200                android:value="Floating companion overlay that the user interacts with" />
-200-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:182:17-88
-201        </service>
-202
-203        <!--
-204             The gesture injector. permission + meta-data are BOTH required
-205             or the service silently won't appear in Accessibility settings
-206        -->
-207        <service
-207-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:187:9-198:19
-208            android:name="com.skilaparthi.scrollcat.CatAccessibilityService"
-208-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:188:13-52
-209            android:exported="false"
-209-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:189:13-37
-210            android:label="@string/accessibility_service_label"
-210-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:190:13-64
-211            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
-211-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:191:13-79
-212            <intent-filter>
-212-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:192:13-194:29
-213                <action android:name="android.accessibilityservice.AccessibilityService" />
-213-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:193:17-92
-213-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:193:25-89
-214            </intent-filter>
-215
-216            <meta-data
-216-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:195:13-197:72
-217                android:name="android.accessibilityservice"
-217-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:196:17-60
-218                android:resource="@xml/accessibility_service_config" />
-218-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:197:17-69
-219        </service>
-220        <service
-220-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:200:9-208:19
-221            android:name="com.skilaparthi.scrollcat.CatNotificationListener"
-221-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:201:13-52
-222            android:exported="false"
-222-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:202:13-37
-223            android:label="ScrollCat Notification Reader"
-223-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:203:13-58
-224            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
-224-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:204:13-87
-225            <intent-filter>
-225-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:205:13-207:29
-226                <action android:name="android.service.notification.NotificationListenerService" />
-226-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:206:17-99
-226-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:206:25-96
-227            </intent-filter>
-228        </service>
-229        <service
-229-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:11:9-17:19
-230            android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
-230-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:12:13-91
-231            android:directBootAware="true"
-231-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:17:13-43
-232            android:exported="false" >
-232-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:13:13-37
-233            <meta-data
-233-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:14:13-16:85
-234                android:name="com.google.firebase.components:com.google.mlkit.nl.translate.NaturalLanguageTranslateRegistrar"
-234-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:15:17-126
-235                android:value="com.google.firebase.components.ComponentRegistrar" />
-235-->[com.google.mlkit:translate:17.0.3] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:16:17-82
-236            <meta-data
-236-->[com.google.mlkit:smart-reply:17.0.4] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:26:13-28:85
-237                android:name="com.google.firebase.components:com.google.mlkit.nl.smartreply.bundled.internal.ThickSmartReplyRegistrar"
-237-->[com.google.mlkit:smart-reply:17.0.4] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:27:17-135
-238                android:value="com.google.firebase.components.ComponentRegistrar" />
-238-->[com.google.mlkit:smart-reply:17.0.4] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:28:17-82
-239            <meta-data
-239-->[com.google.mlkit:language-id:17.0.6] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:11:13-13:85
-240                android:name="com.google.firebase.components:com.google.mlkit.nl.languageid.bundled.internal.ThickLanguageIdRegistrar"
-240-->[com.google.mlkit:language-id:17.0.6] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:12:17-135
-241                android:value="com.google.firebase.components.ComponentRegistrar" />
-241-->[com.google.mlkit:language-id:17.0.6] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:13:17-82
-242            <meta-data
-242-->[com.google.mlkit:smart-reply-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:26:13-28:85
-243                android:name="com.google.firebase.components:com.google.mlkit.nl.smartreply.internal.SmartReplyRegistrar"
-243-->[com.google.mlkit:smart-reply-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:27:17-122
-244                android:value="com.google.firebase.components.ComponentRegistrar" />
-244-->[com.google.mlkit:smart-reply-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:28:17-82
-245            <meta-data
-245-->[com.google.mlkit:language-id-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:26:13-28:85
-246                android:name="com.google.firebase.components:com.google.mlkit.nl.languageid.internal.LanguageIdRegistrar"
-246-->[com.google.mlkit:language-id-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:27:17-122
-247                android:value="com.google.firebase.components.ComponentRegistrar" />
-247-->[com.google.mlkit:language-id-common:16.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:28:17-82
-248            <meta-data
-248-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:20:13-22:85
-249                android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar"
-249-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:21:17-120
-250                android:value="com.google.firebase.components.ComponentRegistrar" />
-250-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:22:17-82
-251        </service>
-252
-253        <provider
-253-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:9:9-13:38
-254            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
-254-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:10:13-78
-255            android:authorities="com.skilaparthi.scrollcat.mlkitinitprovider"
-255-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:11:13-69
-256            android:exported="false"
-256-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:12:13-37
-257            android:initOrder="99" />
-257-->[com.google.mlkit:common:18.11.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:13:13-35
-258
-259        <meta-data
-259-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:19:9-21:37
-260            android:name="com.google.android.play.billingclient.version"
-260-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:20:13-73
-261            android:value="6.2.1" />
-261-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:21:13-34
-262
-263        <activity
-263-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:23:9-27:75
-264            android:name="com.android.billingclient.api.ProxyBillingActivity"
-264-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:24:13-78
-265            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
-265-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:25:13-96
-266            android:exported="false"
-266-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:26:13-37
-267            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-267-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:27:13-72
-268        <activity
-268-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:28:9-32:75
-269            android:name="com.android.billingclient.api.ProxyBillingActivityV2"
-269-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:29:13-80
-270            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
-270-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:30:13-96
-271            android:exported="false"
-271-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:31:13-37
-272            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-272-->[com.android.billingclient:billing:6.2.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:32:13-72
-273
-274        <receiver
-274-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:29:9-33:20
-275            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
-275-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:30:13-85
-276            android:enabled="true"
-276-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:31:13-35
-277            android:exported="false" >
-277-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:32:13-37
-278        </receiver>
-279
-280        <service
-280-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:35:9-38:40
-281            android:name="com.google.android.gms.measurement.AppMeasurementService"
-281-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:36:13-84
-282            android:enabled="true"
-282-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:37:13-35
-283            android:exported="false" />
-283-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:38:13-37
-284        <service
-284-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:39:9-43:72
-285            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
-285-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:40:13-87
-286            android:enabled="true"
-286-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:41:13-35
-287            android:exported="false"
-287-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:42:13-37
-288            android:permission="android.permission.BIND_JOB_SERVICE" />
-288-->[com.google.android.gms:play-services-measurement:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:43:13-69
-289
-290        <activity
-290-->[com.google.android.gms:play-services-base:18.5.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:9-173
-291            android:name="com.google.android.gms.common.api.GoogleApiActivity"
-291-->[com.google.android.gms:play-services-base:18.5.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:19-85
-292            android:exported="false"
-292-->[com.google.android.gms:play-services-base:18.5.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:146-170
-293            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-293-->[com.google.android.gms:play-services-base:18.5.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:86-145
-294
-295        <provider
-295-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
-296            android:name="androidx.startup.InitializationProvider"
-296-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
-297            android:authorities="com.skilaparthi.scrollcat.androidx-startup"
-297-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
-298            android:exported="false" >
-298-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
-299            <meta-data
-299-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
-300                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-300-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
-301                android:value="androidx.startup" />
-301-->[androidx.emoji2:emoji2:1.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
-302            <meta-data
-302-->[androidx.lifecycle:lifecycle-process:2.6.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
-303                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-303-->[androidx.lifecycle:lifecycle-process:2.6.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
-304                android:value="androidx.startup" />
-304-->[androidx.lifecycle:lifecycle-process:2.6.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
-305            <meta-data
-305-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
-306                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-306-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
-307                android:value="androidx.startup" />
-307-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
-308        </provider>
-309
-310        <service
-310-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:30:9-36:19
-311            android:name="com.google.firebase.components.ComponentDiscoveryService"
-311-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:31:13-84
-312            android:directBootAware="true"
-312-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:32:13-43
-313            android:exported="false" >
-313-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:32:13-37
-314            <meta-data
-314-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:33:13-35:85
-315                android:name="com.google.firebase.components:com.google.firebase.analytics.connector.internal.AnalyticsConnectorRegistrar"
-315-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:34:17-139
-316                android:value="com.google.firebase.components.ComponentRegistrar" />
-316-->[com.google.android.gms:play-services-measurement-api:23.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:35:17-82
-317            <meta-data
-317-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:15:13-17:85
-318                android:name="com.google.firebase.components:com.google.firebase.crashlytics.FirebaseCrashlyticsKtxRegistrar"
-318-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:16:17-126
-319                android:value="com.google.firebase.components.ComponentRegistrar" />
-319-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:17:17-82
-320            <meta-data
-320-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:18:13-20:85
-321                android:name="com.google.firebase.components:com.google.firebase.crashlytics.CrashlyticsRegistrar"
-321-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:19:17-115
-322                android:value="com.google.firebase.components.ComponentRegistrar" />
-322-->[com.google.firebase:firebase-crashlytics:20.1.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:20:17-82
-323            <meta-data
-323-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:29:13-31:85
-324                android:name="com.google.firebase.components:com.google.firebase.sessions.FirebaseSessionsRegistrar"
-324-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:30:17-117
-325                android:value="com.google.firebase.components.ComponentRegistrar" />
-325-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:31:17-82
-326            <meta-data
-326-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:15:13-17:85
-327                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsKtxRegistrar"
-327-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:16:17-130
-328                android:value="com.google.firebase.components.ComponentRegistrar" />
-328-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:17:17-82
-329            <meta-data
-329-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:18:13-20:85
-330                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsRegistrar"
-330-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:19:17-127
-331                android:value="com.google.firebase.components.ComponentRegistrar" />
-331-->[com.google.firebase:firebase-installations:19.1.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:20:17-82
-332            <meta-data
-332-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:35:13-37:85
-333                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
-333-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:36:17-109
-334                android:value="com.google.firebase.components.ComponentRegistrar" />
-334-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:37:17-82
-335            <meta-data
-335-->[com.google.firebase:firebase-datatransport:19.0.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:25:13-27:85
-336                android:name="com.google.firebase.components:com.google.firebase.datatransport.TransportRegistrar"
-336-->[com.google.firebase:firebase-datatransport:19.0.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:26:17-115
-337                android:value="com.google.firebase.components.ComponentRegistrar" />
-337-->[com.google.firebase:firebase-datatransport:19.0.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:27:17-82
-338        </service>
-339        <service
-339-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:22:9-25:40
-340            android:name="com.google.firebase.sessions.SessionLifecycleService"
-340-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:23:13-80
-341            android:enabled="false"
-341-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:24:13-36
-342            android:exported="false" />
-342-->[com.google.firebase:firebase-sessions:3.0.7] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:25:13-37
-343
-344        <provider
-344-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:23:9-28:39
-345            android:name="com.google.firebase.provider.FirebaseInitProvider"
-345-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:24:13-77
-346            android:authorities="com.skilaparthi.scrollcat.firebaseinitprovider"
-346-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:25:13-72
-347            android:directBootAware="true"
-347-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:26:13-43
-348            android:exported="false"
-348-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:27:13-37
-349            android:initOrder="100" />
-349-->[com.google.firebase:firebase-common:22.2.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:28:13-36
-350
-351        <uses-library
-351-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:23:9-25:40
-352            android:name="android.ext.adservices"
-352-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:24:13-50
-353            android:required="false" />
-353-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:25:13-37
-354
-355        <meta-data
-355-->[com.google.android.gms:play-services-basement:18.9.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:21:9-23:69
-356            android:name="com.google.android.gms.version"
-356-->[com.google.android.gms:play-services-basement:18.9.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:22:13-58
-357            android:value="@integer/google_play_services_version" />
-357-->[com.google.android.gms:play-services-basement:18.9.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:23:13-66
-358
-359        <service
-359-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:26:9-32:19
-360            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
-360-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:27:13-103
-361            android:exported="false" >
-361-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:28:13-37
-362            <meta-data
-362-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:29:13-31:39
-363                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
-363-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:30:17-94
-364                android:value="cct" />
-364-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:31:17-36
-365        </service>
-366
-367        <receiver
-367-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
-368            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-368-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
-369            android:directBootAware="false"
-369-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
-370            android:enabled="true"
-370-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
-371            android:exported="true"
-371-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
-372            android:permission="android.permission.DUMP" >
-372-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
-373            <intent-filter>
-373-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
-374                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-374-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
-374-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
-375            </intent-filter>
-376            <intent-filter>
-376-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
-377                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-377-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
-377-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
-378            </intent-filter>
-379            <intent-filter>
-379-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
-380                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-380-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
-380-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
-381            </intent-filter>
-382            <intent-filter>
-382-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
-383                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-383-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
-383-->[androidx.profileinstaller:profileinstaller:1.3.1] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
-384            </intent-filter>
-385        </receiver>
-386
-387        <service
-387-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:24:9-28:19
-388            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
-388-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:25:13-117
-389            android:exported="false"
-389-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:26:13-37
-390            android:permission="android.permission.BIND_JOB_SERVICE" >
-390-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:27:13-69
-391        </service>
-392
-393        <receiver
-393-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:30:9-32:40
-394            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
-394-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:31:13-132
-395            android:exported="false" /> <!-- The activities will be merged into the manifest of the hosting app. -->
-395-->[com.google.android.datatransport:transport-runtime:3.3.0] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:32:13-37
-396        <activity
-396-->[com.google.android.play:core-common:2.0.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:14:9-18:65
-397            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
-397-->[com.google.android.play:core-common:2.0.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:15:13-93
-398            android:exported="false"
-398-->[com.google.android.play:core-common:2.0.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:16:13-37
-399            android:stateNotNeeded="true"
-399-->[com.google.android.play:core-common:2.0.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:17:13-42
-400            android:theme="@style/Theme.PlayCore.Transparent" />
-400-->[com.google.android.play:core-common:2.0.2] /tmp/cursor-sandbox-cache/e3c90241a3d8ece196d0131ea8c02d98/gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:18:13-62
-401    </application>
-402
-403</manifest>
+121            android:label="Settings" />
+121-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:90:13-37
+122        <activity
+122-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:92:9-95:58
+123            android:name="com.skilaparthi.scrollcat.AiProviderActivity"
+123-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:93:13-47
+124            android:exported="false"
+124-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:94:13-37
+125            android:windowSoftInputMode="adjustResize" />
+125-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:95:13-55
+126        <activity
+126-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:97:9-101:58
+127            android:name="com.skilaparthi.scrollcat.AiSetupActivity"
+127-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:98:13-44
+128            android:exported="false"
+128-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:99:13-37
+129            android:label="Set up AI"
+129-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:100:13-38
+130            android:windowSoftInputMode="adjustResize" />
+130-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:101:13-55
+131        <activity
+131-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:103:9-107:58
+132            android:name="com.skilaparthi.scrollcat.AiSettingsActivity"
+132-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:104:13-47
+133            android:exported="false"
+133-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:105:13-37
+134            android:label="My AI Settings"
+134-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:106:13-43
+135            android:windowSoftInputMode="adjustResize" />
+135-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:107:13-55
+136        <activity
+136-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:109:9-113:58
+137            android:name="com.skilaparthi.scrollcat.AutoReplyActivity"
+137-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:110:13-46
+138            android:exported="false"
+138-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:111:13-37
+139            android:label="Auto-Reply Rules"
+139-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:112:13-45
+140            android:windowSoftInputMode="adjustResize" />
+140-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:113:13-55
+141        <activity
+141-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:115:9-119:58
+142            android:name="com.skilaparthi.scrollcat.SmartVoiceActivity"
+142-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:116:13-47
+143            android:exported="false"
+143-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:117:13-37
+144            android:label="Smart Voice"
+144-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:118:13-40
+145            android:windowSoftInputMode="adjustResize" />
+145-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:119:13-55
+146        <activity
+146-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:121:9-124:50
+147            android:name="com.skilaparthi.scrollcat.AutoReplyTrackerActivity"
+147-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:122:13-53
+148            android:exported="false"
+148-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:123:13-37
+149            android:label="Auto Reply Tracker" />
+149-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:124:13-47
+150        <activity
+150-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:126:9-130:58
+151            android:name="com.skilaparthi.scrollcat.FeedbackActivity"
+151-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:127:13-45
+152            android:exported="false"
+152-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:128:13-37
+153            android:label="Give Feedback"
+153-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:129:13-42
+154            android:windowSoftInputMode="adjustResize" />
+154-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:130:13-55
+155        <activity
+155-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:132:9-136:58
+156            android:name="com.skilaparthi.scrollcat.OnboardingActivity"
+156-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:133:13-47
+157            android:exported="false"
+157-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:134:13-37
+158            android:label="Welcome to ScrollCat"
+158-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:135:13-49
+159            android:windowSoftInputMode="adjustResize" />
+159-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:136:13-55
+160        <activity
+160-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:138:9-141:45
+161            android:name="com.skilaparthi.scrollcat.SubscriptionActivity"
+161-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:139:13-49
+162            android:exported="false"
+162-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:140:13-37
+163            android:label="ScrollCat Pro" />
+163-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:141:13-42
+164        <activity
+164-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:143:9-146:46
+165            android:name="com.skilaparthi.scrollcat.PrivacyPolicyActivity"
+165-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:144:13-50
+166            android:exported="false"
+166-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:145:13-37
+167            android:label="Privacy Policy" />
+167-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:146:13-43
+168        <activity
+168-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:148:9-151:54
+169            android:name="com.skilaparthi.scrollcat.PrivacySecurityActivity"
+169-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:149:13-52
+170            android:exported="false"
+170-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:150:13-37
+171            android:label="Privacy &amp; Security" />
+171-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:151:13-51
+172        <activity
+172-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:153:9-156:46
+173            android:name="com.skilaparthi.scrollcat.ShareCardActivity"
+173-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:154:13-46
+174            android:exported="false"
+174-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:155:13-37
+175            android:label="Share My Stats" />
+175-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:156:13-43
+176        <activity
+176-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:158:9-164:75
+177            android:name="com.skilaparthi.scrollcat.RecordAudioPermissionActivity"
+177-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:159:13-58
+178            android:excludeFromRecents="true"
+178-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:162:13-46
+179            android:exported="false"
+179-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:160:13-37
+180            android:noHistory="true"
+180-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:163:13-37
+181            android:taskAffinity=""
+181-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:161:13-36
+182            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+182-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:164:13-72
+183
+184        <provider
+185            android:name="androidx.core.content.FileProvider"
+185-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:167:13-62
+186            android:authorities="com.skilaparthi.scrollcat.fileprovider"
+186-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:168:13-64
+187            android:exported="false"
+187-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:169:13-37
+188            android:grantUriPermissions="true" >
+188-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:170:13-47
+189            <meta-data
+189-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:171:13-173:54
+190                android:name="android.support.FILE_PROVIDER_PATHS"
+190-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:172:17-67
+191                android:resource="@xml/file_paths" />
+191-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:173:17-51
+192        </provider>
+193
+194        <!-- The floating cat overlay -->
+195        <service
+195-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:177:9-184:19
+196            android:name="com.skilaparthi.scrollcat.OverlayService"
+196-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:178:13-43
+197            android:exported="false"
+197-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:179:13-37
+198            android:foregroundServiceType="specialUse" >
+198-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:180:13-55
+199            <property
+199-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:181:13-183:91
+200                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+200-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:182:17-76
+201                android:value="Floating companion overlay that the user interacts with" />
+201-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:183:17-88
+202        </service>
+203
+204        <!--
+205             The gesture injector. permission + meta-data are BOTH required
+206             or the service silently won't appear in Accessibility settings
+207        -->
+208        <service
+208-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:188:9-199:19
+209            android:name="com.skilaparthi.scrollcat.CatAccessibilityService"
+209-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:189:13-52
+210            android:exported="false"
+210-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:190:13-37
+211            android:label="@string/accessibility_service_label"
+211-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:191:13-64
+212            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
+212-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:192:13-79
+213            <intent-filter>
+213-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:193:13-195:29
+214                <action android:name="android.accessibilityservice.AccessibilityService" />
+214-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:194:17-92
+214-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:194:25-89
+215            </intent-filter>
+216
+217            <meta-data
+217-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:196:13-198:72
+218                android:name="android.accessibilityservice"
+218-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:197:17-60
+219                android:resource="@xml/accessibility_service_config" />
+219-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:198:17-69
+220        </service>
+221        <service
+221-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:201:9-209:19
+222            android:name="com.skilaparthi.scrollcat.CatNotificationListener"
+222-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:202:13-52
+223            android:exported="false"
+223-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:203:13-37
+224            android:label="ScrollCat Notification Reader"
+224-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:204:13-58
+225            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+225-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:205:13-87
+226            <intent-filter>
+226-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:206:13-208:29
+227                <action android:name="android.service.notification.NotificationListenerService" />
+227-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:207:17-99
+227-->/home/skilaparthi/scrollcat/app/src/main/AndroidManifest.xml:207:25-96
+228            </intent-filter>
+229        </service>
+230        <service
+230-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:11:9-17:19
+231            android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
+231-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:12:13-91
+232            android:directBootAware="true"
+232-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:17:13-43
+233            android:exported="false" >
+233-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:13:13-37
+234            <meta-data
+234-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:14:13-16:85
+235                android:name="com.google.firebase.components:com.google.mlkit.nl.translate.NaturalLanguageTranslateRegistrar"
+235-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:15:17-126
+236                android:value="com.google.firebase.components.ComponentRegistrar" />
+236-->[com.google.mlkit:translate:17.0.3] /home/skilaparthi/.gradle/caches/transforms-4/558ff1fbff85c984fff0e568e9cecddf/transformed/translate-17.0.3/AndroidManifest.xml:16:17-82
+237            <meta-data
+237-->[com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:26:13-28:85
+238                android:name="com.google.firebase.components:com.google.mlkit.nl.smartreply.bundled.internal.ThickSmartReplyRegistrar"
+238-->[com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:27:17-135
+239                android:value="com.google.firebase.components.ComponentRegistrar" />
+239-->[com.google.mlkit:smart-reply:17.0.4] /home/skilaparthi/.gradle/caches/transforms-4/6dd75fda21af453f5cb692a5d37d4de2/transformed/smart-reply-17.0.4/AndroidManifest.xml:28:17-82
+240            <meta-data
+240-->[com.google.mlkit:language-id:17.0.6] /home/skilaparthi/.gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:11:13-13:85
+241                android:name="com.google.firebase.components:com.google.mlkit.nl.languageid.bundled.internal.ThickLanguageIdRegistrar"
+241-->[com.google.mlkit:language-id:17.0.6] /home/skilaparthi/.gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:12:17-135
+242                android:value="com.google.firebase.components.ComponentRegistrar" />
+242-->[com.google.mlkit:language-id:17.0.6] /home/skilaparthi/.gradle/caches/transforms-4/82d7b80617af445bc68583e8e7f5e04b/transformed/language-id-17.0.6/AndroidManifest.xml:13:17-82
+243            <meta-data
+243-->[com.google.mlkit:smart-reply-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:26:13-28:85
+244                android:name="com.google.firebase.components:com.google.mlkit.nl.smartreply.internal.SmartReplyRegistrar"
+244-->[com.google.mlkit:smart-reply-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:27:17-122
+245                android:value="com.google.firebase.components.ComponentRegistrar" />
+245-->[com.google.mlkit:smart-reply-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/057b5339ee4805920e8fc6dd864cd724/transformed/smart-reply-common-16.1.0/AndroidManifest.xml:28:17-82
+246            <meta-data
+246-->[com.google.mlkit:language-id-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:26:13-28:85
+247                android:name="com.google.firebase.components:com.google.mlkit.nl.languageid.internal.LanguageIdRegistrar"
+247-->[com.google.mlkit:language-id-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:27:17-122
+248                android:value="com.google.firebase.components.ComponentRegistrar" />
+248-->[com.google.mlkit:language-id-common:16.1.0] /home/skilaparthi/.gradle/caches/transforms-4/a2b7d0fea05cad34422a0fa1b9d711cb/transformed/language-id-common-16.1.0/AndroidManifest.xml:28:17-82
+249            <meta-data
+249-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:20:13-22:85
+250                android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar"
+250-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:21:17-120
+251                android:value="com.google.firebase.components.ComponentRegistrar" />
+251-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:22:17-82
+252        </service>
+253
+254        <provider
+254-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:9:9-13:38
+255            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+255-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:10:13-78
+256            android:authorities="com.skilaparthi.scrollcat.mlkitinitprovider"
+256-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:11:13-69
+257            android:exported="false"
+257-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:12:13-37
+258            android:initOrder="99" />
+258-->[com.google.mlkit:common:18.11.0] /home/skilaparthi/.gradle/caches/transforms-4/f46c69fbcde9997520760ff82f063b8b/transformed/common-18.11.0/AndroidManifest.xml:13:13-35
+259
+260        <meta-data
+260-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:19:9-21:37
+261            android:name="com.google.android.play.billingclient.version"
+261-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:20:13-73
+262            android:value="6.2.1" />
+262-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:21:13-34
+263
+264        <activity
+264-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:23:9-27:75
+265            android:name="com.android.billingclient.api.ProxyBillingActivity"
+265-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:24:13-78
+266            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+266-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:25:13-96
+267            android:exported="false"
+267-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:26:13-37
+268            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+268-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:27:13-72
+269        <activity
+269-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:28:9-32:75
+270            android:name="com.android.billingclient.api.ProxyBillingActivityV2"
+270-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:29:13-80
+271            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+271-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:30:13-96
+272            android:exported="false"
+272-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:31:13-37
+273            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+273-->[com.android.billingclient:billing:6.2.1] /home/skilaparthi/.gradle/caches/transforms-4/873efc780e97bbad55e214006fffb917/transformed/billing-6.2.1/AndroidManifest.xml:32:13-72
+274
+275        <receiver
+275-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:29:9-33:20
+276            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
+276-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:30:13-85
+277            android:enabled="true"
+277-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:31:13-35
+278            android:exported="false" >
+278-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:32:13-37
+279        </receiver>
+280
+281        <service
+281-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:35:9-38:40
+282            android:name="com.google.android.gms.measurement.AppMeasurementService"
+282-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:36:13-84
+283            android:enabled="true"
+283-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:37:13-35
+284            android:exported="false" />
+284-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:38:13-37
+285        <service
+285-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:39:9-43:72
+286            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
+286-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:40:13-87
+287            android:enabled="true"
+287-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:41:13-35
+288            android:exported="false"
+288-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:42:13-37
+289            android:permission="android.permission.BIND_JOB_SERVICE" />
+289-->[com.google.android.gms:play-services-measurement:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/1f8c4075a626e1e128f285fe08806290/transformed/play-services-measurement-23.2.0/AndroidManifest.xml:43:13-69
+290
+291        <activity
+291-->[com.google.android.gms:play-services-base:18.5.0] /home/skilaparthi/.gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:9-173
+292            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+292-->[com.google.android.gms:play-services-base:18.5.0] /home/skilaparthi/.gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:19-85
+293            android:exported="false"
+293-->[com.google.android.gms:play-services-base:18.5.0] /home/skilaparthi/.gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:146-170
+294            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+294-->[com.google.android.gms:play-services-base:18.5.0] /home/skilaparthi/.gradle/caches/transforms-4/eaa10b2c578d4e96a472d8e8f3795932/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:86-145
+295
+296        <provider
+296-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+297            android:name="androidx.startup.InitializationProvider"
+297-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+298            android:authorities="com.skilaparthi.scrollcat.androidx-startup"
+298-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+299            android:exported="false" >
+299-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+300            <meta-data
+300-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+301                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+301-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+302                android:value="androidx.startup" />
+302-->[androidx.emoji2:emoji2:1.3.0] /home/skilaparthi/.gradle/caches/transforms-4/920546e4a1d468db28bf107d5316e49e/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+303            <meta-data
+303-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/skilaparthi/.gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
+304                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+304-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/skilaparthi/.gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
+305                android:value="androidx.startup" />
+305-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/skilaparthi/.gradle/caches/transforms-4/cb36c7a78485099bdae37bf4ed5e0cdc/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
+306            <meta-data
+306-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+307                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+307-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+308                android:value="androidx.startup" />
+308-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+309        </provider>
+310
+311        <service
+311-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:30:9-36:19
+312            android:name="com.google.firebase.components.ComponentDiscoveryService"
+312-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:31:13-84
+313            android:directBootAware="true"
+313-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:32:13-43
+314            android:exported="false" >
+314-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:32:13-37
+315            <meta-data
+315-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:33:13-35:85
+316                android:name="com.google.firebase.components:com.google.firebase.analytics.connector.internal.AnalyticsConnectorRegistrar"
+316-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:34:17-139
+317                android:value="com.google.firebase.components.ComponentRegistrar" />
+317-->[com.google.android.gms:play-services-measurement-api:23.2.0] /home/skilaparthi/.gradle/caches/transforms-4/c7e8c04174a54f7d0e5bead9823de923/transformed/play-services-measurement-api-23.2.0/AndroidManifest.xml:35:17-82
+318            <meta-data
+318-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:15:13-17:85
+319                android:name="com.google.firebase.components:com.google.firebase.crashlytics.FirebaseCrashlyticsKtxRegistrar"
+319-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:16:17-126
+320                android:value="com.google.firebase.components.ComponentRegistrar" />
+320-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:17:17-82
+321            <meta-data
+321-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:18:13-20:85
+322                android:name="com.google.firebase.components:com.google.firebase.crashlytics.CrashlyticsRegistrar"
+322-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:19:17-115
+323                android:value="com.google.firebase.components.ComponentRegistrar" />
+323-->[com.google.firebase:firebase-crashlytics:20.1.0] /home/skilaparthi/.gradle/caches/transforms-4/cfca87f41dc2ff6e1f88b599b562db80/transformed/firebase-crashlytics-20.1.0/AndroidManifest.xml:20:17-82
+324            <meta-data
+324-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:29:13-31:85
+325                android:name="com.google.firebase.components:com.google.firebase.sessions.FirebaseSessionsRegistrar"
+325-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:30:17-117
+326                android:value="com.google.firebase.components.ComponentRegistrar" />
+326-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:31:17-82
+327            <meta-data
+327-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:15:13-17:85
+328                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsKtxRegistrar"
+328-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:16:17-130
+329                android:value="com.google.firebase.components.ComponentRegistrar" />
+329-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:17:17-82
+330            <meta-data
+330-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:18:13-20:85
+331                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsRegistrar"
+331-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:19:17-127
+332                android:value="com.google.firebase.components.ComponentRegistrar" />
+332-->[com.google.firebase:firebase-installations:19.1.2] /home/skilaparthi/.gradle/caches/transforms-4/260828dd1785835598dca0cd653d656b/transformed/firebase-installations-19.1.2/AndroidManifest.xml:20:17-82
+333            <meta-data
+333-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:35:13-37:85
+334                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
+334-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:36:17-109
+335                android:value="com.google.firebase.components.ComponentRegistrar" />
+335-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:37:17-82
+336            <meta-data
+336-->[com.google.firebase:firebase-datatransport:19.0.0] /home/skilaparthi/.gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:25:13-27:85
+337                android:name="com.google.firebase.components:com.google.firebase.datatransport.TransportRegistrar"
+337-->[com.google.firebase:firebase-datatransport:19.0.0] /home/skilaparthi/.gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:26:17-115
+338                android:value="com.google.firebase.components.ComponentRegistrar" />
+338-->[com.google.firebase:firebase-datatransport:19.0.0] /home/skilaparthi/.gradle/caches/transforms-4/1fe084cf763d37c8337ad9f88812380a/transformed/firebase-datatransport-19.0.0/AndroidManifest.xml:27:17-82
+339        </service>
+340        <service
+340-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:22:9-25:40
+341            android:name="com.google.firebase.sessions.SessionLifecycleService"
+341-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:23:13-80
+342            android:enabled="false"
+342-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:24:13-36
+343            android:exported="false" />
+343-->[com.google.firebase:firebase-sessions:3.0.7] /home/skilaparthi/.gradle/caches/transforms-4/e4692f9f1ffee99ab10d55feb74ef90b/transformed/firebase-sessions-3.0.7/AndroidManifest.xml:25:13-37
+344
+345        <provider
+345-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:23:9-28:39
+346            android:name="com.google.firebase.provider.FirebaseInitProvider"
+346-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:24:13-77
+347            android:authorities="com.skilaparthi.scrollcat.firebaseinitprovider"
+347-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:25:13-72
+348            android:directBootAware="true"
+348-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:26:13-43
+349            android:exported="false"
+349-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:27:13-37
+350            android:initOrder="100" />
+350-->[com.google.firebase:firebase-common:22.2.0] /home/skilaparthi/.gradle/caches/transforms-4/d7de8d6b3f80258d2f1c7e0d903c2b3e/transformed/firebase-common-22.2.0/AndroidManifest.xml:28:13-36
+351
+352        <uses-library
+352-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /home/skilaparthi/.gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:23:9-25:40
+353            android:name="android.ext.adservices"
+353-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /home/skilaparthi/.gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:24:13-50
+354            android:required="false" />
+354-->[androidx.privacysandbox.ads:ads-adservices:1.1.0-beta11] /home/skilaparthi/.gradle/caches/transforms-4/b4ae09429be48d189c832a0af81223ca/transformed/ads-adservices-1.1.0-beta11/AndroidManifest.xml:25:13-37
+355
+356        <meta-data
+356-->[com.google.android.gms:play-services-basement:18.9.0] /home/skilaparthi/.gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:21:9-23:69
+357            android:name="com.google.android.gms.version"
+357-->[com.google.android.gms:play-services-basement:18.9.0] /home/skilaparthi/.gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:22:13-58
+358            android:value="@integer/google_play_services_version" />
+358-->[com.google.android.gms:play-services-basement:18.9.0] /home/skilaparthi/.gradle/caches/transforms-4/9f4b52e8744ed9ddb5df67ef68c5bcc5/transformed/play-services-basement-18.9.0/AndroidManifest.xml:23:13-66
+359
+360        <service
+360-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:26:9-32:19
+361            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+361-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:27:13-103
+362            android:exported="false" >
+362-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:28:13-37
+363            <meta-data
+363-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:29:13-31:39
+364                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+364-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:30:17-94
+365                android:value="cct" />
+365-->[com.google.android.datatransport:transport-backend-cct:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/aee8997c8c2bd2c67743728b25af1f0e/transformed/transport-backend-cct-3.3.0/AndroidManifest.xml:31:17-36
+366        </service>
+367
+368        <receiver
+368-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+369            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+369-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+370            android:directBootAware="false"
+370-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+371            android:enabled="true"
+371-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+372            android:exported="true"
+372-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+373            android:permission="android.permission.DUMP" >
+373-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+374            <intent-filter>
+374-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+375                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+375-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+375-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+376            </intent-filter>
+377            <intent-filter>
+377-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+378                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+378-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+378-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+379            </intent-filter>
+380            <intent-filter>
+380-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+381                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+381-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+381-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+382            </intent-filter>
+383            <intent-filter>
+383-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+384                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+384-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+384-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/skilaparthi/.gradle/caches/transforms-4/a14faf77423b1cbe303b6fb5eae1e940/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+385            </intent-filter>
+386        </receiver>
+387
+388        <service
+388-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:24:9-28:19
+389            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+389-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:25:13-117
+390            android:exported="false"
+390-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:26:13-37
+391            android:permission="android.permission.BIND_JOB_SERVICE" >
+391-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:27:13-69
+392        </service>
+393
+394        <receiver
+394-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:30:9-32:40
+395            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+395-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:31:13-132
+396            android:exported="false" /> <!-- The activities will be merged into the manifest of the hosting app. -->
+396-->[com.google.android.datatransport:transport-runtime:3.3.0] /home/skilaparthi/.gradle/caches/transforms-4/c8909441124b223f39b5c1ee633473ac/transformed/transport-runtime-3.3.0/AndroidManifest.xml:32:13-37
+397        <activity
+397-->[com.google.android.play:core-common:2.0.2] /home/skilaparthi/.gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:14:9-18:65
+398            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
+398-->[com.google.android.play:core-common:2.0.2] /home/skilaparthi/.gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:15:13-93
+399            android:exported="false"
+399-->[com.google.android.play:core-common:2.0.2] /home/skilaparthi/.gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:16:13-37
+400            android:stateNotNeeded="true"
+400-->[com.google.android.play:core-common:2.0.2] /home/skilaparthi/.gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:17:13-42
+401            android:theme="@style/Theme.PlayCore.Transparent" />
+401-->[com.google.android.play:core-common:2.0.2] /home/skilaparthi/.gradle/caches/transforms-4/14a4cd1a0f81ded87a92a05e94f12c08/transformed/core-common-2.0.2/AndroidManifest.xml:18:13-62
+402    </application>
+403
+404</manifest>

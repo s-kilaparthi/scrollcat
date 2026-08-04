@@ -116,7 +116,7 @@ We'll update this policy here and in the app if our practices change.
 
 8. CONTACT
 
-Questions or concerns: shipproof.app@gmail.com
+Questions or concerns: scrollcat.app@gmail.com
         """.trimIndent()
     }
 }
