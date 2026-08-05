@@ -95,22 +95,25 @@ class SettingsActivity : Activity() {
                 setPadding(0, 0, 0, UiKit.dp(this@SettingsActivity, 4))
             }
             val sizeSlider = Slider(this@SettingsActivity).apply {
-                valueFrom = 100f
-                valueTo = 400f
-                stepSize = 10f
-                val raw = SettingsManager.getCatSize(this@SettingsActivity).coerceIn(100, 400)
-                value = ((raw + 5) / 10 * 10).coerceIn(100, 400).toFloat()
+                valueFrom = SettingsManager.MIN_CAT_SIZE_DP.toFloat()
+                valueTo = SettingsManager.MAX_CAT_SIZE_DP.toFloat()
+                stepSize = 5f
+                val raw = SettingsManager.getCatSizeDp(this@SettingsActivity)
+                    .coerceIn(SettingsManager.MIN_CAT_SIZE_DP, SettingsManager.MAX_CAT_SIZE_DP)
+                value = ((raw + 2) / 5 * 5)
+                    .coerceIn(SettingsManager.MIN_CAT_SIZE_DP, SettingsManager.MAX_CAT_SIZE_DP)
+                    .toFloat()
             }
-            fun updateSizeLabel(size: Int) {
-                sizeLabel.text = "Cat size: ${size}px"
+            fun updateSizeLabel(sizeDp: Int) {
+                sizeLabel.text = "Cat size: ${sizeDp}dp"
             }
             updateSizeLabel(sizeSlider.value.toInt())
             sizeSlider.addOnChangeListener { _, value, fromUser ->
-                val size = value.toInt()
-                updateSizeLabel(size)
+                val sizeDp = value.toInt()
+                updateSizeLabel(sizeDp)
                 if (fromUser) {
-                    SettingsManager.setCatSize(this@SettingsActivity, size)
-                    OverlayService.instance?.updateCatSize(size)
+                    SettingsManager.setCatSize(this@SettingsActivity, sizeDp)
+                    OverlayService.instance?.updateCatSize(sizeDp)
                 }
             }
             addView(sizeLabel)

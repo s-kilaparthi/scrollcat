@@ -45,9 +45,17 @@ class ReplyPanel(
 ) {
 
     companion object {
-        private const val PANEL_WIDTH = 680
+        private const val PANEL_WIDTH_DP = 194
         /** Gap left between a pending-replies card and the panel edge. */
-        private const val SENDER_LIST_EDGE_GAP = 8
+        private const val SENDER_LIST_EDGE_GAP_DP = 2
+        private const val PANEL_PADDING_H_DP = 8
+        private const val PANEL_PADDING_V_DP = 7
+        private const val PANEL_CORNER_RADIUS_DP = 10
+        private const val PANEL_STROKE_DP = 1
+        private const val PANEL_Y_OFFSET_ABOVE_CAT_DP = 149
+        private const val PANEL_Y_MIN_DP = 17
+        private const val PANEL_EDGE_MARGIN_DP = 5
+        private const val PANEL_RESIZE_SCREEN_MARGIN_DP = 9
         /** Pending-replies cards cap their preview here; the chevron reveals the rest. */
         private const val SENDER_LIST_PREVIEW_MAX_LINES = 3
         /** Compact footprint for the listening-only dictation bubble. */
@@ -160,6 +168,20 @@ class ReplyPanel(
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
+    private fun panelWidthPx(): Int = dp(PANEL_WIDTH_DP)
+
+    private fun panelEdgeMarginPx(): Int = dp(PANEL_EDGE_MARGIN_DP)
+
+    /** Live overlay window width (falls back to default panel width before first layout). */
+    private fun currentPanelWidthPx(): Int =
+        panelParams?.width?.takeIf { it > 0 } ?: panelWidthPx()
+
+    /** Content column width for measure/layout — uses actual window width, not the default constant. */
+    private fun measureContentWidthPx(): Int {
+        val panel = panelView ?: return panelWidthPx() - dp(PANEL_PADDING_H_DP) * 2
+        return (currentPanelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+    }
+
     /** Service/overlay context has no Material theme; wrap before constructing Material widgets. */
     private val materialContext: Context by lazy {
         ContextThemeWrapper(context, R.style.Theme_ScrollCat)
@@ -177,22 +199,29 @@ class ReplyPanel(
         notePanelOpenForDebug()
 
         val panel = ConstraintLayout(context).apply {
-            setPadding(28, 24, 28, 24)
+            setPadding(
+                dp(PANEL_PADDING_H_DP),
+                dp(PANEL_PADDING_V_DP),
+                dp(PANEL_PADDING_H_DP),
+                dp(PANEL_PADDING_V_DP)
+            )
             background = GradientDrawable().apply {
                 setColor(PANEL_BG)
-                cornerRadius = 36f
-                setStroke(2, 0x33FFFFFF)
+                cornerRadius = dp(PANEL_CORNER_RADIUS_DP).toFloat()
+                setStroke(dp(PANEL_STROKE_DP), 0x33FFFFFF)
             }
         }
 
         val dm = context.resources.displayMetrics
-        val x = (catX + catSize / 2 - PANEL_WIDTH / 2)
-            .coerceIn(16, (dm.widthPixels - PANEL_WIDTH - 16).coerceAtLeast(16))
+        val panelW = panelWidthPx()
+        val edgeMargin = panelEdgeMarginPx()
+        val x = (catX + catSize / 2 - panelW / 2)
+            .coerceIn(edgeMargin, (dm.widthPixels - panelW - edgeMargin).coerceAtLeast(edgeMargin))
         // Rough panel height; final height wraps content
-        val y = (catY - 520).coerceAtLeast(60)
+        val y = (catY - dp(PANEL_Y_OFFSET_ABOVE_CAT_DP)).coerceAtLeast(dp(PANEL_Y_MIN_DP))
 
         val params = WindowManager.LayoutParams(
-            PANEL_WIDTH,
+            panelW,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -721,12 +750,14 @@ class ReplyPanel(
                 senderListBaseWindowWidth = params.width
             }
         }
-        val baseCardWidthPx = PANEL_WIDTH - (SENDER_LIST_EDGE_GAP * 2)
+        val edgeGap = dp(SENDER_LIST_EDGE_GAP_DP)
+        val basePanelWidth = panelWidthPx()
+        val baseCardWidthPx = basePanelWidth - edgeGap * 2
         val requestedCardWidthPx = baseCardWidthPx * 3 / 2
         val (_, widenedPanelWidthPx) = resizePanelWidthKeepingCenter(
-            requestedCardWidthPx + (SENDER_LIST_EDGE_GAP * 2)
+            requestedCardWidthPx + edgeGap * 2
         )
-        val actualCardWidthPx = widenedPanelWidthPx - (SENDER_LIST_EDGE_GAP * 2)
+        val actualCardWidthPx = widenedPanelWidthPx - edgeGap * 2
         val density = context.resources.displayMetrics.density
         val oldWidthDp = (baseCardWidthPx / density + 0.5f).toInt()
         val newWidthDp = (actualCardWidthPx / density + 0.5f).toInt()
@@ -745,7 +776,7 @@ class ReplyPanel(
         // nearly edge to edge. Restored in showMessage() so the reply panel is untouched.
         panel.clipToPadding = false
         panel.clipChildren = false
-        val listSideBleed = -(panel.paddingLeft - SENDER_LIST_EDGE_GAP).coerceAtLeast(0)
+        val listSideBleed = -(panel.paddingLeft - edgeGap).coerceAtLeast(0)
         val listLp: ViewGroup.LayoutParams = if (panel is ConstraintLayout) {
             ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
@@ -826,7 +857,7 @@ class ReplyPanel(
         val listScrollChevronOuter = dp(14)
         val (screenHeight, availableHeight, topSafe, bottomSafe) = pendingListScreenMetrics()
         val contentWidth = (
-            (panelParams?.width ?: PANEL_WIDTH) - panel.paddingLeft - panel.paddingRight
+            currentPanelWidthPx() - panel.paddingLeft - panel.paddingRight
             ).coerceAtLeast(1)
         val widthSpec = View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
         val heightUnspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1289,7 +1320,7 @@ class ReplyPanel(
             messageSlideInProgress = true
             val widthPx = existingSlide.width
                 .takeIf { it > 0 }
-                ?: (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+                ?: measureContentWidthPx()
             val width = widthPx.toFloat()
             val outTo = if (slideDirection == MessageSlideDirection.NEXT) -width else width
             val inFrom = -outTo
@@ -1738,7 +1769,7 @@ class ReplyPanel(
             private fun applyFingerFollow(rawX: Float) {
                 val dx = rawX - downRawX
                 val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                    ?: measureContentWidthPx()
                         .coerceAtLeast(1)
                 slideColumn.translationX = if (pending.size <= 1) {
                     // Rubber-band: limited give, no navigation possible.
@@ -1762,7 +1793,7 @@ class ReplyPanel(
 
                 val tx = slideColumn.translationX
                 val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                    ?: measureContentWidthPx()
                         .coerceAtLeast(1)
                 val commitDist = width * SWIPE_COMMIT_FRACTION
 
@@ -2994,16 +3025,19 @@ class ReplyPanel(
 
     /** Resizes the overlay around its current center and keeps it inside screen edges. */
     private fun resizePanelWidthKeepingCenter(requestedWidth: Int): Pair<Int, Int> {
-        val panel = panelView ?: return PANEL_WIDTH to PANEL_WIDTH
-        val params = panelParams ?: return PANEL_WIDTH to PANEL_WIDTH
+        val defaultW = panelWidthPx()
+        val panel = panelView ?: return defaultW to defaultW
+        val params = panelParams ?: return defaultW to defaultW
         val dm = context.resources.displayMetrics
-        val oldWidth = params.width.takeIf { it > 0 } ?: PANEL_WIDTH
-        val newWidth = requestedWidth.coerceAtMost((dm.widthPixels - 32).coerceAtLeast(1))
+        val screenMargin = dp(PANEL_RESIZE_SCREEN_MARGIN_DP)
+        val edgeMargin = panelEdgeMarginPx()
+        val oldWidth = params.width.takeIf { it > 0 } ?: defaultW
+        val newWidth = requestedWidth.coerceAtMost((dm.widthPixels - screenMargin).coerceAtLeast(1))
         if (oldWidth != newWidth) {
             val centerX = params.x + oldWidth / 2
             params.width = newWidth
             params.x = (centerX - newWidth / 2)
-                .coerceIn(16, (dm.widthPixels - newWidth - 16).coerceAtLeast(16))
+                .coerceIn(edgeMargin, (dm.widthPixels - newWidth - edgeMargin).coerceAtLeast(edgeMargin))
             try {
                 windowManager.updateViewLayout(panel, params)
             } catch (_: Exception) { }
@@ -3059,7 +3093,7 @@ class ReplyPanel(
                 windowManager.updateViewLayout(panel, params)
             } catch (_: Exception) { }
         } else {
-            resizePanelWidthKeepingCenter(PANEL_WIDTH)
+            resizePanelWidthKeepingCenter(panelWidthPx())
         }
         senderListBaseWindowX = null
         senderListBaseWindowY = null
@@ -3080,9 +3114,9 @@ class ReplyPanel(
         }
         val panel: View? = panelView
         val contentWidth = if (panel != null) {
-            (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+            measureContentWidthPx()
         } else {
-            PANEL_WIDTH
+            panelWidthPx()
         }
         val textWidth = (contentWidth - messagePreview.paddingLeft - messagePreview.paddingRight)
             .coerceAtLeast(1)
@@ -3110,7 +3144,7 @@ class ReplyPanel(
         val params = panelParams ?: return
         if (showingSenderList || !isShowing) return
 
-        val contentWidth = (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+        val contentWidth = measureContentWidthPx()
         val widthSpec = View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
         val heightUnspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
 

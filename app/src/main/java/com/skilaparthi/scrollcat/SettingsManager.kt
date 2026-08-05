@@ -115,14 +115,53 @@ object SettingsManager {
         }
     }
 
-    // Cat size (default 210px)
-    fun getCatSize(context: Context): Int {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("cat_size", 210)
+    // Cat size stored in dp (default 60dp ≈ former 210px on ~3.5 density devices).
+    const val DEFAULT_CAT_SIZE_DP = 60
+    const val MIN_CAT_SIZE_DP = 30
+    const val MAX_CAT_SIZE_DP = 115
+    private const val KEY_CAT_SIZE = "cat_size"
+    private const val KEY_CAT_SIZE_DP_MIGRATED = "cat_size_dp_migrated_v1"
+
+    /** Cat size in dp for settings UI; migrates legacy px (100–400) once on first read. */
+    fun getCatSizeDp(context: Context): Int = migrateCatSizeToDpIfNeeded(context)
+
+    /** Cat overlay layout size in pixels (dp converted at runtime for this device). */
+    fun getCatSizePixels(context: Context): Int {
+        val sizeDp = getCatSizeDp(context)
+        return (sizeDp * context.resources.displayMetrics.density).toInt()
     }
-    fun setCatSize(context: Context, size: Int) {
+
+    fun setCatSize(context: Context, sizeDp: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putInt("cat_size", size).apply()
+            .edit()
+            .putInt(KEY_CAT_SIZE, sizeDp.coerceIn(MIN_CAT_SIZE_DP, MAX_CAT_SIZE_DP))
+            .putBoolean(KEY_CAT_SIZE_DP_MIGRATED, true)
+            .apply()
+    }
+
+    /**
+     * One-time migration from the old px slider (100–400) to dp storage so existing
+     * users keep roughly the same on-screen cat size on their device.
+     */
+    private fun migrateCatSizeToDpIfNeeded(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_CAT_SIZE_DP_MIGRATED, false)) {
+            return prefs.getInt(KEY_CAT_SIZE, DEFAULT_CAT_SIZE_DP)
+                .coerceIn(MIN_CAT_SIZE_DP, MAX_CAT_SIZE_DP)
+        }
+        val stored = prefs.getInt(KEY_CAT_SIZE, DEFAULT_CAT_SIZE_DP)
+        val density = context.resources.displayMetrics.density
+        val migratedDp = when {
+            stored in 100..400 ->
+                kotlin.math.round(stored / density).toInt()
+            stored in MIN_CAT_SIZE_DP..MAX_CAT_SIZE_DP -> stored
+            else -> DEFAULT_CAT_SIZE_DP
+        }.coerceIn(MIN_CAT_SIZE_DP, MAX_CAT_SIZE_DP)
+        prefs.edit()
+            .putInt(KEY_CAT_SIZE, migratedDp)
+            .putBoolean(KEY_CAT_SIZE_DP_MIGRATED, true)
+            .apply()
+        return migratedDp
     }
 
     // Cat display mode: "always_visible" | "edge_docking" (default)
