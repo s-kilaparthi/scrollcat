@@ -68,6 +68,12 @@ class OverlayService : Service() {
         private const val ON_DEVICE_IDLE_TEARDOWN_MS = 5 * 60 * 1000L
         /** Soft fade for an already-open reply panel on screen wake (cat is instant). */
         private const val SCREEN_WAKE_PANEL_FADE_MS = 350L
+        /** Docked cat minimum edge length (dp; was 72px). */
+        private const val DOCKED_SIZE_MIN_DP = 21
+        private const val BADGE_SIZE_DP = 11
+        private const val DRAG_HANDLE_OVERSHOOT_DP = 17
+        private const val DRAG_HANDLE_OFFSET_DP = 9
+        private const val DOCK_Y_MARGIN_DP = 11
     }
 
     private lateinit var windowManager: WindowManager
@@ -620,7 +626,7 @@ class OverlayService : Service() {
                 setColor(Color.RED)
             }
             gravity = android.view.Gravity.CENTER
-            val size = 40
+            val size = dp(BADGE_SIZE_DP)
             layoutParams = FrameLayout.LayoutParams(size, size).apply {
                 gravity = android.view.Gravity.TOP or android.view.Gravity.END
             }
@@ -630,7 +636,7 @@ class OverlayService : Service() {
         container.addView(cat)
         container.addView(badge)
 
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
         val params = WindowManager.LayoutParams(
             catSize,
             catSize,
@@ -1074,7 +1080,7 @@ class OverlayService : Service() {
 
     private fun showAccessibilityExplanationCard() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
         animateTap()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
@@ -1100,7 +1106,7 @@ class OverlayService : Service() {
 
     fun showVoiceDictationPanel() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
         animateTap()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
@@ -1231,7 +1237,7 @@ class OverlayService : Service() {
     private fun persistFloatPositionAndDockSide(x: Int, y: Int) {
         SettingsManager.setCatFloatPosition(this, x, y)
         val screenWidth = resources.displayMetrics.widthPixels
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
         val centerX = x + catSize / 2
         val side = if (centerX < screenWidth / 2) "left" else "right"
         SettingsManager.setCatDockSide(this, side)
@@ -1239,7 +1245,8 @@ class OverlayService : Service() {
     }
 
     private fun dockedIconSize(): Int {
-        return (SettingsManager.getCatSize(this) * 0.55f).toInt().coerceAtLeast(72)
+        return (SettingsManager.getCatSizePixels(this) * 0.55f).toInt()
+            .coerceAtLeast(dp(DOCKED_SIZE_MIN_DP))
     }
 
     private fun dockedEdgeX(
@@ -1279,7 +1286,10 @@ class OverlayService : Service() {
         val (newWidth, newHeight) = currentDisplaySize()
         val dockSize = dockedIconSize()
         val newX = dockedEdgeX(dockSize, newWidth)
-        val newY = params.y.coerceIn(40, (newHeight - dockSize - 40).coerceAtLeast(40))
+        val newY = params.y.coerceIn(
+            dp(DOCK_Y_MARGIN_DP),
+            (newHeight - dockSize - dp(DOCK_Y_MARGIN_DP)).coerceAtLeast(dp(DOCK_Y_MARGIN_DP))
+        )
         params.width = dockSize
         params.height = dockSize
         params.x = newX
@@ -1406,7 +1416,10 @@ class OverlayService : Service() {
         val (screenWidth, screenHeight) = currentDisplaySize()
         val targetX = dockedEdgeX(dockSize, screenWidth)
         val targetY = SettingsManager.getCatFloatY(this)
-            .coerceIn(40, (screenHeight - dockSize - 40).coerceAtLeast(40))
+            .coerceIn(
+                dp(DOCK_Y_MARGIN_DP),
+                (screenHeight - dockSize - dp(DOCK_Y_MARGIN_DP)).coerceAtLeast(dp(DOCK_Y_MARGIN_DP))
+            )
         val startX = params.x
         val startY = params.y
         val startW = params.width
@@ -1474,7 +1487,7 @@ class OverlayService : Service() {
         }
 
         cancelDockAnimator()
-        val fullSize = SettingsManager.getCatSize(this)
+        val fullSize = SettingsManager.getCatSizePixels(this)
         val targetX = SettingsManager.getCatFloatX(this)
         val targetY = SettingsManager.getCatFloatY(this)
         val startX = params.x
@@ -1631,7 +1644,7 @@ class OverlayService : Service() {
 
         val catX = layoutParams?.x ?: 60
         val catY = layoutParams?.y ?: 600
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
 
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
@@ -1710,7 +1723,7 @@ class OverlayService : Service() {
 
         val catX = layoutParams?.x ?: 60
         val catY = layoutParams?.y ?: 600
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
 
         val bubble = android.widget.TextView(this).apply {
             val preview = if (translated.length > 100)
@@ -1847,19 +1860,20 @@ class OverlayService : Service() {
         }, 2000)
     }
 
-    fun updateCatSize(size: Int) {
+    fun updateCatSize(sizeDp: Int) {
+        val sizePx = (sizeDp * resources.displayMetrics.density).toInt()
         val params = layoutParams ?: return
         val view = containerView ?: return
         if (isEdgeDocked && SettingsManager.isEdgeDockingMode(this)) {
-            val dockSize = (size * 0.55f).toInt().coerceAtLeast(72)
+            val dockSize = (sizePx * 0.55f).toInt().coerceAtLeast(dp(DOCKED_SIZE_MIN_DP))
             params.width = dockSize
             params.height = dockSize
             params.x = dockedEdgeX(dockSize, currentDisplaySize().first)
             view.post { safeUpdateViewLayout(view, params) }
             return
         }
-        params.width = size
-        params.height = size
+        params.width = sizePx
+        params.height = sizePx
         view.post { safeUpdateViewLayout(view, params) }
     }
 
@@ -1931,7 +1945,7 @@ class OverlayService : Service() {
 
     fun showReplyPanel() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePixels(this)
         animateTap()
         // Hold undocked/visible for the entire time the panel is open.
         cancelDockVisibilityTimer()
@@ -2021,8 +2035,8 @@ class OverlayService : Service() {
 
     private fun showDragHandle(catParams: WindowManager.LayoutParams) {
         if (handleView != null) return
-        val catSize = SettingsManager.getCatSize(this)
-        val size = catSize + 60 // slightly bigger than cat
+        val catSize = SettingsManager.getCatSizePixels(this)
+        val size = catSize + dp(DRAG_HANDLE_OVERSHOOT_DP) // slightly bigger than cat
 
         val circle = android.view.View(this).apply {
             background = android.graphics.drawable.GradientDrawable().apply {
@@ -2040,8 +2054,8 @@ class OverlayService : Service() {
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
-            x = catParams.x - 30
-            y = catParams.y - 30
+            x = catParams.x - dp(DRAG_HANDLE_OFFSET_DP)
+            y = catParams.y - dp(DRAG_HANDLE_OFFSET_DP)
         }
 
         safeAddView(circle, params)
@@ -2052,8 +2066,8 @@ class OverlayService : Service() {
     private fun moveDragHandle(catParams: WindowManager.LayoutParams) {
         val view = handleView ?: return
         val params = handleParams ?: return
-        params.x = catParams.x - 30
-        params.y = catParams.y - 30
+        params.x = catParams.x - dp(DRAG_HANDLE_OFFSET_DP)
+        params.y = catParams.y - dp(DRAG_HANDLE_OFFSET_DP)
         safeUpdateViewLayout(view, params)
     }
 
