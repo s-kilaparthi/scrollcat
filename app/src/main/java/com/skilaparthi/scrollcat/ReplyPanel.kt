@@ -1202,7 +1202,55 @@ class ReplyPanel(
         Logger.d("Message ignored from list: ${entry.sender}")
         when {
             pending.isEmpty() -> dismiss()
-            pending.size == 1 -> showMessage(pending.first(), captureOpenSnapshot = true)
+            pending.size == 1 -> {
+                val remainingCount = pending.size
+                val panel = panelView
+                val header = messageBodyColumn?.getChildAt(0)
+                val body = messageBodyColumn
+                val footer = messageFooterBlock
+                android.util.Log.e(
+                    "ScrollCat",
+                    "###LIST_TO_SINGLE_DEBUG### closing card from list, " +
+                        "remaining count=$remainingCount, " +
+                        "panel.childCount=${panel?.childCount}, " +
+                        "header.visibility=${header?.visibility}, " +
+                        "body.visibility=${body?.visibility}, " +
+                        "footer.visibility=${footer?.visibility}, " +
+                        "body.height=${body?.height}, " +
+                        "panelParams.height=${panelParams?.height}"
+                )
+                // Same showMessage rebuild as card-tap / open — NOT a separate shortcut UI.
+                // fromPendingList=false here (unlike card tap). Height is NOT sync-applied
+                // on this call site; normal msgs rely on posted sizePanelForContent() from
+                // showThinking/showReplies (Gmail uses sync applyPanelHeightNow inside
+                // showMessage). 3-dot overflow also calls sizePanelForContent() — same
+                // relayout that makes content reappear when this bug hits.
+                showMessage(pending.first(), captureOpenSnapshot = true)
+                fun logListToSingle(phase: String) {
+                    val p = panelView
+                    val h = messageBodyColumn?.getChildAt(0)
+                    val b = messageBodyColumn
+                    val f = messageFooterBlock
+                    android.util.Log.e(
+                        "ScrollCat",
+                        "###LIST_TO_SINGLE_DEBUG### $phase closing card from list, " +
+                            "remaining count=$remainingCount, " +
+                            "panel.childCount=${p?.childCount}, " +
+                            "header.visibility=${h?.visibility}, " +
+                            "body.visibility=${b?.visibility}, " +
+                            "footer.visibility=${f?.visibility}, " +
+                            "body.height=${b?.height}, " +
+                            "body.measuredH=${b?.measuredHeight}, " +
+                            "panelParams.height=${panelParams?.height}, " +
+                            "hasApplyHeightSync=${messagePanelApplyHeightSync != null}"
+                    )
+                }
+                logListToSingle("AFTER showMessage return")
+                // Two posts: run after showMessage's posted sizePanelForContent apply.
+                panelView?.post {
+                    panelView?.post { logListToSingle("AFTER nested post (past sizePanelForContent?)") }
+                }
+            }
             else -> showSenderList()
         }
     }
@@ -2021,6 +2069,11 @@ class ReplyPanel(
         moreBtn.setOnClickListener {
             val expanding = overflowMenu.visibility != View.VISIBLE
             overflowMenu.visibility = if (expanding) View.VISIBLE else View.GONE
+            android.util.Log.e(
+                "ScrollCat",
+                "###LIST_TO_SINGLE_DEBUG### 3-dot overflow tapped - expanding=$expanding, " +
+                    "calling sizePanelForContent() (same relayout suspected to unstick blank panel)"
+            )
             sizePanelForContent()
         }
 

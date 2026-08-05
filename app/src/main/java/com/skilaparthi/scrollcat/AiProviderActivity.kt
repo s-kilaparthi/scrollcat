@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.View
 import android.widget.*
@@ -15,6 +16,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 class AiProviderActivity : Activity() {
 
@@ -417,7 +420,7 @@ class AiProviderActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 24, 0, 32)
-            setOnClickListener { showAddProviderDialog(existingProvider = null) }
+            setOnClickListener { onAddAiProviderClicked() }
 
             TextView(this@AiProviderActivity).apply {
                 text = "+ Add AI Provider"
@@ -442,6 +445,23 @@ class AiProviderActivity : Activity() {
             insets
         }
         renderProviderList()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::providerListLayout.isInitialized) {
+            loadProviders()
+            renderProviderList()
+        }
+    }
+
+    /** First-time setup → guided AiSetupActivity; otherwise add/edit modal. */
+    private fun onAddAiProviderClicked() {
+        if (providers.isEmpty() && !AiSetupActivity.hasCompletedAiSetup(this)) {
+            startActivity(Intent(this, AiSetupActivity::class.java))
+        } else {
+            showAddProviderDialog(existingProvider = null)
+        }
     }
 
     private fun refreshActiveLabel() {
@@ -850,203 +870,162 @@ class AiProviderActivity : Activity() {
         var selectedKey = initialKey
 
         val dialogRoot = ScrollView(this).apply {
-            setBackgroundColor(CARD)
+            setBackgroundColor(0xFF1A1A1E.toInt())
+            clipToPadding = false
+            isFillViewport = true
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            setBackgroundColor(CARD)
+            setPadding(dp(24), dp(24), dp(24), dp(16))
+            setBackgroundColor(0xFF1A1A1E.toInt())
         }
         dialogRoot.addView(content)
 
         TextView(this).apply {
             text = if (existingProvider != null) "Edit AI Provider" else "Add AI Provider"
-            textSize = 18f
+            textSize = 20f
             setTextColor(Color.WHITE)
             typeface = UiKit.headingTypeface(this@AiProviderActivity)
-            setPadding(0, 0, 0, dp(16))
+            setPadding(0, 0, 0, dp(4))
             content.addView(this)
         }
 
         TextView(this).apply {
-            text = "Choose a provider"
-            textSize = 13f
+            text = "Provider"
+            textSize = 12f
             setTextColor(MUTED)
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(8))
             content.addView(this)
         }
 
         val hintText = TextView(this).apply {
-            textSize = 13f
-            setTextColor(0xFFE8E4EF.toInt())
-            setPadding(0, dp(16), 0, dp(8))
+            textSize = 12f
+            setTextColor(MUTED)
+            setPadding(0, dp(8), 0, 0)
         }
 
-        val nameInput = EditText(this).apply {
-            setHintTextColor(0xFFA39BB0.toInt())
-            setTextColor(Color.WHITE)
-            textSize = 15f
-            setPadding(0, dp(8), 0, dp(8))
-            background = null
-            setText(existingProvider?.name ?: PROVIDER_OPTIONS.first { it.key == initialKey }.title)
-            setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
-            }
-        }
+        val (nameLayout, nameInput) = polishedOutlinedField(
+            label = "Provider Name",
+            placeholder = "Display name",
+            value = existingProvider?.name ?: PROVIDER_OPTIONS.first { it.key == initialKey }.title,
+            scrollParent = dialogRoot,
+            topMarginDp = 20
+        )
 
         val keyLinkText = TextView(this).apply {
             textSize = 13f
             setTextColor(ACCENT)
-            setPadding(0, dp(10), 0, dp(4))
+            setPadding(0, dp(14), 0, dp(4))
+            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
         }
+
+        // Prominent Groq action buttons (only when Groq is selected)
+        val groqStepsSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(16), 0, dp(4))
+        }
+        groqStepsSection.addView(
+            groqActionButton("Sign in to Groq", filled = false) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com")))
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(10) }
+        )
+        groqStepsSection.addView(
+            groqActionButton("Create API Key", filled = true) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys")))
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(6) }
+        )
+        groqStepsSection.addView(TextView(this).apply {
+            text = "Generate your key there, then paste it below."
+            textSize = 13f
+            setTextColor(MUTED)
+            setPadding(0, dp(4), 0, dp(8))
+        })
 
         val customFieldsSection = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
+            setPadding(0, dp(8), 0, 0)
         }
-        val customEndpointInput = EditText(this).apply {
-            hint = "https://..."
-            setHintTextColor(0xFFA39BB0.toInt())
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            setPadding(0, dp(8), 0, dp(8))
-            background = null
-            setText(existingProvider?.endpoint ?: "")
-            setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
-            }
-        }
-        val customModelInput = EditText(this).apply {
-            hint = "Your model name"
-            setHintTextColor(0xFFA39BB0.toInt())
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            setPadding(0, dp(8), 0, dp(8))
-            background = null
-            setText(existingProvider?.model ?: "")
-            setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
-            }
-        }
+        val (customEndpointLayout, customEndpointInput) = polishedOutlinedField(
+            label = "Custom endpoint",
+            placeholder = "https://...",
+            value = existingProvider?.endpoint ?: "",
+            scrollParent = dialogRoot,
+            topMarginDp = 12
+        )
+        val (customModelLayout, customModelInput) = polishedOutlinedField(
+            label = "Model name",
+            placeholder = "Your model name",
+            value = existingProvider?.model ?: "",
+            scrollParent = dialogRoot,
+            topMarginDp = 12
+        )
+        customFieldsSection.addView(customEndpointLayout)
+        customFieldsSection.addView(customModelLayout)
 
-        val cardViews = mutableMapOf<String, LinearLayout>()
-        val row1 = LinearLayout(this).apply {
+        // Compact single-row chip selectors
+        val chipViews = mutableMapOf<String, TextView>()
+        val chipRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-        val row2 = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(10) }
-        }
-
-        PROVIDER_OPTIONS.forEachIndexed { index, info ->
-            val card = buildSelectorCard(info, selectedKey == info.key) { key ->
+        PROVIDER_OPTIONS.forEach { info ->
+            val chip = buildSelectorChip(info, selectedKey == info.key) { key ->
                 selectedKey = key
-                cardViews.values.forEach { layout ->
-                    val k = layout.tag as String
-                    updateSelectorCard(layout, k == selectedKey)
+                chipViews.values.forEach { view ->
+                    val k = view.tag as String
+                    updateSelectorChip(view, k == selectedKey)
                 }
                 applyProviderSelection(
-                    selectedKey, nameInput, hintText, keyLinkText,
+                    selectedKey, nameInput, hintText, keyLinkText, groqStepsSection,
                     customFieldsSection, customEndpointInput, customModelInput
                 )
             }
-            card.tag = info.key
-            cardViews[info.key] = card
-            if (index < 2) row1.addView(card) else row2.addView(card)
+            chip.tag = info.key
+            chipViews[info.key] = chip
+            chipRow.addView(chip)
         }
-        content.addView(row1)
-        content.addView(row2)
+        content.addView(chipRow)
         content.addView(hintText)
 
-        content.addView(thinDivider())
+        content.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
+            ).apply { topMargin = dp(14); bottomMargin = dp(4) }
+            setBackgroundColor(STROKE)
+        })
 
-        TextView(this).apply {
-            text = "Provider name"
-            textSize = 13f
-            setTextColor(MUTED)
-            setPadding(0, dp(16), 0, dp(4))
-            content.addView(this)
-        }
-        content.addView(nameInput)
-        content.addView(thinDivider())
+        // Groq actions sit above the spacious entry fields when relevant
+        content.addView(groqStepsSection)
 
-        TextView(this).apply {
-            text = "API Key"
-            textSize = 13f
-            setTextColor(MUTED)
-            setPadding(0, dp(16), 0, dp(4))
-            content.addView(this)
-        }
-
-        val keyRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        var keyVisible = false
-        val keyInput = EditText(this).apply {
-            hint = "Paste your key here"
-            setHintTextColor(0xFFA39BB0.toInt())
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            setPadding(0, dp(8), 0, dp(8))
-            background = null
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            setText(existingProvider?.apiKey ?: "")
-            setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(dialogRoot, v)
-            }
-        }
-        val eyeBtn = TextView(this).apply {
-            text = "👁"
-            textSize = 18f
-            setPadding(dp(12), 0, 0, 0)
-            setOnClickListener {
-                keyVisible = !keyVisible
-                keyInput.inputType = if (keyVisible)
-                    android.text.InputType.TYPE_CLASS_TEXT or
-                        android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                else
-                    android.text.InputType.TYPE_CLASS_TEXT or
-                        android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                keyInput.setSelection(keyInput.text.length)
-                text = if (keyVisible) "🔒" else "👁"
-            }
-        }
-        keyRow.addView(keyInput)
-        keyRow.addView(eyeBtn)
-        content.addView(keyRow)
+        // Visual focus: name + API key with generous spacing
+        content.addView(nameLayout)
+        val (keyLayout, keyInput) = polishedOutlinedField(
+            label = "API Key",
+            placeholder = "Paste your key here",
+            value = existingProvider?.apiKey ?: "",
+            scrollParent = dialogRoot,
+            password = true,
+            topMarginDp = 20
+        )
+        content.addView(keyLayout)
         content.addView(keyLinkText)
-
-        TextView(this).apply {
-            text = "Custom endpoint"
-            textSize = 13f
-            setTextColor(MUTED)
-            setPadding(0, dp(12), 0, dp(4))
-            customFieldsSection.addView(this)
-        }
-        customFieldsSection.addView(customEndpointInput)
-
-        TextView(this).apply {
-            text = "Model name"
-            textSize = 13f
-            setTextColor(MUTED)
-            setPadding(0, dp(12), 0, dp(4))
-            customFieldsSection.addView(this)
-        }
-        customFieldsSection.addView(customModelInput)
         content.addView(customFieldsSection)
 
         applyProviderSelection(
-            selectedKey, nameInput, hintText, keyLinkText,
+            selectedKey, nameInput, hintText, keyLinkText, groqStepsSection,
             customFieldsSection, customEndpointInput, customModelInput
         )
 
@@ -1111,8 +1090,117 @@ class AiProviderActivity : Activity() {
             .setNegativeButton("Cancel", null)
             .create()
 
-        dialog.window?.setBackgroundDrawable(GradientDrawable().apply { setColor(CARD) })
+        dialog.window?.setBackgroundDrawable(GradientDrawable().apply {
+            setColor(0xFF1A1A1E.toInt())
+            cornerRadius = dp(20).toFloat()
+        })
         dialog.show()
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(ACCENT)
+        dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(MUTED)
+    }
+
+    private fun groqActionButton(label: String, filled: Boolean, onClick: () -> Unit): MaterialButton {
+        return if (filled) {
+            MaterialButton(this).apply {
+                text = label
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(0xFF1A1A1E.toInt())
+                backgroundTintList = ColorStateList.valueOf(ACCENT)
+                cornerRadius = dp(24)
+                minHeight = dp(48)
+                insetTop = 0
+                insetBottom = 0
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                setOnClickListener { onClick() }
+            }
+        } else {
+            MaterialButton(
+                ContextThemeWrapper(
+                    this,
+                    com.google.android.material.R.style.Widget_Material3_Button_OutlinedButton
+                )
+            ).apply {
+                text = label
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(ACCENT)
+                strokeColor = ColorStateList.valueOf(ACCENT)
+                strokeWidth = dp(1)
+                backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+                cornerRadius = dp(24)
+                minHeight = dp(48)
+                insetTop = 0
+                insetBottom = 0
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                setOnClickListener { onClick() }
+            }
+        }
+    }
+
+    private fun polishedOutlinedField(
+        label: String,
+        placeholder: String,
+        value: String,
+        scrollParent: ScrollView,
+        password: Boolean = false,
+        topMarginDp: Int = 12
+    ): Pair<TextInputLayout, EditText> {
+        val input = TextInputEditText(this).apply {
+            setTextColor(Color.WHITE)
+            setHintTextColor(MUTED)
+            textSize = 16f
+            if (value.isNotEmpty()) setText(value)
+            background = null
+            setSingleLine(true)
+            maxLines = 1
+            setPadding(dp(6), dp(14), dp(6), dp(14))
+            if (password) {
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) scrollFieldIntoView(scrollParent, v)
+            }
+        }
+        val layout = TextInputLayout(
+            ContextThemeWrapper(
+                this,
+                com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox
+            )
+        ).apply {
+            hint = label
+            placeholderText = placeholder
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            setBoxBackgroundColor(CARD)
+            setBoxStrokeColorStateList(
+                ColorStateList(
+                    arrayOf(
+                        intArrayOf(android.R.attr.state_focused),
+                        intArrayOf()
+                    ),
+                    intArrayOf(ACCENT, STROKE)
+                )
+            )
+            defaultHintTextColor = ColorStateList.valueOf(MUTED)
+            setHintTextColor(ColorStateList.valueOf(MUTED))
+            if (password) {
+                endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+                setEndIconTintList(ColorStateList.valueOf(MUTED))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(topMarginDp) }
+            addView(
+                input,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        return layout to input
     }
 
     private fun applyProviderSelection(
@@ -1120,6 +1208,7 @@ class AiProviderActivity : Activity() {
         nameInput: EditText,
         hintText: TextView,
         keyLinkText: TextView,
+        groqStepsSection: View,
         customFieldsSection: LinearLayout,
         customEndpointInput: EditText,
         customModelInput: EditText
@@ -1131,8 +1220,17 @@ class AiProviderActivity : Activity() {
             nameInput.setText(info.title)
         }
         hintText.text = info.hint
-        keyLinkText.text = info.keyLinkText
-        keyLinkText.visibility = if (info.keyLinkUrl.isNotEmpty() || selectedKey == "custom") View.VISIBLE else View.GONE
+
+        val isGroq = selectedKey == "groq"
+        groqStepsSection.visibility = if (isGroq) View.VISIBLE else View.GONE
+        if (isGroq) {
+            keyLinkText.visibility = View.GONE
+            keyLinkText.text = ""
+        } else {
+            keyLinkText.text = info.keyLinkText
+            keyLinkText.visibility =
+                if (info.keyLinkUrl.isNotEmpty() || selectedKey == "custom") View.VISIBLE else View.GONE
+        }
 
         if (selectedKey == "custom") {
             customFieldsSection.visibility = View.VISIBLE
@@ -1143,54 +1241,35 @@ class AiProviderActivity : Activity() {
         }
     }
 
-    private fun buildSelectorCard(
+    private fun buildSelectorChip(
         info: ProviderInfo,
         selected: Boolean,
         onSelect: (String) -> Unit
-    ): LinearLayout {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+    ): TextView {
+        return TextView(this).apply {
+            text = "${info.emoji} ${info.title}"
+            textSize = 12f
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(14), dp(12), dp(14))
-            background = selectorCardBackground(selected)
+            maxLines = 1
+            setPadding(dp(6), dp(8), dp(6), dp(8))
+            background = selectorChipBackground(selected)
+            setTextColor(if (selected) Color.WHITE else MUTED)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                .apply { setMargins(dp(4), 0, dp(4), 0) }
+                .apply { setMargins(dp(3), 0, dp(3), 0) }
             setOnClickListener { onSelect(info.key) }
-
-            TextView(this@AiProviderActivity).apply {
-                text = info.emoji
-                textSize = 22f
-                gravity = Gravity.CENTER
-                addView(this)
-            }
-            TextView(this@AiProviderActivity).apply {
-                text = info.title
-                textSize = 14f
-                setTextColor(Color.WHITE)
-                typeface = UiKit.headingTypeface(this@AiProviderActivity)
-                gravity = Gravity.CENTER
-                setPadding(0, dp(6), 0, 0)
-                addView(this)
-            }
-            TextView(this@AiProviderActivity).apply {
-                text = info.subtitle
-                textSize = 11f
-                setTextColor(MUTED)
-                gravity = Gravity.CENTER
-                setPadding(0, dp(2), 0, 0)
-                addView(this)
-            }
         }
     }
 
-    private fun updateSelectorCard(card: LinearLayout, selected: Boolean) {
-        card.background = selectorCardBackground(selected)
+    private fun updateSelectorChip(chip: TextView, selected: Boolean) {
+        chip.background = selectorChipBackground(selected)
+        chip.setTextColor(if (selected) Color.WHITE else MUTED)
     }
 
-    private fun selectorCardBackground(selected: Boolean) = GradientDrawable().apply {
-        setColor(if (selected) CARD_SELECTED else 0xFF2E2A3A.toInt())
-        cornerRadius = dp(12).toFloat()
-        setStroke(if (selected) 2 else 1, if (selected) ACCENT else STROKE)
+    private fun selectorChipBackground(selected: Boolean) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(20).toFloat()
+        setColor(if (selected) CARD_SELECTED else CARD)
+        setStroke(if (selected) dp(2) else dp(1), if (selected) ACCENT else STROKE)
     }
 
     private fun guessPresetKey(provider: AiProvider): String {

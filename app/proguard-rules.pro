@@ -74,3 +74,19 @@
 
 # Keep activity classes
 -keep class * extends android.app.Activity { *; }
+
+# Preserve all JNI native method entry points
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Keep LiteRT-LM classes and their members completely intact — this library's native
+# code performs JNI lookups by exact method/class name (SamplerConfig, ThinkingConfig,
+# SessionConfig, etc.) with no null-check before invoking, so R8 renaming/stripping
+# anything here causes a fatal native SIGABRT crash. This package is small (mostly JNI
+# wrappers) so keeping it fully adds negligible APK size.
+-keep class com.google.ai.edge.litertlm.** {
+    *;
+}
+
+-keepattributes Signature, InnerClasses, EnclosingMethod

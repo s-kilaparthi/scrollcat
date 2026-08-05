@@ -1,8 +1,10 @@
 package com.skilaparthi.scrollcat
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -539,7 +541,18 @@ class SettingsActivity : Activity() {
             addView(accessibilityButton.first)
 
             val notificationButton = setupButton("Enable Notification Access") {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                    val componentName =
+                        ComponentName(this@SettingsActivity, CatNotificationListener::class.java)
+                    intent.putExtra(
+                        Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                        componentName.flattenToString()
+                    )
+                    startActivity(intent)
+                } else {
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
             }
             setupNotificationBadge = notificationButton.second
             addView(notificationButton.first)

@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.skilaparthi.scrollcat.app-mergeReleaseResources-47:/values-v25/values-v25.xml",
+            "outputFile": "com.skilaparthi.scrollcat.app-mergeReleaseResources-5:/values-v25/values-v25.xml",
             "map": [
                 {
-                    "source": "/home/skilaparthi/.gradle/caches/transforms-4/e8f124dece0ef5d3319453f8d31fc364/transformed/appcompat-1.7.0/res/values-v25/values-v25.xml",
+                    "source": "/tmp/cursor-sandbox-cache/4a9488759cbd510e0fcf399b08e24474/gradle/caches/transforms-4/e8f124dece0ef5d3319453f8d31fc364/transformed/appcompat-1.7.0/res/values-v25/values-v25.xml",
                     "from": {
                         "startLines": "2,3,4,6",
                         "startColumns": "4,4,4,4",

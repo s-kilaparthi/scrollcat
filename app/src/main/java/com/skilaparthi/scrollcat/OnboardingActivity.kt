@@ -1,6 +1,7 @@
 package com.skilaparthi.scrollcat
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -9,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.content.res.ColorStateList
@@ -1198,7 +1200,17 @@ class OnboardingActivity : Activity() {
         ).apply { setMargins(0, dp(4), 0, dp(12)) })
 
         root.addView(permissionRow("🔔", "Notification access", notifOk) {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                val componentName = ComponentName(this, CatNotificationListener::class.java)
+                intent.putExtra(
+                    Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                    componentName.flattenToString()
+                )
+                startActivity(intent)
+            } else {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1274,11 +1286,18 @@ class OnboardingActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, dp(4), 0, 0) })
             root.addView(TextView(this).apply {
-                text = "After the badge appears, tap the cat to try a reply"
+                text = "Tip: long-press and drag the cat to move it anywhere on your screen."
                 textSize = 13f
                 setTextColor(MUTED)
                 gravity = Gravity.CENTER
                 setPadding(0, dp(28), 0, 0)
+            })
+            root.addView(TextView(this).apply {
+                text = "After the badge appears, tap the cat to try a reply"
+                textSize = 13f
+                setTextColor(MUTED)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(12), 0, 0)
             })
         }
     }

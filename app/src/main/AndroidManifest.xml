@@ -9,6 +9,11 @@
     <!-- Claude API (Pro tier) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Override RECORD_AUDIO's implied required microphone so mic-less tablets aren't filtered. -->
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
     <!-- Package visibility (API 30+): allow icon/label lookups for messaging apps -->
     <queries>
         <intent>
