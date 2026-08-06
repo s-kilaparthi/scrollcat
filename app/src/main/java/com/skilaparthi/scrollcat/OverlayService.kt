@@ -25,6 +25,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
+import android.view.Choreographer
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.Gravity
@@ -68,6 +70,8 @@ class OverlayService : Service() {
         private const val ON_DEVICE_IDLE_TEARDOWN_MS = 5 * 60 * 1000L
         /** Soft fade for an already-open reply panel on screen wake (cat is instant). */
         private const val SCREEN_WAKE_PANEL_FADE_MS = 350L
+        /** Ignore stacked summon/dismiss taps that cause FGS start/stop races. */
+        private const val SUMMON_DISMISS_DEBOUNCE_MS = 400L
     }
 
     private lateinit var windowManager: WindowManager
@@ -251,9 +255,17 @@ class OverlayService : Service() {
      */
     private var heldByTextFocus = false
     private var isDismissing = false
+    /**
+     * Bumped to cancel an in-flight dismiss fade / posted finish when a new SUMMON
+     * arrives mid-shutdown — prevents stopForeground/stopSelf racing a re-start.
+     */
+    private var dismissGeneration = 0
     private var dismissFadeAnimator: Animator? = null
     /** Invoked once after the dismiss fade finishes (or immediately if fade is skipped). */
     private var onDismissFadeCompleted: (() -> Unit)? = null
+    /** Debounce rapid Summon/Dismiss taps that stack startForegroundService / stop races. */
+    private var lastSummonElapsedMs = 0L
+    private var lastDismissElapsedMs = 0L
     private var dockAnimator: ValueAnimator? = null
     private val dockHandler = Handler(Looper.getMainLooper())
     private val dockVisibilityRunnable = Runnable {
@@ -303,6 +315,9 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // FIRST: satisfy startForegroundService() before any other work — Android kills
+        // the app if startForeground() is delayed across summon/dismiss churn.
+        startAsForeground()
         android.util.Log.d(
             "ScrollCat",
             "Summon/onCreate - isDestroyed=$isDestroyed instance=${instance != null} " +
@@ -322,8 +337,8 @@ class OverlayService : Service() {
         }
         instance = this
         isDestroyed = false
+        isDismissing = false
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        startAsForeground()
         DailyDigestNotifier.maybeShow(this)
         addCatView()
         replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
@@ -367,13 +382,19 @@ class OverlayService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        val now = SystemClock.elapsedRealtime()
         android.util.Log.d(
             "ScrollCat",
             "Summon called - current state: action=$action isDestroyed=$isDestroyed " +
-                "containerAttached=${isViewAttached(containerView)} catView=$catView " +
-                "isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha} startId=$startId"
+                "isDismissing=$isDismissing containerAttached=${isViewAttached(containerView)} " +
+                "catView=$catView isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha} startId=$startId"
         )
         if (action == ACTION_DISMISS) {
+            if (now - lastDismissElapsedMs < SUMMON_DISMISS_DEBOUNCE_MS) {
+                android.util.Log.d("ScrollCat", "Dismiss debounced — ignoring rapid repeat")
+                return START_NOT_STICKY
+            }
+            lastDismissElapsedMs = now
             android.util.Log.d(
                 "ScrollCat",
                 "Dismiss called - current state: isDestroyed=$isDestroyed " +
@@ -383,7 +404,29 @@ class OverlayService : Service() {
             dismissAndStop(animated = true)
             return START_NOT_STICKY
         }
-        // Re-summon while service still alive: re-attach cat if the view was lost
+
+        // Each startForegroundService() requires startForeground() within the FGS timeout.
+        // Re-assert immediately — covers sticky restart AND summon while mid-dismiss after
+        // stopForeground may have already run (or is about to).
+        startAsForeground()
+
+        if (action == ACTION_SUMMON) {
+            val attached = isViewAttached(containerView)
+            if (!isDismissing && attached &&
+                now - lastSummonElapsedMs < SUMMON_DISMISS_DEBOUNCE_MS
+            ) {
+                android.util.Log.d("ScrollCat", "Summon debounced — already on screen")
+                return START_STICKY
+            }
+            lastSummonElapsedMs = now
+        }
+
+        // Mid-fade dismiss + new summon: cancel stopForeground/stopSelf so they don't
+        // race the newly asserted foreground state.
+        if (isDismissing) {
+            abortDismissForResummon()
+        }
+
         ensureCatOnScreen()
         return START_STICKY
     }
@@ -408,9 +451,11 @@ class OverlayService : Service() {
     private fun dismissAndStop(animated: Boolean = true) {
         if (isDismissing) return
         isDismissing = true
+        val token = ++dismissGeneration
         android.util.Log.d(
             "ScrollCat",
-            "dismissAndStop - animated=$animated (fade will remove view only after animation end)"
+            "dismissAndStop - animated=$animated token=$token " +
+                "(fade will remove view only after animation end)"
         )
         cancelDockAnimator()
         cancelDockVisibilityTimer()
@@ -428,7 +473,7 @@ class OverlayService : Service() {
                 "ScrollCat",
                 "Fade skipped - animated=$animated attached=${isViewAttached(container)} container=$container"
             )
-            finishDismissAndStop()
+            if (token == dismissGeneration && isDismissing) finishDismissAndStop()
             return
         }
 
@@ -453,8 +498,14 @@ class OverlayService : Service() {
 
         // Post so a full-opacity frame can paint before the fade begins.
         container.post {
-            if (isDestroyed || containerView !== container || !isViewAttached(container)) {
-                finishDismissAndStop()
+            if (token != dismissGeneration || !isDismissing || isDestroyed ||
+                containerView !== container || !isViewAttached(container)
+            ) {
+                android.util.Log.d(
+                    "ScrollCat",
+                    "Fade aborted before start — tokenMatch=${token == dismissGeneration} " +
+                        "isDismissing=$isDismissing"
+                )
                 return@post
             }
             container.alpha = 1f
@@ -473,12 +524,40 @@ class OverlayService : Service() {
                         android.util.Log.d("ScrollCat", "Fade animation completed")
                         dismissFadeAnimator = null
                         // ONLY place in this flow that removes the view / stops the service.
-                        if (!isDestroyed) finishDismissAndStop()
+                        if (token == dismissGeneration && isDismissing && !isDestroyed) {
+                            finishDismissAndStop()
+                        } else {
+                            android.util.Log.d(
+                                "ScrollCat",
+                                "Fade end ignored — dismiss was aborted by summon " +
+                                    "(tokenMatch=${token == dismissGeneration} isDismissing=$isDismissing)"
+                            )
+                        }
                     }
                 })
                 start()
             }
         }
+    }
+
+    /**
+     * Cancel an in-progress dismiss so a new SUMMON can keep the service alive without
+     * a delayed stopForeground/stopSelf from the previous fade.
+     */
+    private fun abortDismissForResummon() {
+        android.util.Log.d("ScrollCat", "abortDismissForResummon — cancelling mid-fade dismiss")
+        dismissGeneration++
+        isDismissing = false
+        onDismissFadeCompleted = null
+        dismissFadeAnimator?.removeAllListeners()
+        dismissFadeAnimator?.cancel()
+        dismissFadeAnimator = null
+        containerView?.animate()?.cancel()
+        catView?.animate()?.cancel()
+        containerView?.alpha = 1f
+        catView?.alpha = 1f
+        containerView?.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
     }
 
     private fun finishDismissAndStop() {
@@ -495,6 +574,7 @@ class OverlayService : Service() {
         layoutParams = null
         isEdgeDocked = false
         awaitingInitialDock = false
+        isDismissing = false
 
         val completed = onDismissFadeCompleted
         onDismissFadeCompleted = null
@@ -630,7 +710,7 @@ class OverlayService : Service() {
         container.addView(cat)
         container.addView(badge)
 
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
         val params = WindowManager.LayoutParams(
             catSize,
             catSize,
@@ -685,9 +765,21 @@ class OverlayService : Service() {
         private var lastTouchRawY = 0f
         private var moveDragStarted = false
 
+        // Frame-paced drag: touch only updates target; Choreographer applies layouts 1×/vsync.
+        private var dragTargetX = 0
+        private var dragTargetY = 0
+        private var hasPendingDragTarget = false
+        private var dragFrameCallbackScheduled = false
+        private val dragFrameCallback = Choreographer.FrameCallback {
+            dragFrameCallbackScheduled = false
+            applyPendingDragLayout()
+        }
+
         private val handler = Handler(Looper.getMainLooper())
         private val moveModeTimeoutRunnable = Runnable {
             if (!isDragMode || moveDragStarted) return@Runnable
+            cancelScheduledDragFrame()
+            hasPendingDragTarget = false
             isDragMode = false
             suppressTapGestures = false
             hideDragHandle()
@@ -710,6 +802,9 @@ class OverlayService : Service() {
             homeY = p.y
             pressStartTouchX = lastTouchRawX
             pressStartTouchY = lastTouchRawY
+            dragTargetX = p.x
+            dragTargetY = p.y
+            hasPendingDragTarget = false
             showDragHandle(p)
             showCloseZone()
             cancelDockVisibilityTimer()
@@ -723,8 +818,43 @@ class OverlayService : Service() {
             handler.removeCallbacks(moveModeTimeoutRunnable)
         }
 
+        private fun cancelScheduledDragFrame() {
+            if (dragFrameCallbackScheduled) {
+                Choreographer.getInstance().removeFrameCallback(dragFrameCallback)
+                dragFrameCallbackScheduled = false
+            }
+        }
+
+        private fun scheduleDragFrame() {
+            if (dragFrameCallbackScheduled) return
+            dragFrameCallbackScheduled = true
+            Choreographer.getInstance().postFrameCallback(dragFrameCallback)
+        }
+
+        /** Apply latest drag target → magnet → cat + handle windows (once per frame). */
+        private fun applyPendingDragLayout() {
+            if (!hasPendingDragTarget) return
+            hasPendingDragTarget = false
+            params.x = dragTargetX
+            params.y = dragTargetY
+            applyCloseZoneMagnet(params)
+            safeUpdateViewLayout(containerView, params, fromTouch = true)
+            moveDragHandle(params)
+            updateCloseZoneHighlight(params)
+        }
+
+        /** Flush any pending frame so UP/CANCEL sees the true final position. */
+        private fun flushPendingDragLayout() {
+            cancelScheduledDragFrame()
+            if (hasPendingDragTarget) {
+                applyPendingDragLayout()
+            }
+        }
+
         fun cleanup() {
             cancelMoveModeTimeout()
+            cancelScheduledDragFrame()
+            hasPendingDragTarget = false
             handler.removeCallbacksAndMessages(null)
         }
 
@@ -861,7 +991,7 @@ class OverlayService : Service() {
                         return true
                     }
 
-                    // Continuous long-press drag — same finger, no lift required
+                    // Continuous long-press drag — frame-paced (Choreographer), not per touch sample
                     if (isDragMode) {
                         if (!moveDragStarted) {
                             moveDragStarted = true
@@ -869,13 +999,10 @@ class OverlayService : Service() {
                         }
                         val dx = event.rawX - pressStartTouchX
                         val dy = event.rawY - pressStartTouchY
-                        params.x = homeX + dx.toInt()
-                        params.y = homeY + dy.toInt()
-                        // Soft snap toward close-zone center when clearly over it
-                        applyCloseZoneMagnet(params)
-                        safeUpdateViewLayout(containerView, params, fromTouch = true)
-                        moveDragHandle(params)
-                        updateCloseZoneHighlight(params)
+                        dragTargetX = homeX + dx.toInt()
+                        dragTargetY = homeY + dy.toInt()
+                        hasPendingDragTarget = true
+                        scheduleDragFrame()
                         return true
                     }
 
@@ -910,6 +1037,8 @@ class OverlayService : Service() {
 
                     // Finish continuous Move drag
                     if (isDragMode) {
+                        // Apply last target before close-zone / persist so we don't drop a frame.
+                        flushPendingDragLayout()
                         val dismissNow = isCatClearlyInCloseZone(params)
                         hideDragHandle()
                         isDragMode = false
@@ -1014,7 +1143,7 @@ class OverlayService : Service() {
     private fun showNoAccessibilityToast() {
         android.widget.Toast.makeText(
             this,
-            "Enable ScrollCat in Accessibility settings first",
+            "Long-press cat to move across the screen",
             android.widget.Toast.LENGTH_SHORT
         ).show()
     }
@@ -1074,7 +1203,7 @@ class OverlayService : Service() {
 
     private fun showAccessibilityExplanationCard() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
         animateTap()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
@@ -1100,7 +1229,7 @@ class OverlayService : Service() {
 
     fun showVoiceDictationPanel() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
         animateTap()
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
@@ -1231,7 +1360,7 @@ class OverlayService : Service() {
     private fun persistFloatPositionAndDockSide(x: Int, y: Int) {
         SettingsManager.setCatFloatPosition(this, x, y)
         val screenWidth = resources.displayMetrics.widthPixels
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
         val centerX = x + catSize / 2
         val side = if (centerX < screenWidth / 2) "left" else "right"
         SettingsManager.setCatDockSide(this, side)
@@ -1239,7 +1368,9 @@ class OverlayService : Service() {
     }
 
     private fun dockedIconSize(): Int {
-        return (SettingsManager.getCatSize(this) * 0.55f).toInt().coerceAtLeast(72)
+        val dockDp = (SettingsManager.getCatSizeDp(this) * 0.55f).toInt()
+            .coerceAtLeast(24)
+        return dp(dockDp)
     }
 
     private fun dockedEdgeX(
@@ -1474,7 +1605,7 @@ class OverlayService : Service() {
         }
 
         cancelDockAnimator()
-        val fullSize = SettingsManager.getCatSize(this)
+        val fullSize = SettingsManager.getCatSizePx(this)
         val targetX = SettingsManager.getCatFloatX(this)
         val targetY = SettingsManager.getCatFloatY(this)
         val startX = params.x
@@ -1631,7 +1762,7 @@ class OverlayService : Service() {
 
         val catX = layoutParams?.x ?: 60
         val catY = layoutParams?.y ?: 600
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
 
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
@@ -1710,7 +1841,7 @@ class OverlayService : Service() {
 
         val catX = layoutParams?.x ?: 60
         val catY = layoutParams?.y ?: 600
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
 
         val bubble = android.widget.TextView(this).apply {
             val preview = if (translated.length > 100)
@@ -1847,11 +1978,13 @@ class OverlayService : Service() {
         }, 2000)
     }
 
-    fun updateCatSize(size: Int) {
+    fun updateCatSize(sizeDp: Int) {
         val params = layoutParams ?: return
         val view = containerView ?: return
+        val size = dp(sizeDp.coerceIn(SettingsManager.CAT_SIZE_DP_MIN, SettingsManager.CAT_SIZE_DP_MAX))
         if (isEdgeDocked && SettingsManager.isEdgeDockingMode(this)) {
-            val dockSize = (size * 0.55f).toInt().coerceAtLeast(72)
+            val dockDp = (sizeDp * 0.55f).toInt().coerceAtLeast(24)
+            val dockSize = dp(dockDp)
             params.width = dockSize
             params.height = dockSize
             params.x = dockedEdgeX(dockSize, currentDisplaySize().first)
@@ -1931,7 +2064,7 @@ class OverlayService : Service() {
 
     fun showReplyPanel() {
         val params = layoutParams ?: return
-        val catSize = SettingsManager.getCatSize(this)
+        val catSize = SettingsManager.getCatSizePx(this)
         animateTap()
         // Hold undocked/visible for the entire time the panel is open.
         cancelDockVisibilityTimer()
@@ -2021,8 +2154,9 @@ class OverlayService : Service() {
 
     private fun showDragHandle(catParams: WindowManager.LayoutParams) {
         if (handleView != null) return
-        val catSize = SettingsManager.getCatSize(this)
-        val size = catSize + 60 // slightly bigger than cat
+        val catSize = SettingsManager.getCatSizePx(this)
+        val pad = dp(20)
+        val size = catSize + pad * 2 // slightly bigger than cat
 
         val circle = android.view.View(this).apply {
             background = android.graphics.drawable.GradientDrawable().apply {
@@ -2040,8 +2174,8 @@ class OverlayService : Service() {
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
-            x = catParams.x - 30
-            y = catParams.y - 30
+            x = catParams.x - pad
+            y = catParams.y - pad
         }
 
         safeAddView(circle, params)
@@ -2052,8 +2186,9 @@ class OverlayService : Service() {
     private fun moveDragHandle(catParams: WindowManager.LayoutParams) {
         val view = handleView ?: return
         val params = handleParams ?: return
-        params.x = catParams.x - 30
-        params.y = catParams.y - 30
+        val pad = dp(20)
+        params.x = catParams.x - pad
+        params.y = catParams.y - pad
         safeUpdateViewLayout(view, params)
     }
 

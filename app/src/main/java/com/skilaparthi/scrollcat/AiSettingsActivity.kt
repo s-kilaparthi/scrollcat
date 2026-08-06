@@ -279,7 +279,7 @@ class AiSettingsActivity : Activity() {
         downloadButton.visibility = View.VISIBLE
         downloadButton.isEnabled = false
         downloadButton.text = "Downloading…"
-        statusText.text = "Downloading on-device model…"
+        statusText.text = ModelDownloadManager.formatDownloadHeadline(percent)
         progressBar.visibility = View.VISIBLE
         progressBar.progress = percent
         progressLabel.visibility = View.VISIBLE

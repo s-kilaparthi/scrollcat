@@ -61,7 +61,8 @@ class AiSetupActivity : Activity() {
 
         /**
          * What the Add-AI banner entry should show, based on real setup state
-         * (not a persisted path tap).
+         * (not a persisted path tap). High-RAM → explicit choice; else Groq.
+         * No silent background download.
          */
         fun resolveBannerDestination(context: android.content.Context): String {
             val hasGroqKey = ApiKeyStore.hasGroqApiKey(context)
@@ -276,7 +277,6 @@ class AiSetupActivity : Activity() {
         choiceContinueButton?.text = "Continue setup"
         choiceContinueButton?.isEnabled = true
     }
-
     private fun attachChoiceDownloadListener() {
         if (choiceDownloadListener != null) return
         val listener = object : ModelDownloadManager.Listener {

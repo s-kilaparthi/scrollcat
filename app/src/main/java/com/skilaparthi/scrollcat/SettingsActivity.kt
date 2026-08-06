@@ -41,7 +41,8 @@ class SettingsActivity : Activity() {
         addCatAppearance(root)
         addReplyTextSize(root)
         addMusicAndGestures(root)
-        addAppReactions(root)
+        // App Reactions UI temporarily hidden — keep addAppReactions() + AppReactionManager for later.
+        // addAppReactions(root)
         addSetupSteps(root)
         addPrivacyLink(root)
 
@@ -95,14 +96,17 @@ class SettingsActivity : Activity() {
                 setPadding(0, 0, 0, UiKit.dp(this@SettingsActivity, 4))
             }
             val sizeSlider = Slider(this@SettingsActivity).apply {
-                valueFrom = 100f
-                valueTo = 400f
-                stepSize = 10f
-                val raw = SettingsManager.getCatSize(this@SettingsActivity).coerceIn(100, 400)
-                value = ((raw + 5) / 10 * 10).coerceIn(100, 400).toFloat()
+                valueFrom = SettingsManager.CAT_SIZE_DP_MIN.toFloat()
+                valueTo = SettingsManager.CAT_SIZE_DP_MAX.toFloat()
+                stepSize = 2f
+                val raw = SettingsManager.getCatSizeDp(this@SettingsActivity)
+                    .coerceIn(SettingsManager.CAT_SIZE_DP_MIN, SettingsManager.CAT_SIZE_DP_MAX)
+                value = ((raw + 1) / 2 * 2)
+                    .coerceIn(SettingsManager.CAT_SIZE_DP_MIN, SettingsManager.CAT_SIZE_DP_MAX)
+                    .toFloat()
             }
             fun updateSizeLabel(size: Int) {
-                sizeLabel.text = "Cat size: ${size}px"
+                sizeLabel.text = "Cat size: ${size}dp"
             }
             updateSizeLabel(sizeSlider.value.toInt())
             sizeSlider.addOnChangeListener { _, value, fromUser ->
@@ -247,7 +251,7 @@ class SettingsActivity : Activity() {
             })
             addView(UiKit.body(
                 this@SettingsActivity,
-                "Music dance and cat gestures. Gestures need Accessibility.",
+                "Cat gestures. Needs Accessibility — enable each gesture you want to use.",
                 muted = true
             ))
 
@@ -323,13 +327,14 @@ class SettingsActivity : Activity() {
 
             optionsContainer.apply {
                 addView(gestureHint)
-                addSwitchRow(
-                    "Cat dances when music is playing",
-                    SettingsManager.isMusicDanceEnabled(this@SettingsActivity)
-                ) { checked ->
-                    SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
-                    if (!checked) OverlayService.instance?.onMusicStopped()
-                }
+                // Music dance UI temporarily hidden — MusicDetector + prefs remain intact.
+                // addSwitchRow(
+                //     "Cat dances when music is playing",
+                //     SettingsManager.isMusicDanceEnabled(this@SettingsActivity)
+                // ) { checked ->
+                //     SettingsManager.setMusicDanceEnabled(this@SettingsActivity, checked)
+                //     if (!checked) OverlayService.instance?.onMusicStopped()
+                // }
 
                 listOf(
                     "tap_scroll" to "Single tap → scroll",

@@ -79,6 +79,10 @@ object ModelDownloadManager {
         }
     }
 
+    /** Shared headline for on-device download progress (dashboard, AI Settings, setup). */
+    fun formatDownloadHeadline(percent: Int): String =
+        "Downloading on-device AI for more privacy... $percent%"
+
     /** Shared progress text for every download UI (AI Settings + Add-your-AI setup). */
     fun formatDownloadProgress(percent: Int, downloaded: Long, total: Long): String {
         return if (total > 0) {
@@ -164,9 +168,9 @@ object ModelDownloadManager {
             val dest = File(OnDeviceAiEngine.defaultModelPath(appContext))
             val partial = File(dest.parentFile, "${dest.name}.partial")
             try {
-                if (partial.exists() && !partial.delete()) {
+                    if (partial.exists() && !partial.delete()) {
                     Log.e(TAG, "ModelDownload: could not clear partial file")
-                    finishDownload(false)
+                    finishDownload(appContext, false)
                     return@Thread
                 }
                 dest.parentFile?.mkdirs()
@@ -176,14 +180,14 @@ object ModelDownloadManager {
                     if (!response.isSuccessful) {
                         Log.e(TAG, "ModelDownload: HTTP ${response.code}")
                         cleanupPartial(partial)
-                        finishDownload(false)
+                        finishDownload(appContext, false)
                         return@Thread
                     }
                     val body = response.body
                     if (body == null) {
                         Log.e(TAG, "ModelDownload: empty body")
                         cleanupPartial(partial)
-                        finishDownload(false)
+                        finishDownload(appContext, false)
                         return@Thread
                     }
 
@@ -191,7 +195,7 @@ object ModelDownloadManager {
                     if (totalBytes > 0 && !hasEnoughSpace(dest.parentFile!!, totalBytes)) {
                         Log.e(TAG, "ModelDownload: insufficient storage for $totalBytes bytes")
                         cleanupPartial(partial)
-                        finishDownload(false)
+                        finishDownload(appContext, false)
                         return@Thread
                     }
 
@@ -211,7 +215,7 @@ object ModelDownloadManager {
                                 ) {
                                     Log.e(TAG, "ModelDownload: ran out of storage mid-download")
                                     cleanupPartial(partial)
-                                    finishDownload(false)
+                                    finishDownload(appContext, false)
                                     return@Thread
                                 }
 
@@ -237,14 +241,14 @@ object ModelDownloadManager {
                                 "(expected=$EXPECTED_MODEL_SHA256 actual=$actualHash)"
                         )
                         cleanupPartial(partial)
-                        finishDownload(false, INTEGRITY_FAILURE_MESSAGE)
+                        finishDownload(appContext, false, INTEGRITY_FAILURE_MESSAGE)
                         return@Thread
                     }
 
                     if (dest.exists() && !dest.delete()) {
                         Log.e(TAG, "ModelDownload: could not replace existing model")
                         cleanupPartial(partial)
-                        finishDownload(false)
+                        finishDownload(appContext, false)
                         return@Thread
                     }
                     if (!partial.renameTo(dest)) {
@@ -254,13 +258,13 @@ object ModelDownloadManager {
                     }
                     notifyProgress(100, dest.length(), dest.length())
                     Log.d(TAG, "ModelDownload: complete → ${dest.absolutePath}")
-                    finishDownload(true)
+                    finishDownload(appContext, true)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "ModelDownload failed: ${e.message}", e)
                 cleanupPartial(partial)
                 if (dest.exists() && dest.length() == 0L) dest.delete()
-                finishDownload(false)
+                finishDownload(appContext, false)
             }
         }.start()
     }
@@ -301,9 +305,16 @@ object ModelDownloadManager {
         }
     }
 
-    private fun finishDownload(success: Boolean, failureReason: String? = null) {
+    private fun finishDownload(
+        appContext: Context,
+        success: Boolean,
+        failureReason: String? = null
+    ) {
         lastFailureMessage = if (success) null else failureReason
         downloadInFlight.set(false)
+        if (success) {
+            SettingsManager.setOnDeviceReadyBannerPending(appContext, true)
+        }
         notifyComplete(success)
     }
 

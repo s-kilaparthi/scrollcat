@@ -41,7 +41,7 @@ import com.airbnb.lottie.LottieAnimationView
 import com.airbnb.lottie.LottieDrawable
 
 /**
- * First-launch onboarding: welcome → dual permissions → summon+demo → done.
+ * First-launch onboarding: privacy trust → welcome → dual permissions → summon+demo → done.
  * AI setup is deferred to the dashboard. Profile personalization remains for
  * AiSettingsActivity edit_mode only.
  */
@@ -58,12 +58,15 @@ class OnboardingActivity : Activity() {
         private const val INPUT_BG = 0xFF2E2A3A.toInt()
         private const val HINT_COLOR = 0xFFA39BB0.toInt()
         private const val ACCENT_SOFT = 0xFF4A3F6B.toInt()
-        private const val ONBOARDING_STEPS = 4
+        private const val ONBOARDING_STEPS = 5
+        private const val KEY_ONBOARDING_5STEP = "onboarding_5step_v2"
         /** Meet ScrollCat — dashboard rest pose. */
         private const val HERO_WELCOME = 104
         /** Summon the Cat — alert/excited. */
         private const val HERO_SUMMON = 63
         private const val HERO_SIZE_DP = 148
+        /** Trust screen lock — larger than list/row icons elsewhere. */
+        private const val TRUST_LOCK_SIZE_DP = 112
 
         private const val CREATOR_RATE_CARD =
             "Hey! Thanks for reaching out 💕 For collabs and pricing, send me your brief and I'll share my rate card within 24h!"
@@ -123,17 +126,18 @@ class OnboardingActivity : Activity() {
     private fun resumeOnboardingFlow() {
         val step = loadOnboardingStep()
         // Permissions screen auto-advances once both grants are detected.
-        if (step == 2 && hasBothPermissions()) {
+        if (step == 3 && hasBothPermissions()) {
             showScreen3()
             return
         }
         currentScreen = step
         when (step) {
-            1 -> showScreen1()
-            2 -> showScreen2()
-            3 -> showScreen3()
-            4 -> showScreen4()
-            else -> showScreen1()
+            1 -> showTrustScreen()
+            2 -> showScreen1()
+            3 -> showScreen2()
+            4 -> showScreen3()
+            5 -> showScreen4()
+            else -> showTrustScreen()
         }
     }
 
@@ -155,9 +159,21 @@ class OnboardingActivity : Activity() {
         prefs().edit().putInt("onboarding_step", step).apply()
     }
 
-    private fun loadOnboardingStep(): Int =
-        prefs().getInt("onboarding_step", 1).coerceIn(1, ONBOARDING_STEPS)
-
+    private fun loadOnboardingStep(): Int {
+        val prefs = prefs()
+        // One-shot shift for users mid-flow on the old 4-step sequence (trust inserted at front).
+        if (!prefs.getBoolean(KEY_ONBOARDING_5STEP, false)) {
+            val editor = prefs.edit().putBoolean(KEY_ONBOARDING_5STEP, true)
+            if (prefs.contains("onboarding_step")) {
+                val shifted = (prefs.getInt("onboarding_step", 1) + 1).coerceIn(1, ONBOARDING_STEPS)
+                editor.putInt("onboarding_step", shifted)
+                editor.apply()
+                return shifted
+            }
+            editor.apply()
+        }
+        return prefs.getInt("onboarding_step", 1).coerceIn(1, ONBOARDING_STEPS)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         editMode = intent.getBooleanExtra("edit_mode", false)
@@ -1108,13 +1124,64 @@ class OnboardingActivity : Activity() {
         return card
     }
 
-    // ── Screen 1: Welcome + 3-point explanation ──
+    // ── Screen 1: Privacy trust (first impression) ──
 
-    private fun showScreen1() {
+    private fun showTrustScreen() {
         currentScreen = 1
         saveOnboardingStep(1)
         dismissFloatingCat()
         val root = screenRoot(1)
+        val lockSize = dp(TRUST_LOCK_SIZE_DP)
+        root.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_lock)
+            imageTintList = ColorStateList.valueOf(ACCENT)
+            contentDescription = "Privacy lock"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(lockSize, lockSize).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(28)
+                topMargin = dp(8)
+            }
+        })
+        root.addView(TextView(this).apply {
+            text = "Your messages are never sent to us."
+            textSize = 30f
+            typeface = UiKit.headingTypeface(this@OnboardingActivity)
+            setTextColor(TEXT)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(4), 0, dp(4), dp(16))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        })
+        root.addView(TextView(this).apply {
+            text = "ScrollCat has no servers — there's nothing for anyone to see, store, or access. Your messages are processed only on your own phone."
+            textSize = 18f
+            typeface = UiKit.headingTypeface(this@OnboardingActivity)
+            setTextColor(MUTED)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(4), 0, dp(4), dp(8))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        })
+        root.addView(primaryButton("Continue") {
+            showScreen1()
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, dp(36), 0, 0) })
+    }
+
+    // ── Screen 2: Welcome + 3-point explanation ──
+
+    private fun showScreen1() {
+        currentScreen = 2
+        saveOnboardingStep(2)
+        dismissFloatingCat()
+        val root = screenRoot(2)
         root.addView(heroIllustration(HERO_WELCOME))
         root.addView(title("Meet ScrollCat"))
         root.addView(featurePoint(R.drawable.ic_layers, "Floats over your apps so it can help anytime"))
@@ -1171,11 +1238,11 @@ class OnboardingActivity : Activity() {
         }
     }
 
-    // ── Screen 2: Grant Overlay + Notification Access ──
+    // ── Screen 3: Grant Overlay + Notification Access ──
 
     private fun showScreen2() {
-        currentScreen = 2
-        saveOnboardingStep(2)
+        currentScreen = 3
+        saveOnboardingStep(3)
         dismissFloatingCat()
 
         if (hasBothPermissions()) {
@@ -1183,7 +1250,7 @@ class OnboardingActivity : Activity() {
             return
         }
 
-        val root = screenRoot(2)
+        val root = screenRoot(3)
         root.addView(title("Just two quick steps"))
         root.addView(onboardingLottie("onboarding_permissions.lottie", loop = true))
 
@@ -1225,11 +1292,11 @@ class OnboardingActivity : Activity() {
         })
     }
 
-    // ── Screen 3: Summon + Demo (existing flow, permissions already granted) ──
+    // ── Screen 4: Summon + Demo (existing flow, permissions already granted) ──
 
     private fun showScreen3(skipCatDismiss: Boolean = false) {
-        currentScreen = 3
-        saveOnboardingStep(3)
+        currentScreen = 4
+        saveOnboardingStep(4)
 
         if (!hasOverlayPermission()) {
             showScreen2()
@@ -1245,7 +1312,7 @@ class OnboardingActivity : Activity() {
         if (demoDone && !skipCatDismiss) dismissFloatingCat()
 
         // Top-aligned when Continue is shown so the CTA isn't clipped by vertical centering.
-        val root = screenRoot(3, centerVertically = !demoDone)
+        val root = screenRoot(4, centerVertically = !demoDone)
         root.addView(heroIllustration(HERO_SUMMON))
         root.addView(title("Summon the Cat"))
         root.addView(subtitle(
@@ -1314,8 +1381,8 @@ class OnboardingActivity : Activity() {
             android.util.Log.w("ScrollCat", "revealDemoContinueUi aborted — activity finishing")
             return
         }
-        currentScreen = 3
-        saveOnboardingStep(3)
+        currentScreen = 4
+        saveOnboardingStep(4)
         showScreen3(skipCatDismiss = skipCatDismiss)
         OverlayService.instance?.dismissAnimated(null)
         android.util.Log.d("ScrollCat", "revealDemoContinueUi() call completed")
@@ -1374,15 +1441,15 @@ class OnboardingActivity : Activity() {
         }, 3000L)
     }
 
-    // ── Screen 4: Done — AI setup deferred to dashboard ──
+    // ── Screen 5: Done — AI setup deferred to dashboard ──
 
     private fun showScreen4() {
-        currentScreen = 4
-        saveOnboardingStep(4)
+        currentScreen = 5
+        saveOnboardingStep(5)
         dismissFloatingCat()
         ReplyStore.clearDemo()
         OverlayService.instance?.clearOnboardingDemoCallback()
-        val root = screenRoot(4)
+        val root = screenRoot(5)
         root.addView(title("You're all set!"))
         root.addView(onboardingLottie("onboarding_done.lottie", loop = false))
         root.addView(featureAwarenessChips())

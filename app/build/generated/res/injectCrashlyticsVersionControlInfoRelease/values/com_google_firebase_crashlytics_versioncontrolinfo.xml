@@ -1,3 +1,0 @@
-<resources>
-  <string name="com.google.firebase.crashlytics.version_control_info">"generate_error_reason: NO_VALID_GIT_FOUND\n"</string>
-</resources>

@@ -9,7 +9,6 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -29,8 +28,7 @@ import com.google.android.material.textfield.TextInputLayout
  * Smart Voice settings: Language 1 (you speak) → recognition language,
  * Language 2 (text appears as) → optional ML Kit translation target.
  * Translate / Romanize are mutually exclusive output modes.
- * Draft language selections in memory; [SettingsManager] updated on Save
- * (mode toggles persist immediately).
+ * Language selections and Translate/Romanize toggles persist immediately.
  */
 class SmartVoiceActivity : Activity() {
 
@@ -89,6 +87,15 @@ class SmartVoiceActivity : Activity() {
             )
         )
 
+        addOutputModeToggles(root)
+        root.addView(
+            UiKit.body(
+                this,
+                "Tip: Translate converts Language 1 → Language 2. Romanize keeps Language 1 but writes it in English letters (e.g. Telugu → emi chesthunnavu).",
+                muted = true
+            )
+        )
+
         addLanguageSelector(
             parent = root,
             title = "Language 1 (You speak)",
@@ -101,6 +108,7 @@ class SmartVoiceActivity : Activity() {
                     draftLang2 = selected
                     refreshLang2Ui?.invoke()
                 }
+                persistDraft(showToast = true)
             },
             getCustoms = { draftCustoms1.toList() },
             addCustom = { name -> ensureCustomListed(name, draftCustoms1) },
@@ -115,79 +123,28 @@ class SmartVoiceActivity : Activity() {
             setValue = { selected ->
                 syncLang2FromLang1 = selected.equals(draftLang1, ignoreCase = true)
                 draftLang2 = selected
+                persistDraft(showToast = true)
             },
             getCustoms = { draftCustoms2.toList() },
             addCustom = { name -> ensureCustomListed(name, draftCustoms2) },
             onBindRefresh = { refresh -> refreshLang2Ui = refresh }
         )
-
-        addOutputModeToggles(root)
         updateLang2Availability()
-
-        root.addView(
-            UiKit.body(
-                this,
-                "Tip: Translate converts Language 1 → Language 2. Romanize keeps Language 1 but writes it in English letters (e.g. Telugu → emi chesthunnavu).",
-                muted = true
-            )
-        )
-
-        val saveButton = UiKit.primaryButton(this, "Save") {
-            persistDraft()
-            Toast.makeText(this, "Smart Voice settings saved", Toast.LENGTH_SHORT).show()
-            finish()
-        }.apply {
-            minHeight = UiKit.dp(this@SmartVoiceActivity, 56)
-            strokeWidth = UiKit.dp(this@SmartVoiceActivity, 2)
-            strokeColor = ColorStateList.valueOf(UiKit.primaryColor(this@SmartVoiceActivity))
-            elevation = 0f
-            stateListAnimator = null
-        }
 
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(UiKit.surfaceColor(this@SmartVoiceActivity))
             addView(root)
         }
-        val outer = FrameLayout(this).apply {
-            setBackgroundColor(UiKit.surfaceColor(this@SmartVoiceActivity))
-            addView(
-                scrollView,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
-            )
-            addView(
-                saveButton,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.BOTTOM
-                ).apply {
-                    setMargins(
-                        UiKit.dp(this@SmartVoiceActivity, 28),
-                        0,
-                        UiKit.dp(this@SmartVoiceActivity, 28),
-                        UiKit.dp(this@SmartVoiceActivity, 24)
-                    )
-                }
-            )
-        }
-        setContentView(outer)
-        val bottomBarReserve = UiKit.dp(this, 96)
-        ViewCompat.setOnApplyWindowInsetsListener(outer) { _, insets ->
+        setContentView(scrollView)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val bottomInset = maxOf(bars.bottom, ime.bottom)
-            root.setPadding(
+            v.setPadding(
                 UiKit.dp(this, 24),
                 bars.top + UiKit.dp(this, 16),
                 UiKit.dp(this, 24),
-                UiKit.dp(this, 24) + bottomBarReserve + bottomInset
+                UiKit.dp(this, 24) + maxOf(bars.bottom, ime.bottom)
             )
-            (saveButton.layoutParams as FrameLayout.LayoutParams).bottomMargin =
-                UiKit.dp(this, 24) + bottomInset
-            saveButton.requestLayout()
             insets
         }
     }
@@ -203,6 +160,7 @@ class SmartVoiceActivity : Activity() {
                 SettingsManager.setVoiceTranslateEnabled(this@SmartVoiceActivity, enabled)
                 syncModeSwitchesFromPrefs()
                 updateLang2Availability()
+                Toast.makeText(this@SmartVoiceActivity, "Saved", Toast.LENGTH_SHORT).show()
             }
             translateSwitch = translateRow.second
             addView(translateRow.first)
@@ -226,6 +184,7 @@ class SmartVoiceActivity : Activity() {
                 SettingsManager.setVoiceRomanizeEnabled(this@SmartVoiceActivity, enabled)
                 syncModeSwitchesFromPrefs()
                 updateLang2Availability()
+                Toast.makeText(this@SmartVoiceActivity, "Saved", Toast.LENGTH_SHORT).show()
             }
             romanizeSwitch = romanizeRow.second
             addView(romanizeRow.first)
@@ -314,12 +273,15 @@ class SmartVoiceActivity : Activity() {
         }
     }
 
-    private fun persistDraft() {
+    private fun persistDraft(showToast: Boolean = false) {
         pruneBaseLanguagesFromCustoms()
         SettingsManager.setVoiceLanguage1(this, draftLang1)
         SettingsManager.setVoiceLanguage2(this, draftLang2)
         SettingsManager.setVoiceCustomLanguages1(this, draftCustoms1)
         SettingsManager.setVoiceCustomLanguages2(this, draftCustoms2)
+        if (showToast) {
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** Drop customs that are now built-in chips (e.g. a previously added "Telugu"). */
@@ -486,11 +448,7 @@ class SmartVoiceActivity : Activity() {
                 showAddRow(false)
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(customLangInput.windowToken, 0)
-                Toast.makeText(
-                    this@SmartVoiceActivity,
-                    "Added $typed — tap Save to keep",
-                    Toast.LENGTH_SHORT
-                ).show()
+                // setValue already persists + toasts "Saved"
             }
 
             val addLangBtn = MaterialButton(materialContext).apply {

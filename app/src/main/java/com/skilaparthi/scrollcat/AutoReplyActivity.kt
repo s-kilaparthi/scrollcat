@@ -25,19 +25,24 @@ import com.google.android.material.textfield.TextInputLayout
 /**
  * Manage keyword-triggered auto-reply rules (max 10). Each rule has trigger
  * keywords, a reply message, an on/off toggle and a delete button. Rules are
- * saved as JSON and applied by CatNotificationListener as DMs arrive.
+ * auto-saved on field focus-loss (and toggle/delete) — including incomplete
+ * drafts — but only [AutoReplyManager.Rule.isQualified] rules fire on messages.
  */
 class AutoReplyActivity : Activity() {
 
     private val rules = mutableListOf<AutoReplyManager.Rule>()
     private lateinit var rulesContainer: LinearLayout
     private lateinit var addButton: MaterialButton
+    private lateinit var bulkToggleButton: MaterialButton
     private lateinit var contentScroll: ScrollView
 
     private data class RuleViews(
         val triggersInput: EditText,
         val replyInput: EditText,
-        val toggle: SwitchMaterial
+        val toggle: SwitchMaterial,
+        val incompleteLabel: TextView,
+        val card: MaterialCardView,
+        val titleLabel: TextView
     )
     private val ruleViews = mutableListOf<RuleViews>()
 
@@ -49,6 +54,34 @@ class AutoReplyActivity : Activity() {
         addToolbar(root)
         root.addView(UiKit.body(this, "Cat replies automatically when these keywords are detected", muted = true))
         root.addView(summonRequiredTip())
+        root.addView(
+            UiKit.body(
+                this,
+                "Changes save when you leave a field. Rules need both a keyword and a reply to fire.",
+                muted = true
+            )
+        )
+
+        bulkToggleButton = outlinedButton("Activate All") {
+            collectEdits()
+            if (rules.isEmpty()) return@outlinedButton
+            val activate = !rules.any { it.enabled }
+            rules.forEach { it.enabled = activate }
+            persistRules(showToast = false)
+            renderRules()
+            Toast.makeText(
+                this,
+                if (activate) "All rules activated" else "All rules deactivated",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        root.addView(bulkToggleButton, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = UiKit.dp(this@AutoReplyActivity, 4)
+            bottomMargin = UiKit.dp(this@AutoReplyActivity, 8)
+        })
 
         rulesContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -59,23 +92,13 @@ class AutoReplyActivity : Activity() {
             collectEdits()
             if (rules.size >= AutoReplyManager.MAX_RULES) return@outlinedButton
             rules.add(AutoReplyManager.Rule(triggers = "", reply = "", enabled = true))
+            persistRules(showToast = false)
             renderRules()
         }
         root.addView(addButton, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = UiKit.dp(this@AutoReplyActivity, 16) })
-
-        root.addView(UiKit.primaryButton(this, "Save") {
-            collectEdits()
-            val valid = rules.filter { it.triggers.isNotBlank() && it.reply.isNotBlank() }
-            AutoReplyManager.saveRules(this@AutoReplyActivity, valid)
-            Toast.makeText(this@AutoReplyActivity, "Saved ${valid.size} rules ✓", Toast.LENGTH_SHORT).show()
-            finish()
-        }, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = UiKit.dp(this@AutoReplyActivity, 12) })
 
         contentScroll = ScrollView(this).apply {
             setBackgroundColor(UiKit.surfaceColor(this@AutoReplyActivity))
@@ -95,6 +118,12 @@ class AutoReplyActivity : Activity() {
         }
 
         renderRules()
+    }
+
+    override fun onPause() {
+        collectEdits()
+        persistRules(showToast = false)
+        super.onPause()
     }
 
     private fun summonRequiredTip(): MaterialCardView {
@@ -161,6 +190,18 @@ class AutoReplyActivity : Activity() {
         addButton.visibility =
             if (rules.size >= AutoReplyManager.MAX_RULES) View.GONE
             else View.VISIBLE
+        refreshBulkToggleButton()
+    }
+
+    private fun refreshBulkToggleButton() {
+        if (!::bulkToggleButton.isInitialized) return
+        if (rules.isEmpty()) {
+            bulkToggleButton.visibility = View.GONE
+            return
+        }
+        bulkToggleButton.visibility = View.VISIBLE
+        val anyEnabled = rules.any { it.enabled }
+        bulkToggleButton.text = if (anyEnabled) "Deactivate All" else "Activate All"
     }
 
     private fun emptyStateCard(): MaterialCardView {
@@ -212,18 +253,27 @@ class AutoReplyActivity : Activity() {
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, UiKit.dp(this@AutoReplyActivity, 12))
+            setPadding(0, 0, 0, UiKit.dp(this@AutoReplyActivity, 4))
         }
-        headerRow.addView(TextView(this).apply {
+        val titleLabel = TextView(this).apply {
             text = "Rule ${index + 1}"
             textSize = 16f
             typeface = UiKit.headingTypeface(this@AutoReplyActivity)
             setTextColor(UiKit.onSurfaceColor(this@AutoReplyActivity))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        })
+        }
+        headerRow.addView(titleLabel)
         val toggle = SwitchMaterial(this).apply {
             isChecked = rule.enabled
             styleSwitch(this)
+            setOnCheckedChangeListener { _, isChecked ->
+                if (tag == "syncing") return@setOnCheckedChangeListener
+                collectEdits()
+                if (index < rules.size) rules[index].enabled = isChecked
+                persistRules(showToast = true)
+                refreshIncompleteUi()
+                refreshBulkToggleButton()
+            }
         }
         headerRow.addView(toggle)
         headerRow.addView(ImageButton(this).apply {
@@ -243,10 +293,20 @@ class AutoReplyActivity : Activity() {
             setOnClickListener {
                 collectEdits()
                 rules.removeAt(index)
+                persistRules(showToast = true)
                 renderRules()
             }
         })
         content.addView(headerRow)
+
+        val incompleteLabel = TextView(this).apply {
+            text = "Incomplete — needs keyword and reply"
+            textSize = 12f
+            setTextColor(UiKit.mutedColor(this@AutoReplyActivity))
+            setPadding(0, 0, 0, UiKit.dp(this@AutoReplyActivity, 10))
+            visibility = if (rule.isQualified()) View.GONE else View.VISIBLE
+        }
+        content.addView(incompleteLabel)
 
         val (triggersLayout, triggersInput) = outlinedField(
             label = "Trigger keywords",
@@ -267,7 +327,9 @@ class AutoReplyActivity : Activity() {
         )
         content.addView(replyLayout)
 
-        ruleViews.add(RuleViews(triggersInput, replyInput, toggle))
+        val views = RuleViews(triggersInput, replyInput, toggle, incompleteLabel, card, titleLabel)
+        ruleViews.add(views)
+        applyIncompleteStyle(views, rule.isQualified())
         card.addView(content)
 
         card.layoutParams = LinearLayout.LayoutParams(
@@ -277,6 +339,23 @@ class AutoReplyActivity : Activity() {
             bottomMargin = UiKit.dp(this@AutoReplyActivity, 16)
         }
         return card
+    }
+
+    private fun applyIncompleteStyle(views: RuleViews, qualified: Boolean) {
+        views.incompleteLabel.visibility = if (qualified) View.GONE else View.VISIBLE
+        views.card.alpha = if (qualified) 1f else 0.72f
+        views.titleLabel.setTextColor(
+            if (qualified) UiKit.onSurfaceColor(this)
+            else UiKit.mutedColor(this)
+        )
+    }
+
+    private fun refreshIncompleteUi() {
+        ruleViews.forEachIndexed { index, views ->
+            if (index < rules.size) {
+                applyIncompleteStyle(views, rules[index].isQualified())
+            }
+        }
     }
 
     private fun outlinedField(
@@ -306,7 +385,13 @@ class AutoReplyActivity : Activity() {
                 maxLines = 1
             }
             setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(v)
+                if (hasFocus) {
+                    scrollFieldIntoView(v)
+                } else {
+                    collectEdits()
+                    persistRules(showToast = true)
+                    refreshIncompleteUi()
+                }
             }
         }
         val layout = TextInputLayout(
@@ -391,6 +476,13 @@ class AutoReplyActivity : Activity() {
                 rules[index].reply = views.replyInput.text.toString().trim()
                 rules[index].enabled = views.toggle.isChecked
             }
+        }
+    }
+
+    private fun persistRules(showToast: Boolean) {
+        AutoReplyManager.saveRules(this, rules)
+        if (showToast) {
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
         }
     }
 }

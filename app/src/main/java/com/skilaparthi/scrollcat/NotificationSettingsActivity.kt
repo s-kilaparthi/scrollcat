@@ -14,7 +14,6 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -143,44 +142,17 @@ class NotificationSettingsActivity : Activity() {
             addView(contentRoot)
         }
 
-        val saveButton = createSaveButton()
+        setContentView(contentScroll)
 
-        val outer = FrameLayout(this).apply {
-            setBackgroundColor(UiKit.surfaceColor(this@NotificationSettingsActivity))
-            addView(contentScroll, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ))
-            addView(saveButton, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
-            ).apply {
-                setMargins(
-                    UiKit.dp(this@NotificationSettingsActivity, 28),
-                    0,
-                    UiKit.dp(this@NotificationSettingsActivity, 28),
-                    UiKit.dp(this@NotificationSettingsActivity, 24)
-                )
-            })
-        }
-
-        setContentView(outer)
-
-        val bottomBarReserve = UiKit.dp(this, 96)
-        ViewCompat.setOnApplyWindowInsetsListener(outer) { _, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val bottomInset = maxOf(bars.bottom, ime.bottom)
-            contentRoot.setPadding(
+            v.setPadding(
                 UiKit.dp(this, 24),
                 bars.top + UiKit.dp(this, 16),
                 UiKit.dp(this, 24),
-                UiKit.dp(this, 24) + bottomBarReserve + bottomInset
+                UiKit.dp(this, 24) + maxOf(bars.bottom, ime.bottom)
             )
-            (saveButton.layoutParams as FrameLayout.LayoutParams).bottomMargin =
-                UiKit.dp(this, 24) + bottomInset
-            saveButton.requestLayout()
             insets
         }
 
@@ -386,6 +358,7 @@ class NotificationSettingsActivity : Activity() {
         buildPopularAppsList().forEach { (pkg, name) ->
             appChipLayout.addView(appFilterChip(name, pkg in selectedApps) { checked ->
                 if (checked) selectedApps.add(pkg) else selectedApps.remove(pkg)
+                persistFilters(showToast = true)
             })
         }
     }
@@ -510,6 +483,7 @@ class NotificationSettingsActivity : Activity() {
             .setView(scroll)
             .setPositiveButton("Done") { dialog, _ ->
                 renderPopularAppChips()
+                persistFilters(showToast = true)
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
@@ -628,6 +602,7 @@ class NotificationSettingsActivity : Activity() {
             input.setText("")
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(input.windowToken, 0)
+            persistFilters(showToast = true)
         }
     }
 
@@ -641,30 +616,20 @@ class NotificationSettingsActivity : Activity() {
                     setOnCloseIconClickListener {
                         dataSet.remove(item)
                         renderChips(container, dataSet)
+                        persistFilters(showToast = true)
                     }
                 }
             )
         }
     }
 
-    private fun createSaveButton(): MaterialButton {
-        return UiKit.primaryButton(this, "Save") {
-            SettingsManager.setWatchedApps(this@NotificationSettingsActivity, selectedApps)
-            SettingsManager.setWatchedPeople(this@NotificationSettingsActivity, peopleSet)
-            SettingsManager.setIgnoredChats(this@NotificationSettingsActivity, ignoredChatsSet)
-            SettingsManager.setWatchedKeywords(this@NotificationSettingsActivity, keywordsSet)
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
-            Toast.makeText(this@NotificationSettingsActivity, "Saved! ✓", Toast.LENGTH_SHORT).show()
-            finish()
-        }.apply {
-            minHeight = UiKit.dp(this@NotificationSettingsActivity, 56)
-            strokeWidth = UiKit.dp(this@NotificationSettingsActivity, 2)
-            strokeColor = ColorStateList.valueOf(
-                UiKit.primaryColor(this@NotificationSettingsActivity)
-            )
-            elevation = 0f
-            stateListAnimator = null
+    private fun persistFilters(showToast: Boolean) {
+        SettingsManager.setWatchedApps(this, selectedApps)
+        SettingsManager.setWatchedPeople(this, peopleSet)
+        SettingsManager.setIgnoredChats(this, ignoredChatsSet)
+        SettingsManager.setWatchedKeywords(this, keywordsSet)
+        if (showToast) {
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
         }
     }
 }

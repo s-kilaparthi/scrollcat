@@ -2,6 +2,8 @@ package com.skilaparthi.scrollcat
 
 import android.app.ActivityManager
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.StatFs
 import android.util.Log
@@ -73,6 +75,38 @@ object DeviceCapabilityChecker {
 
     /** ≥7GB true physical RAM — eligible for E2B on-device choice during onboarding. */
     fun isHighRamDevice(): Boolean = getTruePhysicalRamMb() >= HIGH_RAM_MB
+
+    /** True when the active network is Wi‑Fi (not cellular / ethernet alone). */
+    fun isConnectedToWifi(context: Context): Boolean {
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return false
+            val network = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(network) ?: return false
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        } catch (e: Exception) {
+            Log.d(TAG, "WiFi check failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Same free-space gate used by [checkOnDeviceAiViability] (≥ [MIN_FREE_STORAGE_BYTES]).
+     */
+    fun hasSufficientFreeStorageForOnDevice(context: Context): Boolean {
+        val freeBytes = freeStorageBytes(context)
+        return freeBytes >= MIN_FREE_STORAGE_BYTES
+    }
+
+    /**
+     * Silent auto-download eligibility: high RAM + Wi‑Fi + enough free storage.
+     * Used instead of presenting an On-Device vs Groq choice.
+     */
+    fun isEligibleForSilentOnDeviceDownload(context: Context): Boolean {
+        return isHighRamDevice() &&
+            isConnectedToWifi(context) &&
+            hasSufficientFreeStorageForOnDevice(context)
+    }
 
     fun modelPathFor(context: Context, fileName: String): String {
         val dir = context.getExternalFilesDir(null) ?: context.filesDir
@@ -228,7 +262,7 @@ object DeviceCapabilityChecker {
         }
 
         val freeBytes = freeStorageBytes(context)
-        if (freeBytes < MIN_FREE_STORAGE_BYTES) {
+        if (!hasSufficientFreeStorageForOnDevice(context)) {
             val freeGb = freeBytes / (1024.0 * 1024.0 * 1024.0)
             Log.d(
                 TAG,

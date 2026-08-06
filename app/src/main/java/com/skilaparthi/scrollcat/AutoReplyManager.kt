@@ -30,6 +30,10 @@ object AutoReplyManager {
         fun triggerList(): List<String> = triggers.split(",")
             .map { it.trim().lowercase() }
             .filter { it.isNotEmpty() }
+
+        /** Both keyword (≥1 char) and reply must be present to fire on messages. */
+        fun isQualified(): Boolean =
+            triggerList().isNotEmpty() && reply.trim().isNotEmpty()
     }
 
     data class Match(
@@ -86,8 +90,9 @@ object AutoReplyManager {
     }
 
     /**
-     * Returns the first enabled rule whose trigger keywords appear in
+     * Returns the first enabled **qualified** rule whose trigger keywords appear in
      * [messageText], plus the specific keyword that matched, or null.
+     * Incomplete drafts (missing keyword or reply) are ignored.
      */
     fun findMatch(context: Context, messageText: String, senderName: String? = null): Match? {
         // Never auto-reply to our own sent messages
@@ -95,7 +100,7 @@ object AutoReplyManager {
 
         val text = messageText.lowercase()
         for (rule in getRules(context)) {
-            if (!rule.enabled || rule.reply.isBlank()) continue
+            if (!rule.enabled || !rule.isQualified()) continue
             val keyword = rule.triggerList().firstOrNull { text.contains(it) } ?: continue
             return Match(rule = rule, matchedKeyword = keyword)
         }

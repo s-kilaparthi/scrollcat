@@ -26,6 +26,9 @@ import com.google.android.material.card.MaterialCardView
 class MainActivity : Activity() {
 
     private var aiKeyBanner: MaterialCardView? = null
+    private var aiKeyBannerText: TextView? = null
+    /** True once the ready confirmation was shown this visit — clear pending on leave. */
+    private var showedOnDeviceReadyBannerThisVisit = false
     private var accessibilityBanner: MaterialCardView? = null
     private var accessibilityRepairBanner: MaterialCardView? = null
     /** In-memory only — ✕ hides for this dashboard visit; resets on next app open. */
@@ -71,28 +74,22 @@ class MainActivity : Activity() {
             strokeWidth = 1
             strokeColor = 0xFFB39DDB.toInt()
             setCardBackgroundColor(0xFF2E2A3A.toInt())
-            setOnClickListener {
-                val hasGroqKey = ApiKeyStore.hasGroqApiKey(this@MainActivity)
-                val hasModelFile = ModelDownloadManager.modelFileExists(this@MainActivity)
-                val showing = AiSetupActivity.resolveBannerDestination(this@MainActivity)
-                android.util.Log.d(
-                    "ScrollCat",
-                    "Add AI banner tapped - groq configured: $hasGroqKey, " +
-                        "on-device downloaded: $hasModelFile - showing: $showing"
-                )
-                startActivity(Intent(this@MainActivity, AiSetupActivity::class.java))
-            }
-            addView(TextView(this@MainActivity).apply {
-                text = "Add your AI to unlock Smart Replies"
-                textSize = 14f
-                setTextColor(0xFFF5F3F7.toInt())
+            val column = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
                 setPadding(
                     UiKit.dp(this@MainActivity, 18),
                     UiKit.dp(this@MainActivity, 16),
                     UiKit.dp(this@MainActivity, 18),
                     UiKit.dp(this@MainActivity, 16)
                 )
-            })
+            }
+            aiKeyBannerText = TextView(this@MainActivity).apply {
+                text = "For best quality replies, try these AI options"
+                textSize = 14f
+                setTextColor(0xFFF5F3F7.toInt())
+            }
+            column.addView(aiKeyBannerText)
+            addView(column)
         }
         root.addView(aiKeyBanner, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -491,6 +488,12 @@ class MainActivity : Activity() {
         })
         row.addView(top)
         row.addView(TextView(this).apply {
+            text = "Tip: tap 'Installed apps' (or 'Downloaded apps') in the Accessibility list to find ScrollCat — it's not shown at the top by default."
+            textSize = 12f
+            setTextColor(UiKit.mutedColor(this@MainActivity))
+            setPadding(0, UiKit.dp(this@MainActivity, 8), 0, 0)
+        })
+        row.addView(TextView(this).apply {
             text = "Grant Access"
             textSize = 13f
             setTextColor(0xFFB39DDB.toInt())
@@ -564,10 +567,48 @@ class MainActivity : Activity() {
         AiSetupActivity.hasCompletedAiSetup(this) ||
             SettingsManager.getActiveAiKey(this).isNotBlank()
 
+    private fun openAiSetupFromBanner() {
+        val hasGroqKey = ApiKeyStore.hasGroqApiKey(this)
+        val hasModelFile = ModelDownloadManager.modelFileExists(this)
+        val showing = AiSetupActivity.resolveBannerDestination(this)
+        android.util.Log.d(
+            "ScrollCat",
+            "Add AI banner tapped - groq configured: $hasGroqKey, " +
+                "on-device downloaded: $hasModelFile - showing: $showing"
+        )
+        startActivity(Intent(this, AiSetupActivity::class.java))
+    }
+
+    private fun dismissOnDeviceReadyBanner() {
+        SettingsManager.setOnDeviceReadyBannerPending(this, false)
+        showedOnDeviceReadyBannerThisVisit = false
+        refreshAiKeyBanner()
+    }
+
     private fun refreshAiKeyBanner() {
         val banner = aiKeyBanner ?: return
-        // Hide once Groq key or on-device model is present (same gate as a11y banner).
-        banner.visibility = if (isAiConfigured()) View.GONE else View.VISIBLE
+        val text = aiKeyBannerText ?: return
+
+        when {
+            SettingsManager.isOnDeviceReadyBannerPending(this) &&
+                ModelDownloadManager.modelFileExists(this) -> {
+                showedOnDeviceReadyBannerThisVisit = true
+                banner.visibility = View.VISIBLE
+                text.text = "On-device AI is ready — your replies stay private."
+                banner.isClickable = true
+                banner.setOnClickListener { dismissOnDeviceReadyBanner() }
+            }
+            !isAiConfigured() -> {
+                banner.visibility = View.VISIBLE
+                text.text = "For best quality replies, try these AI options"
+                banner.isClickable = true
+                banner.setOnClickListener { openAiSetupFromBanner() }
+            }
+            else -> {
+                banner.visibility = View.GONE
+                banner.setOnClickListener(null)
+            }
+        }
     }
 
     private fun refreshAccessibilityBanner() {
@@ -601,6 +642,10 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        if (showedOnDeviceReadyBannerThisVisit) {
+            SettingsManager.setOnDeviceReadyBannerPending(this, false)
+            showedOnDeviceReadyBannerThisVisit = false
+        }
         dashboardCatAnimator?.stop()
         super.onPause()
     }

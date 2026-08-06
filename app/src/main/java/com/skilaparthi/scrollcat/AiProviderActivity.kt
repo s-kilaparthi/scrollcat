@@ -898,19 +898,108 @@ class AiProviderActivity : Activity() {
             content.addView(this)
         }
 
+        val providersSnapshot = providers.map { it.copy() }
+        var workingProviderId: String? = existingProvider?.id
+        var lastAutoSavedKey: String? = null
+
+        lateinit var nameInput: EditText
+        lateinit var keyInput: EditText
+        lateinit var customEndpointInput: EditText
+        lateinit var customModelInput: EditText
+
+        fun buildProviderFromFields(requireComplete: Boolean): AiProvider? {
+            val info = PROVIDER_OPTIONS.first { it.key == selectedKey }
+            val name = nameInput.text.toString().trim().ifEmpty { info.title }
+            val key = keyInput.text.toString().trim()
+            if (key.isEmpty()) {
+                if (requireComplete) {
+                    Toast.makeText(this, "Please paste your API key", Toast.LENGTH_SHORT).show()
+                }
+                return null
+            }
+            val endpoint: String
+            val model: String
+            if (selectedKey == "custom") {
+                endpoint = customEndpointInput.text.toString().trim()
+                model = customModelInput.text.toString().trim()
+                if (endpoint.isEmpty() || model.isEmpty()) {
+                    if (requireComplete) {
+                        Toast.makeText(
+                            this,
+                            "Please fill in custom endpoint and model",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    return null
+                }
+            } else {
+                endpoint = info.endpoint
+                model = info.model
+            }
+            if (endpoint.isNotEmpty() && !endpoint.startsWith("https://")) {
+                if (requireComplete) {
+                    Toast.makeText(
+                        this,
+                        "Invalid endpoint URL - must start with https://",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                return null
+            }
+            val wasActive = workingProviderId?.let { id ->
+                providers.firstOrNull { it.id == id }?.isActive
+            } ?: existingProvider?.isActive
+            return AiProvider(
+                id = workingProviderId ?: System.currentTimeMillis().toString(),
+                name = name,
+                endpoint = endpoint,
+                model = model,
+                apiKey = key,
+                isActive = wasActive ?: providers.isEmpty()
+            )
+        }
+
+        fun autoSaveIfComplete() {
+            val provider = buildProviderFromFields(requireComplete = false) ?: return
+            // Avoid toast spam if the same complete key was just saved
+            if (provider.apiKey == lastAutoSavedKey &&
+                workingProviderId != null &&
+                providers.any { it.id == workingProviderId && it.apiKey == provider.apiKey && it.name == provider.name }
+            ) {
+                return
+            }
+            workingProviderId = provider.id
+            lastAutoSavedKey = provider.apiKey
+            val idx = providers.indexOfFirst { it.id == provider.id }
+            if (idx >= 0) providers[idx] = provider else providers.add(provider)
+            saveProviders()
+            renderProviderList()
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+        }
+
+        fun restoreProvidersSnapshot() {
+            providers.clear()
+            providers.addAll(providersSnapshot)
+            saveProviders()
+            renderProviderList()
+        }
+
         val hintText = TextView(this).apply {
             textSize = 12f
             setTextColor(MUTED)
             setPadding(0, dp(8), 0, 0)
         }
 
-        val (nameLayout, nameInput) = polishedOutlinedField(
+        val namePair = polishedOutlinedField(
             label = "Provider Name",
             placeholder = "Display name",
             value = existingProvider?.name ?: PROVIDER_OPTIONS.first { it.key == initialKey }.title,
             scrollParent = dialogRoot,
-            topMarginDp = 20
+            topMarginDp = 20,
+            onFocusLost = { autoSaveIfComplete() }
         )
+        val nameLayout = namePair.first
+        nameInput = namePair.second
 
         val keyLinkText = TextView(this).apply {
             textSize = 13f
@@ -954,22 +1043,26 @@ class AiProviderActivity : Activity() {
             visibility = View.GONE
             setPadding(0, dp(8), 0, 0)
         }
-        val (customEndpointLayout, customEndpointInput) = polishedOutlinedField(
+        val endpointPair = polishedOutlinedField(
             label = "Custom endpoint",
             placeholder = "https://...",
             value = existingProvider?.endpoint ?: "",
             scrollParent = dialogRoot,
-            topMarginDp = 12
+            topMarginDp = 12,
+            onFocusLost = { autoSaveIfComplete() }
         )
-        val (customModelLayout, customModelInput) = polishedOutlinedField(
+        customEndpointInput = endpointPair.second
+        val modelPair = polishedOutlinedField(
             label = "Model name",
             placeholder = "Your model name",
             value = existingProvider?.model ?: "",
             scrollParent = dialogRoot,
-            topMarginDp = 12
+            topMarginDp = 12,
+            onFocusLost = { autoSaveIfComplete() }
         )
-        customFieldsSection.addView(customEndpointLayout)
-        customFieldsSection.addView(customModelLayout)
+        customModelInput = modelPair.second
+        customFieldsSection.addView(endpointPair.first)
+        customFieldsSection.addView(modelPair.first)
 
         // Compact single-row chip selectors
         val chipViews = mutableMapOf<String, TextView>()
@@ -1012,15 +1105,17 @@ class AiProviderActivity : Activity() {
 
         // Visual focus: name + API key with generous spacing
         content.addView(nameLayout)
-        val (keyLayout, keyInput) = polishedOutlinedField(
+        val keyPair = polishedOutlinedField(
             label = "API Key",
             placeholder = "Paste your key here",
             value = existingProvider?.apiKey ?: "",
             scrollParent = dialogRoot,
             password = true,
-            topMarginDp = 20
+            topMarginDp = 20,
+            onFocusLost = { autoSaveIfComplete() }
         )
-        content.addView(keyLayout)
+        keyInput = keyPair.second
+        content.addView(keyPair.first)
         content.addView(keyLinkText)
         content.addView(customFieldsSection)
 
@@ -1038,56 +1133,14 @@ class AiProviderActivity : Activity() {
 
         val dialog = android.app.AlertDialog.Builder(this)
             .setView(dialogRoot)
-            .setPositiveButton("Save") { _, _ ->
-                val info = PROVIDER_OPTIONS.first { it.key == selectedKey }
-                val name = nameInput.text.toString().trim().ifEmpty { info.title }
-                val key = keyInput.text.toString().trim()
-
-                if (key.isEmpty()) {
-                    Toast.makeText(this, "Please paste your API key", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-
-                val endpoint: String
-                val model: String
-                if (selectedKey == "custom") {
-                    endpoint = customEndpointInput.text.toString().trim()
-                    model = customModelInput.text.toString().trim()
-                    if (endpoint.isEmpty() || model.isEmpty()) {
-                        Toast.makeText(this, "Please fill in custom endpoint and model", Toast.LENGTH_SHORT).show()
-                        return@setPositiveButton
-                    }
-                } else {
-                    endpoint = info.endpoint
-                    model = info.model
-                }
-
-                if (endpoint.isNotEmpty() && !endpoint.startsWith("https://")) {
-                    Toast.makeText(this, "Invalid endpoint URL - must start with https://", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-
-                val provider = AiProvider(
-                    id = existingProvider?.id ?: System.currentTimeMillis().toString(),
-                    name = name,
-                    endpoint = endpoint,
-                    model = model,
-                    apiKey = key,
-                    isActive = existingProvider?.isActive ?: providers.isEmpty()
-                )
-
-                if (existingProvider != null) {
-                    val idx = providers.indexOfFirst { it.id == existingProvider.id }
-                    if (idx >= 0) providers[idx] = provider
-                } else {
-                    providers.add(provider)
-                }
-
-                saveProviders()
-                renderProviderList()
-                Toast.makeText(this, "Provider saved!", Toast.LENGTH_SHORT).show()
+            .setPositiveButton("Done", null)
+            .setNegativeButton("Cancel") { _, _ ->
+                // Discard incomplete (or any mid-session) changes — restore pre-dialog list.
+                restoreProvidersSnapshot()
             }
-            .setNegativeButton("Cancel", null)
+            .setOnCancelListener {
+                restoreProvidersSnapshot()
+            }
             .create()
 
         dialog.window?.setBackgroundDrawable(GradientDrawable().apply {
@@ -1097,6 +1150,16 @@ class AiProviderActivity : Activity() {
         dialog.show()
         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(ACCENT)
         dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(MUTED)
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+            val provider = buildProviderFromFields(requireComplete = true) ?: return@setOnClickListener
+            workingProviderId = provider.id
+            val idx = providers.indexOfFirst { it.id == provider.id }
+            if (idx >= 0) providers[idx] = provider else providers.add(provider)
+            saveProviders()
+            renderProviderList()
+            Toast.makeText(this, "Provider saved!", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
     }
 
     private fun groqActionButton(label: String, filled: Boolean, onClick: () -> Unit): MaterialButton {
@@ -1144,7 +1207,8 @@ class AiProviderActivity : Activity() {
         value: String,
         scrollParent: ScrollView,
         password: Boolean = false,
-        topMarginDp: Int = 12
+        topMarginDp: Int = 12,
+        onFocusLost: (() -> Unit)? = null
     ): Pair<TextInputLayout, EditText> {
         val input = TextInputEditText(this).apply {
             setTextColor(Color.WHITE)
@@ -1160,7 +1224,11 @@ class AiProviderActivity : Activity() {
                     android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
             setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) scrollFieldIntoView(scrollParent, v)
+                if (hasFocus) {
+                    scrollFieldIntoView(scrollParent, v)
+                } else {
+                    onFocusLost?.invoke()
+                }
             }
         }
         val layout = TextInputLayout(

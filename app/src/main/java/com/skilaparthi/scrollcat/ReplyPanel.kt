@@ -45,9 +45,10 @@ class ReplyPanel(
 ) {
 
     companion object {
-        private const val PANEL_WIDTH = 680
-        /** Gap left between a pending-replies card and the panel edge. */
-        private const val SENDER_LIST_EDGE_GAP = 8
+        /** Reply panel width in dp (was raw `680` px before density fix ≈240dp on xxhdpi). */
+        private const val PANEL_WIDTH_DP = 240
+        /** Gap left between a pending-replies card and the panel edge, in dp. */
+        private const val SENDER_LIST_EDGE_GAP_DP = 8
         /** Pending-replies cards cap their preview here; the chevron reveals the rest. */
         private const val SENDER_LIST_PREVIEW_MAX_LINES = 3
         /** Compact footprint for the listening-only dictation bubble. */
@@ -160,6 +161,10 @@ class ReplyPanel(
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
+    private fun panelWidthPx(): Int = dp(PANEL_WIDTH_DP)
+
+    private fun senderListEdgeGapPx(): Int = dp(SENDER_LIST_EDGE_GAP_DP)
+
     /** Service/overlay context has no Material theme; wrap before constructing Material widgets. */
     private val materialContext: Context by lazy {
         ContextThemeWrapper(context, R.style.Theme_ScrollCat)
@@ -186,13 +191,15 @@ class ReplyPanel(
         }
 
         val dm = context.resources.displayMetrics
-        val x = (catX + catSize / 2 - PANEL_WIDTH / 2)
-            .coerceIn(16, (dm.widthPixels - PANEL_WIDTH - 16).coerceAtLeast(16))
+        val panelW = panelWidthPx()
+        val edge = dp(16)
+        val x = (catX + catSize / 2 - panelW / 2)
+            .coerceIn(edge, (dm.widthPixels - panelW - edge).coerceAtLeast(edge))
         // Rough panel height; final height wraps content
         val y = (catY - 520).coerceAtLeast(60)
 
         val params = WindowManager.LayoutParams(
-            PANEL_WIDTH,
+            panelW,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -444,9 +451,18 @@ class ReplyPanel(
             textSize = 12f
             setTextColor(0xFFF5F3F7.toInt())
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(8), 0, dp(10))
+            setPadding(0, dp(8), 0, dp(6))
         }
         panel.addView(bodyText)
+
+        val tipText = TextView(context).apply {
+            text = "Tip: tap 'Installed apps' (or 'Downloaded apps') in the Accessibility list to find ScrollCat — it's not shown at the top by default."
+            textSize = 11f
+            setTextColor(MUTED_TEXT)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, 0, 0, dp(10))
+        }
+        panel.addView(tipText)
 
         val grantBtn = TextView(context).apply {
             text = "Grant Access"
@@ -483,6 +499,7 @@ class ReplyPanel(
                 titleView.text = "You're set"
                 bodyText.text =
                     "Accessibility enabled — voice-to-text now works in any app!"
+                tipText.visibility = View.GONE
                 grantBtn.visibility = View.GONE
                 android.util.Log.d(
                     "ScrollCat",
@@ -721,12 +738,13 @@ class ReplyPanel(
                 senderListBaseWindowWidth = params.width
             }
         }
-        val baseCardWidthPx = PANEL_WIDTH - (SENDER_LIST_EDGE_GAP * 2)
+        val edgeGap = senderListEdgeGapPx()
+        val baseCardWidthPx = panelWidthPx() - (edgeGap * 2)
         val requestedCardWidthPx = baseCardWidthPx * 3 / 2
         val (_, widenedPanelWidthPx) = resizePanelWidthKeepingCenter(
-            requestedCardWidthPx + (SENDER_LIST_EDGE_GAP * 2)
+            requestedCardWidthPx + (edgeGap * 2)
         )
-        val actualCardWidthPx = widenedPanelWidthPx - (SENDER_LIST_EDGE_GAP * 2)
+        val actualCardWidthPx = widenedPanelWidthPx - (edgeGap * 2)
         val density = context.resources.displayMetrics.density
         val oldWidthDp = (baseCardWidthPx / density + 0.5f).toInt()
         val newWidthDp = (actualCardWidthPx / density + 0.5f).toInt()
@@ -745,7 +763,7 @@ class ReplyPanel(
         // nearly edge to edge. Restored in showMessage() so the reply panel is untouched.
         panel.clipToPadding = false
         panel.clipChildren = false
-        val listSideBleed = -(panel.paddingLeft - SENDER_LIST_EDGE_GAP).coerceAtLeast(0)
+        val listSideBleed = -(panel.paddingLeft - senderListEdgeGapPx()).coerceAtLeast(0)
         val listLp: ViewGroup.LayoutParams = if (panel is ConstraintLayout) {
             ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
@@ -826,7 +844,7 @@ class ReplyPanel(
         val listScrollChevronOuter = dp(14)
         val (screenHeight, availableHeight, topSafe, bottomSafe) = pendingListScreenMetrics()
         val contentWidth = (
-            (panelParams?.width ?: PANEL_WIDTH) - panel.paddingLeft - panel.paddingRight
+            (panelParams?.width ?: panelWidthPx()) - panel.paddingLeft - panel.paddingRight
             ).coerceAtLeast(1)
         val widthSpec = View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
         val heightUnspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1289,7 +1307,7 @@ class ReplyPanel(
             messageSlideInProgress = true
             val widthPx = existingSlide.width
                 .takeIf { it > 0 }
-                ?: (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+                ?: (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
             val width = widthPx.toFloat()
             val outTo = if (slideDirection == MessageSlideDirection.NEXT) -width else width
             val inFrom = -outTo
@@ -1738,7 +1756,7 @@ class ReplyPanel(
             private fun applyFingerFollow(rawX: Float) {
                 val dx = rawX - downRawX
                 val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
                         .coerceAtLeast(1)
                 slideColumn.translationX = if (pending.size <= 1) {
                     // Rubber-band: limited give, no navigation possible.
@@ -1762,7 +1780,7 @@ class ReplyPanel(
 
                 val tx = slideColumn.translationX
                 val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (PANEL_WIDTH - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
+                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
                         .coerceAtLeast(1)
                 val commitDist = width * SWIPE_COMMIT_FRACTION
 
@@ -1865,14 +1883,26 @@ class ReplyPanel(
             chipsContainer.visibility = View.GONE
         }
 
-        // ── Bottom row: Reply in app + Ignore + more ──
+        // ── Bottom row: Reply in app + Ignore + more (equal width/height) ──
         val bottomRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 12 }
+            ).apply { topMargin = dp(12) }
+        }
+
+        val actionBtnHeight = dp(56)
+        val actionHPad = dp(8)
+        val actionVPad = dp(8)
+        val actionGap = dp(6)
+
+        fun equalActionButtonParams(index: Int): LinearLayout.LayoutParams {
+            return LinearLayout.LayoutParams(0, actionBtnHeight, 1f).apply {
+                marginStart = if (index == 0) 0 else actionGap
+                marginEnd = 0
+            }
         }
 
         val replyInAppBtn = TextView(context).apply {
@@ -1880,14 +1910,15 @@ class ReplyPanel(
             textSize = 13f
             setTextColor(ACCENT)
             gravity = Gravity.CENTER
-            setPadding(16, 20, 16, 20)
+            setSingleLine(false)
+            maxLines = 2
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
             background = GradientDrawable().apply {
                 setColor(BUTTON_BG)
-                cornerRadius = 24f
+                cornerRadius = dp(12).toFloat()
             }
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(0, 0, 6, 0)
-            }
+            layoutParams = equalActionButtonParams(0)
         }
 
         val ignoreBtn = TextView(context).apply {
@@ -1895,14 +1926,13 @@ class ReplyPanel(
             textSize = 13f
             setTextColor(MUTED_TEXT)
             gravity = Gravity.CENTER
-            setPadding(16, 20, 16, 20)
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
             background = GradientDrawable().apply {
                 setColor(BUTTON_BG)
-                cornerRadius = 24f
+                cornerRadius = dp(12).toFloat()
             }
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(6, 0, 6, 0)
-            }
+            layoutParams = equalActionButtonParams(1)
         }
 
         val moreBtn = TextView(context).apply {
@@ -1910,14 +1940,13 @@ class ReplyPanel(
             textSize = 18f
             setTextColor(SOFT_TEXT)
             gravity = Gravity.CENTER
-            setPadding(18, 18, 18, 18)
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
             background = GradientDrawable().apply {
                 setColor(BUTTON_BG)
-                cornerRadius = 24f
+                cornerRadius = dp(12).toFloat()
             }
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                marginStart = 6
-            }
+            layoutParams = equalActionButtonParams(2)
         }
 
         // Reply in app: open the messaging app, then close the panel exactly like ✕
@@ -2134,6 +2163,12 @@ class ReplyPanel(
                 setSingleLine(false)
                 minLines = 1
                 maxLines = 5
+                // Prior starting height ≈ one text line + vertical padding (14+14).
+                // Bump default/min box height by 50%; auto-grow to maxLines unchanged.
+                val oneLinePx = (replyTextSp * context.resources.displayMetrics.density).toInt()
+                    .coerceAtLeast(1)
+                val previousMinPx = oneLinePx + 14 + 14
+                minimumHeight = (previousMinPx * 3) / 2
                 setPadding(18, 14, 18, 14)
                 background = GradientDrawable().apply {
                     setColor(INPUT_BG)
@@ -2994,10 +3029,10 @@ class ReplyPanel(
 
     /** Resizes the overlay around its current center and keeps it inside screen edges. */
     private fun resizePanelWidthKeepingCenter(requestedWidth: Int): Pair<Int, Int> {
-        val panel = panelView ?: return PANEL_WIDTH to PANEL_WIDTH
-        val params = panelParams ?: return PANEL_WIDTH to PANEL_WIDTH
+        val panel = panelView ?: return panelWidthPx() to panelWidthPx()
+        val params = panelParams ?: return panelWidthPx() to panelWidthPx()
         val dm = context.resources.displayMetrics
-        val oldWidth = params.width.takeIf { it > 0 } ?: PANEL_WIDTH
+        val oldWidth = params.width.takeIf { it > 0 } ?: panelWidthPx()
         val newWidth = requestedWidth.coerceAtMost((dm.widthPixels - 32).coerceAtLeast(1))
         if (oldWidth != newWidth) {
             val centerX = params.x + oldWidth / 2
@@ -3059,7 +3094,7 @@ class ReplyPanel(
                 windowManager.updateViewLayout(panel, params)
             } catch (_: Exception) { }
         } else {
-            resizePanelWidthKeepingCenter(PANEL_WIDTH)
+            resizePanelWidthKeepingCenter(panelWidthPx())
         }
         senderListBaseWindowX = null
         senderListBaseWindowY = null
@@ -3080,9 +3115,9 @@ class ReplyPanel(
         }
         val panel: View? = panelView
         val contentWidth = if (panel != null) {
-            (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+            (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
         } else {
-            PANEL_WIDTH
+            panelWidthPx()
         }
         val textWidth = (contentWidth - messagePreview.paddingLeft - messagePreview.paddingRight)
             .coerceAtLeast(1)
@@ -3110,7 +3145,7 @@ class ReplyPanel(
         val params = panelParams ?: return
         if (showingSenderList || !isShowing) return
 
-        val contentWidth = (PANEL_WIDTH - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+        val contentWidth = (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
         val widthSpec = View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
         val heightUnspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
 

@@ -115,14 +115,55 @@ object SettingsManager {
         }
     }
 
-    // Cat size (default 210px)
-    fun getCatSize(context: Context): Int {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("cat_size", 210)
+    // Cat size — stored as dp after migration (legacy installs stored raw px).
+    private const val KEY_CAT_SIZE = "cat_size"
+    private const val KEY_CAT_SIZE_MIGRATED_TO_DP = "cat_size_migrated_to_dp"
+    const val DEFAULT_CAT_SIZE_DP = 60
+    const val CAT_SIZE_DP_MIN = 40
+    const val CAT_SIZE_DP_MAX = 140
+
+    /**
+     * One-time: legacy values were 100–400 raw px. Convert to dp via density and flag migrated.
+     * Fresh installs get [DEFAULT_CAT_SIZE_DP] with no conversion needed.
+     */
+    fun ensureCatSizeMigratedToDp(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_CAT_SIZE_MIGRATED_TO_DP, false)) return
+        val density = context.resources.displayMetrics.density.coerceAtLeast(0.5f)
+        val editor = prefs.edit()
+        if (prefs.contains(KEY_CAT_SIZE)) {
+            val stored = prefs.getInt(KEY_CAT_SIZE, DEFAULT_CAT_SIZE_DP)
+            if (stored in 100..400) {
+                val asDp = (stored / density).toInt()
+                    .coerceIn(CAT_SIZE_DP_MIN, CAT_SIZE_DP_MAX)
+                editor.putInt(KEY_CAT_SIZE, asDp)
+            }
+        }
+        editor.putBoolean(KEY_CAT_SIZE_MIGRATED_TO_DP, true).apply()
     }
-    fun setCatSize(context: Context, size: Int) {
+
+    /** Stored cat size in dp (runs migration first). Default [DEFAULT_CAT_SIZE_DP]. */
+    fun getCatSize(context: Context): Int {
+        ensureCatSizeMigratedToDp(context)
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_CAT_SIZE, DEFAULT_CAT_SIZE_DP)
+    }
+
+    /** Same as [getCatSize] — explicit dp accessor for call sites. */
+    fun getCatSizeDp(context: Context): Int = getCatSize(context)
+
+    /** Pixel size for WindowManager.LayoutParams — dp × display density. */
+    fun getCatSizePx(context: Context): Int {
+        val sizeDp = getCatSizeDp(context)
+        val density = context.resources.displayMetrics.density
+        return (sizeDp * density).toInt()
+    }
+
+    fun setCatSize(context: Context, sizeDp: Int) {
+        ensureCatSizeMigratedToDp(context)
+        val clamped = sizeDp.coerceIn(CAT_SIZE_DP_MIN, CAT_SIZE_DP_MAX)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putInt("cat_size", size).apply()
+            .edit().putInt(KEY_CAT_SIZE, clamped).apply()
     }
 
     // Cat display mode: "always_visible" | "edge_docking" (default)
@@ -187,10 +228,10 @@ object SettingsManager {
             .edit().putInt("sensitivity", value).apply()
     }
 
-    // Gesture toggles (all default true)
+    // Gesture toggles (default false — user must opt in; Accessibility alone does not enable them)
     fun getGestureEnabled(context: Context, gesture: String): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("gesture_$gesture", true)
+            .getBoolean("gesture_$gesture", false)
     }
     fun setGestureEnabled(context: Context, gesture: String, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -632,6 +673,18 @@ object SettingsManager {
     fun setMatchLanguageEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("match_language", enabled).apply()
+    }
+
+    // ── On-device ready dashboard banner (one-time after silent download) ──
+
+    fun isOnDeviceReadyBannerPending(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("on_device_ready_banner_pending", false)
+    }
+
+    fun setOnDeviceReadyBannerPending(context: Context, pending: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("on_device_ready_banner_pending", pending).apply()
     }
 
     // ── Onboarding / user profile ──
