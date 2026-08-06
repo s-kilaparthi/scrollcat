@@ -192,6 +192,7 @@ class RecordAudioPermissionActivity : Activity() {
         })
 
         val languageTag = SettingsManager.getSpeechRecognitionLanguageTag(this)
+        SettingsManager.recordVoiceLanguageUsed(this)
         val source = pendingSource
         android.util.Log.d("ScrollCat", "Voice recognition using language: $languageTag")
         android.util.Log.d(

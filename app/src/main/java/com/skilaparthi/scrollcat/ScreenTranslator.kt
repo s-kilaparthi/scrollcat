@@ -132,6 +132,30 @@ class ScreenTranslator(private val context: Context) {
         translateBetween(text, fromLanguage, "en", onResult)
     }
 
+    /**
+     * ML Kit language id for TTS / reply-matching style detection.
+     * Returns a BCP-47 base tag (e.g. "en", "te"), or null if unknown / und.
+     */
+    fun identifyLanguageCode(text: String, onResult: (String?) -> Unit) {
+        val cleanText = text.trim()
+        if (cleanText.isEmpty()) {
+            onResult(null)
+            return
+        }
+        languageIdentifier.identifyLanguage(cleanText.take(MAX_TEXT_LENGTH))
+            .addOnSuccessListener { languageCode ->
+                Log.d(TAG, "TTS language detect: $languageCode")
+                onResult(
+                    if (languageCode.isNullOrBlank() || languageCode == "und") null
+                    else languageCode
+                )
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Language detection failed: ${e.message}")
+                onResult(null)
+            }
+    }
+
     fun close() {
         translatorCache.values.forEach { it.close() }
         translatorCache.clear()

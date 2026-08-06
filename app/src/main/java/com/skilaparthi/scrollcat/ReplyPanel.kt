@@ -4,9 +4,13 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.graphics.Outline
 import android.graphics.PixelFormat
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.Layout
@@ -19,6 +23,7 @@ import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -63,20 +68,32 @@ class ReplyPanel(
         /** Rubber-band factor when there's nowhere to navigate (single pending message). */
         private const val SWIPE_RUBBER_BAND = 0.28f
         private const val ACCENT = 0xFFB39DDB.toInt()
-        private const val PANEL_BG = 0xF21A1A24.toInt()
-        private const val CHIP_BG = 0xFF35323F.toInt()
-        private const val VOICE_CHIP_BG = 0xFF453A63.toInt()
+        /** ~85% opaque charcoal — glass shell with less see-through distraction (was ~65%). */
+        private const val PANEL_BG = 0xD91A1A24.toInt()
+        /** Soft second stop for the frosted backdrop gradient (API 31+ blur plate). */
+        private const val PANEL_BG_SHEEN = 0xD31E1A2C.toInt()
+        /** Slightly stronger glass edge than the old 0x33FFFFFF hairline. */
+        private const val PANEL_STROKE = 0x66FFFFFF.toInt()
+        private const val PANEL_STROKE_WIDTH_PX = 3
+        private const val PANEL_CORNER_MAIN_PX = 36f
+        /** ~94% — proportionate bump with PANEL_BG (readable glass chips). */
+        private const val CHIP_BG = 0xEF35323F.toInt()
+        private const val CHIP_STROKE = 0x55FFFFFF.toInt()
+        private const val VOICE_CHIP_BG = 0xEF453A63.toInt()
         private const val VOICE_CHIP_STROKE = 0xFFB39DDB.toInt()
         private const val MAX_PANEL_HEIGHT_FRACTION = 0.4f
         private const val TAG_NEW_SENDER_ARROW = "scrollcat_new_sender_arrow"
         private const val MUTED_TEXT = 0xFFA39BB0.toInt()
         private const val SOFT_TEXT = 0xFFE8E4EF.toInt()
         private const val DANGER = 0xFFFCA5A5.toInt()
-        private const val BUTTON_BG = 0xFF3A3648.toInt()
-        private const val INPUT_BG = 0xFF23222E.toInt()
-        private const val PLACEHOLDER_BG = 0xFF2E2C3A.toInt()
+        /** Button / input fills — same proportional opacity bump as chips. */
+        private const val BUTTON_BG = 0xEF3A3648.toInt()
+        private const val INPUT_BG = 0xEF23222E.toInt()
+        private const val PLACEHOLDER_BG = 0xE92E2C3A.toInt()
         private const val NAV_ACCENT = 0xFFC4B5E0.toInt()
         private const val TIP_ACCENT = 0xFFE9D5FF.toInt()
+        /** RenderEffect blur radius for the static glass backdrop only (API 31+). */
+        private const val GLASS_BLUR_RADIUS = 22f
         /** Poll after overlay Grant Access opens system Accessibility settings (~30s). */
         private const val A11Y_GRANT_POLL_INTERVAL_MS = 1_500L
         private const val A11Y_GRANT_POLL_MAX_ATTEMPTS = 20
@@ -88,6 +105,12 @@ class ReplyPanel(
 
     private var panelView: ViewGroup? = null
     private var panelParams: WindowManager.LayoutParams? = null
+    /**
+     * Static frosted plate behind panel content (API 31+ RenderEffect only).
+     * Cleared while message slides animate; never runs after [dismiss].
+     */
+    private var glassBackdropView: View? = null
+    private var glassCornerRadiusPx: Float = PANEL_CORNER_MAIN_PX
     private val handler = Handler(Looper.getMainLooper())
     // Routes to Claude when an API key is set, on-device Gemini Nano otherwise
     private val generator = ClaudeReplyGenerator(context)
@@ -100,6 +123,7 @@ class ReplyPanel(
     private var messageSlideInProgress = false
     private var navRow: LinearLayout? = null
     private var pendingCountView: TextView? = null
+    private var swipeHintView: TextView? = null
     private var newSenderArrow: TextView? = null
     /** Variable content above the fixed footer (header → slide host). */
     private var messageBodyColumn: LinearLayout? = null
@@ -143,6 +167,10 @@ class ReplyPanel(
     private var voiceListening = false
     private var micPulseAnimator: ObjectAnimator? = null
     private val voiceTranslator by lazy { ScreenTranslator(context) }
+    /** Message read-aloud engine; created on first speak, shut down in [dismiss]. */
+    private var ttsManager: TtsManager? = null
+    private var ttsSpeaking = false
+    private var speakButtonPaint: (() -> Unit)? = null
     /** True while showing the minimal no-pending voice-dictation panel. */
     private var dictationMode = false
     private var dictationStatusLabel: TextView? = null
@@ -165,6 +193,107 @@ class ReplyPanel(
 
     private fun senderListEdgeGapPx(): Int = dp(SENDER_LIST_EDGE_GAP_DP)
 
+    private fun supportsGlassBlur(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    /** Translucent tinted fill + glass-edge stroke for the panel shell (all API levels). */
+    private fun glassShellDrawable(cornerRadiusPx: Float): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(PANEL_BG)
+            cornerRadius = cornerRadiusPx
+            setStroke(PANEL_STROKE_WIDTH_PX, PANEL_STROKE)
+        }
+
+    /** Soft gradient plate under content — visible depth once blurred on API 31+. */
+    private fun frostedBackdropDrawable(cornerRadiusPx: Float): GradientDrawable =
+        GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(PANEL_BG_SHEEN, PANEL_BG)
+        ).apply {
+            cornerRadius = cornerRadiusPx
+        }
+
+    private fun roundRectOutline(cornerRadiusPx: Float): ViewOutlineProvider =
+        object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+            }
+        }
+
+    private fun applyRoundedGlassClip(view: View, cornerRadiusPx: Float) {
+        view.outlineProvider = roundRectOutline(cornerRadiusPx)
+        view.clipToOutline = true
+    }
+
+    /**
+     * Rebuilds content while re-attaching the static frosted backdrop (API 31+ only).
+     * Call instead of bare [ViewGroup.removeAllViews] on glass panels.
+     */
+    private fun resetGlassPanelContent(panel: ViewGroup, cornerRadiusPx: Float = glassCornerRadiusPx) {
+        clearGlassBackdropBlur()
+        glassBackdropView = null
+        panel.removeAllViews()
+        attachGlassBackdrop(panel, cornerRadiusPx)
+    }
+
+    private fun attachGlassBackdrop(panel: ViewGroup, cornerRadiusPx: Float) {
+        if (!supportsGlassBlur()) return
+        // Compact FrameLayout overlays (dictation / a11y explainer) use WindowManager
+        // WRAP_CONTENT height. A MATCH_PARENT-height backdrop inside that FrameLayout
+        // measures to the full screen on many devices, stretching the overlay into a
+        // full-height sheet. ConstraintLayout reply panels size correctly via constraints.
+        if (panel is FrameLayout) {
+            glassBackdropView = null
+            return
+        }
+        glassCornerRadiusPx = cornerRadiusPx
+        val backdrop = View(context).apply {
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            background = frostedBackdropDrawable(cornerRadiusPx)
+            applyRoundedGlassClip(this, cornerRadiusPx)
+        }
+        glassBackdropView = backdrop
+        when (panel) {
+            is ConstraintLayout -> panel.addView(
+                backdrop,
+                0,
+                ConstraintLayout.LayoutParams(0, 0).apply {
+                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                    bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                    startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                }
+            )
+            else -> {
+                glassBackdropView = null
+                return
+            }
+        }
+        applyGlassBackdropBlurIfAllowed()
+    }
+
+    /** Apply blur only when settled and the panel is still showing. */
+    private fun applyGlassBackdropBlurIfAllowed() {
+        if (!supportsGlassBlur()) return
+        val backdrop = glassBackdropView ?: return
+        if (!isShowing || messageSlideInProgress) {
+            backdrop.setRenderEffect(null)
+            return
+        }
+        backdrop.setRenderEffect(
+            RenderEffect.createBlurEffect(
+                GLASS_BLUR_RADIUS,
+                GLASS_BLUR_RADIUS,
+                Shader.TileMode.CLAMP
+            )
+        )
+    }
+
+    private fun clearGlassBackdropBlur() {
+        if (!supportsGlassBlur()) return
+        glassBackdropView?.setRenderEffect(null)
+    }
+
     /** Service/overlay context has no Material theme; wrap before constructing Material widgets. */
     private val materialContext: Context by lazy {
         ContextThemeWrapper(context, R.style.Theme_ScrollCat)
@@ -183,12 +312,10 @@ class ReplyPanel(
 
         val panel = ConstraintLayout(context).apply {
             setPadding(28, 24, 28, 24)
-            background = GradientDrawable().apply {
-                setColor(PANEL_BG)
-                cornerRadius = 36f
-                setStroke(2, 0x33FFFFFF)
-            }
+            background = glassShellDrawable(PANEL_CORNER_MAIN_PX)
+            applyRoundedGlassClip(this, PANEL_CORNER_MAIN_PX)
         }
+        glassCornerRadiusPx = PANEL_CORNER_MAIN_PX
 
         val dm = context.resources.displayMetrics
         val panelW = panelWidthPx()
@@ -262,14 +389,16 @@ class ReplyPanel(
         dictationRetryHint = null
 
         val panelW = dp(DICTATION_PANEL_WIDTH)
-        val panel = LinearLayout(context).apply {
+        val corner = dp(20).toFloat()
+        val panel = FrameLayout(context).apply {
+            background = glassShellDrawable(corner)
+            applyRoundedGlassClip(this, corner)
+        }
+        glassCornerRadiusPx = corner
+        attachGlassBackdrop(panel, corner)
+        val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(8), dp(10), dp(10))
-            background = GradientDrawable().apply {
-                setColor(PANEL_BG)
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0x33FFFFFF)
-            }
         }
 
         val dm = context.resources.displayMetrics
@@ -347,6 +476,21 @@ class ReplyPanel(
             }
         })
 
+        val languageOverflow = buildDictationLanguageOverflowMenu()
+
+        topRow.addView(TextView(context).apply {
+            text = "⋮"
+            textSize = 18f
+            setTextColor(MUTED_TEXT)
+            gravity = Gravity.CENTER
+            setPadding(dp(6), dp(2), dp(4), dp(2))
+            contentDescription = "Language options"
+            setOnClickListener {
+                languageOverflow.visibility =
+                    if (languageOverflow.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+        })
+
         topRow.addView(TextView(context).apply {
             text = "✕"
             textSize = 14f
@@ -357,7 +501,7 @@ class ReplyPanel(
                 dismiss()
             }
         })
-        panel.addView(topRow)
+        content.addView(topRow)
 
         val retryHint = TextView(context).apply {
             text = ""
@@ -371,9 +515,9 @@ class ReplyPanel(
             }
         }
         dictationRetryHint = retryHint
-        panel.addView(retryHint)
+        content.addView(retryHint)
 
-        panel.addView(TextView(context).apply {
+        content.addView(TextView(context).apply {
             text = "Choose translation voice in Smart Voice"
             textSize = 10f
             setTextColor(MUTED_TEXT)
@@ -390,6 +534,16 @@ class ReplyPanel(
                 }
             }
         })
+
+        content.addView(languageOverflow)
+
+        panel.addView(
+            content,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         // Tap panel body (status area) to retry after an error
         status.isClickable = true
@@ -412,15 +566,50 @@ class ReplyPanel(
         dictationMode = false
 
         val panelW = dp(DICTATION_PANEL_WIDTH)
-        val panel = LinearLayout(context).apply {
+        val corner = dp(20).toFloat()
+        val panel = FrameLayout(context).apply {
+            background = glassShellDrawable(corner)
+            applyRoundedGlassClip(this, corner)
+        }
+        glassCornerRadiusPx = corner
+        // Shell-only glass for compact FrameLayout cards (no MATCH_PARENT blur plate).
+        attachGlassBackdrop(panel, corner)
+
+        val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(8), dp(10), dp(10))
-            background = GradientDrawable().apply {
-                setColor(PANEL_BG)
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0x33FFFFFF)
-            }
         }
+
+        val dm = context.resources.displayMetrics
+        val x = (catX + catSize / 2 - panelW / 2)
+            .coerceIn(dp(8), (dm.widthPixels - panelW - dp(8)).coerceAtLeast(dp(8)))
+        // Same positioning pattern as [showVoiceDictation].
+        val y = (catY - dp(100)).coerceAtLeast(dp(48))
+
+        val params = WindowManager.LayoutParams(
+            panelW,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            this.x = x
+            this.y = y
+        }
+
+        try {
+            if (panel.parent == null) windowManager.addView(panel, params)
+        } catch (e: Exception) {
+            android.util.Log.w(
+                "ScrollCat",
+                "Accessibility explanation panel addView failed: ${e.message}"
+            )
+            isShowing = false
+            return
+        }
+        panelView = panel
+        panelParams = params
 
         val topRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -444,7 +633,7 @@ class ReplyPanel(
                 dismiss()
             }
         })
-        panel.addView(topRow)
+        content.addView(topRow)
 
         val bodyText = TextView(context).apply {
             text = "You can use voice-to-text in any app"
@@ -453,7 +642,7 @@ class ReplyPanel(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, dp(8), 0, dp(6))
         }
-        panel.addView(bodyText)
+        content.addView(bodyText)
 
         val tipText = TextView(context).apply {
             text = "Tip: tap 'Installed apps' (or 'Downloaded apps') in the Accessibility list to find ScrollCat — it's not shown at the top by default."
@@ -462,7 +651,7 @@ class ReplyPanel(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, 0, 0, dp(10))
         }
-        panel.addView(tipText)
+        content.addView(tipText)
 
         val grantBtn = TextView(context).apply {
             text = "Grant Access"
@@ -513,37 +702,22 @@ class ReplyPanel(
                 handler.postDelayed(dismissLater, A11Y_SUCCESS_CONFIRM_MS)
             }
         }
-        panel.addView(grantBtn)
-
-        val dm = context.resources.displayMetrics
-        val x = (catX + catSize / 2 - panelW / 2)
-            .coerceIn(dp(8), (dm.widthPixels - panelW - dp(8)).coerceAtLeast(dp(8)))
-        val y = (catY - dp(120)).coerceAtLeast(dp(48))
-
-        val params = WindowManager.LayoutParams(
-            panelW,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            this.x = x
-            this.y = y
-        }
-
-        try {
-            if (panel.parent == null) windowManager.addView(panel, params)
-        } catch (e: Exception) {
-            android.util.Log.w(
-                "ScrollCat",
-                "Accessibility explanation panel addView failed: ${e.message}"
+        content.addView(grantBtn)
+        panel.addView(
+            content,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
-            isShowing = false
-            return
-        }
-        panelView = panel
-        panelParams = params
+        )
+
+        // Clean compact entrance (same spirit as a soft fade — not a full-screen slide).
+        panel.alpha = 0f
+        panel.animate()
+            .alpha(1f)
+            .setDuration(160L)
+            .start()
+
         android.util.Log.d("ScrollCat", "Accessibility explanation card shown")
     }
 
@@ -725,6 +899,7 @@ class ReplyPanel(
         currentEntry = null
         navRow = null
         pendingCountView = null
+        swipeHintView = null
         messageBodyColumn = null
         messageFooterBlock = null
         messageSlideColumn = null
@@ -753,10 +928,11 @@ class ReplyPanel(
             "Pending reply card width changed from ${oldWidthDp}dp to ${newWidthDp}dp " +
                 "(${baseCardWidthPx}px -> ${actualCardWidthPx}px)"
         )
-        panel.removeAllViews()
+        resetGlassPanelContent(panel)
         resetPanelHeightToWrap()
         navRow = null
         pendingCountView = null
+        swipeHintView = null
         newSenderArrow = null
 
         // Sender-list only: let cards spill into the panel's side padding so they run
@@ -886,7 +1062,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(CHIP_BG)
-                setStroke(dp(1), 0x44FFFFFF)
+                setStroke(dp(1), CHIP_STROKE)
             }
             layoutParams = FrameLayout.LayoutParams(
                 listScrollChevronOuter,
@@ -994,7 +1170,7 @@ class ReplyPanel(
             radius = dp(16).toFloat()
             cardElevation = dp(2).toFloat()
             strokeWidth = 1
-            strokeColor = 0x33FFFFFF
+            strokeColor = CHIP_STROKE
             setCardBackgroundColor(CHIP_BG)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1045,7 +1221,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(CHIP_BG)
-                setStroke(dp(1), 0x44FFFFFF)
+                setStroke(dp(1), CHIP_STROKE)
             }
             contentDescription = "Show less"
             layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
@@ -1170,7 +1346,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(CHIP_BG)
-                setStroke(dp(1), 0x44FFFFFF)
+                setStroke(dp(1), CHIP_STROKE)
             }
             layoutParams = LinearLayout.LayoutParams(outer, outer).apply {
                 gravity = Gravity.START
@@ -1305,6 +1481,7 @@ class ReplyPanel(
             val previousEntryId = currentEntry?.entryId ?: "none"
             val token = ++messageSlideToken
             messageSlideInProgress = true
+            clearGlassBackdropBlur()
             val widthPx = existingSlide.width
                 .takeIf { it > 0 }
                 ?: (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
@@ -1337,6 +1514,7 @@ class ReplyPanel(
                                 "but slide-in may still proceed with stale/missing content"
                         )
                         messageSlideInProgress = false
+                        applyGlassBackdropBlurIfAllowed()
                         return@withEndAction
                     }
                     showMessage(
@@ -1374,6 +1552,7 @@ class ReplyPanel(
                     val newSlide = messageSlideColumn
                     if (newSlide == null) {
                         messageSlideInProgress = false
+                        applyGlassBackdropBlurIfAllowed()
                         return@withEndAction
                     }
                     newSlide.animate().cancel()
@@ -1391,7 +1570,10 @@ class ReplyPanel(
                         .translationX(0f)
                         .setDuration(MESSAGE_SLIDE_MS)
                         .setInterpolator(DecelerateInterpolator())
-                        .withEndAction { messageSlideInProgress = false }
+                        .withEndAction {
+                            messageSlideInProgress = false
+                            applyGlassBackdropBlurIfAllowed()
+                        }
                         .start()
                 }
                 .start()
@@ -1439,9 +1621,10 @@ class ReplyPanel(
         knownEntryIdsAtOpen.add(message.entryId)
         panel.clipToPadding = true
         panel.clipChildren = true
-        panel.removeAllViews()
+        resetGlassPanelContent(panel)
         navRow = null
         pendingCountView = null
+        swipeHintView = null
         newSenderArrow = null
         messagePanelRelayout = null
         messagePanelApplyHeightSync = null
@@ -1574,7 +1757,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(CHIP_BG)
-                setStroke(dp(1), 0x44FFFFFF)
+                setStroke(dp(1), CHIP_STROKE)
             }
             layoutParams = FrameLayout.LayoutParams(scrollChevronOuter, scrollChevronOuter).apply {
                 gravity = Gravity.CENTER
@@ -1795,8 +1978,8 @@ class ReplyPanel(
                 val draggedPrev = tx >= commitDist
 
                 when {
-                    flickedNext || draggedNext -> advance()
-                    flickedPrev || draggedPrev -> previous()
+                    flickedNext || draggedNext -> commitSwipeNavigation { advance() }
+                    flickedPrev || draggedPrev -> commitSwipeNavigation { previous() }
                     else -> snapSlideBackToCenter(slideColumn)
                 }
             }
@@ -2173,7 +2356,7 @@ class ReplyPanel(
                 background = GradientDrawable().apply {
                     setColor(INPUT_BG)
                     cornerRadius = 20f
-                    setStroke(1, 0x44FFFFFF)
+                    setStroke(1, CHIP_STROKE)
                 }
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -2452,7 +2635,7 @@ class ReplyPanel(
                     background = GradientDrawable().apply {
                         setColor(CHIP_BG)
                         cornerRadius = 28f
-                        setStroke(1, 0x44FFFFFF)
+                        setStroke(1, CHIP_STROKE)
                     }
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -2509,7 +2692,7 @@ class ReplyPanel(
                     background = GradientDrawable().apply {
                         setColor(CHIP_BG)
                         cornerRadius = 28f
-                        setStroke(1, 0x44FFFFFF)
+                        setStroke(1, CHIP_STROKE)
                     }
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -2538,6 +2721,7 @@ class ReplyPanel(
             if (RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
                 chipsContainer.addView(
                     buildVoiceToTextChip(
+                        messageText = message.message,
                         onVoiceTranscript = { text ->
                             resolveVoiceTranscript(text) { resolved ->
                                 showEditInput(resolved, suggestions, engine, openKeyboard = false)
@@ -2827,6 +3011,108 @@ class ReplyPanel(
         return toggle
     }
 
+    /**
+     * Speaker control — same footprint as translate (28dp / 4dp pad on the voice chip).
+     * Selected while TTS is speaking (same GradientDrawable highlight as active translate);
+     * tap again stops via [TtsManager.stop].
+     */
+    private fun buildReadAloudButton(
+        messageText: String,
+        heightPx: Int = dp(40),
+        iconPaddingPx: Int = dp(8),
+        marginStartPx: Int = dp(4)
+    ): ImageView {
+        // Warm up TTS when the message panel shows the speaker control.
+        ensureTtsManager()
+        val button = ImageView(context).apply {
+            setImageResource(R.drawable.ic_volume_up)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Read message aloud"
+            isClickable = true
+            isFocusable = true
+            setPadding(iconPaddingPx, iconPaddingPx, iconPaddingPx, iconPaddingPx)
+            layoutParams = LinearLayout.LayoutParams(heightPx, heightPx).apply {
+                marginStart = marginStartPx
+            }
+            clipToOutline = false
+        }
+        fun paint() {
+            val on = ttsSpeaking
+            button.imageTintList = android.content.res.ColorStateList.valueOf(
+                if (on) TIP_ACCENT else MUTED_TEXT
+            )
+            button.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setCornerRadius(dp(10).toFloat())
+                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
+                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+            }
+            button.alpha = if (on) 1f else 0.75f
+            button.contentDescription =
+                if (on) "Stop reading aloud" else "Read message aloud"
+        }
+        val painter: () -> Unit = { paint() }
+        speakButtonPaint = painter
+        button.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                paint()
+            }
+            override fun onViewDetachedFromWindow(v: View) {
+                if (speakButtonPaint === painter) speakButtonPaint = null
+            }
+        })
+        paint()
+        button.setOnClickListener {
+            if (ttsSpeaking) {
+                ttsManager?.stop()
+                return@setOnClickListener
+            }
+            if (messageText.isBlank()) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Nothing to read",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            speakIncomingMessage(messageText)
+        }
+        return button
+    }
+
+    private fun ensureTtsManager(): TtsManager {
+        ttsManager?.let { return it }
+        val created = TtsManager(context) { speaking ->
+            handler.post {
+                ttsSpeaking = speaking
+                speakButtonPaint?.invoke()
+            }
+        }
+        ttsManager = created
+        return created
+    }
+
+    /**
+     * Reads the incoming message aloud. Language from
+     * [ScreenTranslator.identifyLanguageCode] (same ML Kit detector used for
+     * screen translate / reply-matching language awareness).
+     */
+    private fun speakIncomingMessage(messageText: String) {
+        val toSpeak = messageText.trim()
+        if (toSpeak.isEmpty()) return
+        val manager = ensureTtsManager()
+        voiceTranslator.identifyLanguageCode(toSpeak) { detected ->
+            manager.speak(toSpeak, detected)
+        }
+    }
+
+    private fun releaseTextToSpeech() {
+        ttsSpeaking = false
+        speakButtonPaint = null
+        ttsManager?.shutdown()
+        ttsManager = null
+    }
+
     private fun releaseSpeechRecognizer() {
         voiceListening = false
         micPulseAnimator?.cancel()
@@ -2858,6 +3144,7 @@ class ReplyPanel(
      * in a fully transparent Activity; chip shows listening/error states inline.
      */
     private fun buildVoiceToTextChip(
+        messageText: String,
         onVoiceTranscript: (String) -> Unit,
         onContentChanged: () -> Unit
     ): LinearLayout {
@@ -2906,31 +3193,35 @@ class ReplyPanel(
             setBackgroundColor(0x446B6578)
             layoutParams = LinearLayout.LayoutParams(dp(1), dp(18)).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                marginStart = dp(8)
-                marginEnd = dp(4)
+                // Slight left pull vs original 8/4 — frees a bit of room for the speaker.
+                marginStart = dp(6)
+                marginEnd = dp(2)
             }
         }
-        android.util.Log.e(
-            "ScrollCat",
-            "translate icon size: 32dp -> 28dp, romanize box size: 32dp -> 28dp, " +
-                "divider marginStart: 4dp -> 8dp"
-        )
         chip.addView(micIcon)
         chip.addView(label)
         chip.addView(voiceDivider)
-        // Tighter fixed footprints so weight=1f label gets enough room for "Voice to text".
+        // Same icon sizes/padding — only a small left margin nudge from the prior 4dp / 8dp gaps.
         chip.addView(
             buildVoiceTranslateToggle(
                 heightPx = dp(28),
                 iconPaddingPx = dp(4),
-                marginStartPx = dp(4)
+                marginStartPx = dp(2)
             )
         )
         chip.addView(
             buildVoiceRomanizeToggle(
                 heightPx = dp(28),
                 iconPaddingPx = dp(4),
-                marginStartPx = dp(8)
+                marginStartPx = dp(6)
+            )
+        )
+        chip.addView(
+            buildReadAloudButton(
+                messageText = messageText,
+                heightPx = dp(28),
+                iconPaddingPx = dp(4),
+                marginStartPx = dp(4)
             )
         )
 
@@ -3244,7 +3535,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 setColor(CHIP_BG)
                 cornerRadius = dp(14).toFloat()
-                setStroke(1, 0x33FFFFFF)
+                setStroke(1, CHIP_STROKE)
             }
             setPadding(dp(4), dp(4), dp(4), dp(4))
 
@@ -3263,21 +3554,153 @@ class ReplyPanel(
                 }
             })
 
-            addView(View(context).apply {
-                setBackgroundColor(0x33FFFFFF)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1
-                ).apply { setMargins(dp(10), 0, dp(10), 0) }
-            })
+            addView(overflowDivider())
+            addLanguageQuickSwitchSection(this)
+        }
+    }
 
-            addView(TextView(context).apply {
-                text = "Clear all pending replies"
-                textSize = 13f
-                setTextColor(SOFT_TEXT)
-                setPadding(dp(14), dp(12), dp(14), dp(12))
-                setOnClickListener { clearAllPendingReplies() }
-            })
+    private fun overflowDivider(): View =
+        View(context).apply {
+            setBackgroundColor(0x33FFFFFF)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1
+            ).apply { setMargins(dp(10), 0, dp(10), 0) }
+        }
+
+    /**
+     * Quick-switch for Smart Voice Language 1 — curated defaults + user customs.
+     * Instant set; does not leave the current panel.
+     */
+    private fun addLanguageQuickSwitchSection(parent: LinearLayout) {
+        val defaults = listOf(
+            "English", "Spanish", "Hindi", "Telugu", "German", "French"
+        )
+        val customs = SettingsManager.getVoiceCustomLanguages1(context)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .filter { custom ->
+                defaults.none { it.equals(custom, ignoreCase = true) }
+            }
+            .distinctBy { it.lowercase() }
+        // If Language 1 is a custom value not yet in the customs list, still show it.
+        val active = SettingsManager.getVoiceLanguage1(context).trim()
+        val activeExtra = if (
+            active.isNotEmpty() &&
+            !active.equals("Other", ignoreCase = true) &&
+            defaults.none { it.equals(active, ignoreCase = true) } &&
+            customs.none { it.equals(active, ignoreCase = true) }
+        ) {
+            listOf(active)
+        } else {
+            emptyList()
+        }
+        val languages = defaults + customs + activeExtra
+
+        parent.addView(TextView(context).apply {
+            text = "Language for Voice to Text"
+            textSize = 11f
+            setTextColor(MUTED_TEXT)
+            setPadding(dp(14), dp(10), dp(14), dp(4))
+        })
+
+        val gridHost = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(dp(6), dp(2), dp(6), dp(4))
+        }
+        parent.addView(gridHost)
+
+        fun paintGrid() {
+            gridHost.removeAllViews()
+            val current = SettingsManager.getVoiceLanguage1(context)
+            var index = 0
+            while (index < languages.size) {
+                val row = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                }
+                repeat(3) { col ->
+                    val langIndex = index + col
+                    if (langIndex >= languages.size) {
+                        row.addView(View(context).apply {
+                            layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+                        })
+                    } else {
+                        val lang = languages[langIndex]
+                        val selected = lang.equals(current, ignoreCase = true)
+                        row.addView(TextView(context).apply {
+                            text = if (selected) "✓ $lang" else lang
+                            textSize = 12f
+                            gravity = Gravity.CENTER
+                            setTextColor(if (selected) TIP_ACCENT else SOFT_TEXT)
+                            setPadding(dp(4), dp(10), dp(4), dp(10))
+                            background = GradientDrawable().apply {
+                                shape = GradientDrawable.RECTANGLE
+                                cornerRadius = dp(10).toFloat()
+                                setColor(if (selected) VOICE_CHIP_BG else 0x00000000)
+                                if (selected) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+                            }
+                            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                                .apply {
+                                    marginStart = if (col == 0) 0 else dp(4)
+                                    marginEnd = if (col == 2) 0 else dp(4)
+                                }
+                            setOnClickListener {
+                                SettingsManager.setVoiceLanguage1(context, lang)
+                                refreshVoiceModeToggles()
+                                paintGrid()
+                            }
+                        })
+                    }
+                }
+                gridHost.addView(row)
+                index += 3
+            }
+        }
+        paintGrid()
+
+        parent.addView(TextView(context).apply {
+            text = "More languages? Check Smart Voice in the dashboard."
+            textSize = 10f
+            setTextColor(MUTED_TEXT)
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(6), dp(10), dp(10))
+            setOnClickListener {
+                try {
+                    context.startActivity(
+                        Intent(context, SmartVoiceActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("ScrollCat", "Open SmartVoice failed: ${e.message}")
+                }
+            }
+        })
+    }
+
+    /** Dictation-only overflow: Language quick-switch, nothing else. */
+    private fun buildDictationLanguageOverflowMenu(): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(6) }
+            background = GradientDrawable().apply {
+                setColor(CHIP_BG)
+                cornerRadius = dp(14).toFloat()
+                setStroke(1, CHIP_STROKE)
+            }
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addLanguageQuickSwitchSection(this)
         }
     }
 
@@ -3291,7 +3714,7 @@ class ReplyPanel(
             background = GradientDrawable().apply {
                 setColor(CHIP_BG)
                 cornerRadius = 28f
-                setStroke(1, 0x44FFFFFF)
+                setStroke(1, CHIP_STROKE)
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -3475,7 +3898,7 @@ class ReplyPanel(
         handled: ReplyStore.ReplyableMessage? = null
     ) {
         val panel = panelView ?: return
-        panel.removeAllViews()
+        resetGlassPanelContent(panel)
         messageBodyColumn = null
         messageSlideColumn = null
         messageFooterBlock = null
@@ -3483,6 +3906,7 @@ class ReplyPanel(
         messagePanelApplyHeightSync = null
         navRow = null
         pendingCountView = null
+        swipeHintView = null
         resetPanelHeightToWrap()
         val label = TextView(context).apply {
             this.text = text
@@ -3542,6 +3966,22 @@ class ReplyPanel(
         if (pending.size <= 1 || messageSlideInProgress) return
         currentIndex = if (currentIndex == 0) pending.size - 1 else currentIndex - 1
         showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.PREVIOUS)
+    }
+
+    /** Left-arrow: always return to the Pending Replies list (not previous message). */
+    private fun backToPendingList() {
+        if (messageSlideInProgress) return
+        showSenderList()
+    }
+
+    /**
+     * Swipe-committed navigation: count toward the one-time swipe hint, then navigate.
+     * Arrow taps and other programmatic advances do not count.
+     */
+    private fun commitSwipeNavigation(navigate: () -> Unit) {
+        if (pending.size <= 1 || messageSlideInProgress) return
+        SettingsManager.recordReplyPanelSuccessfulSwipe(context)
+        navigate()
     }
 
     /** Snap a mid-drag slide column back to rest without changing the queued message. */
@@ -3776,6 +4216,7 @@ class ReplyPanel(
             }
             navRow = null
             pendingCountView = null
+            swipeHintView = null
             return
         }
 
@@ -3789,28 +4230,45 @@ class ReplyPanel(
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             }
-            fun buildNavArrow(pointsLeft: Boolean, onClick: () -> Unit): TextView {
-                return TextView(context).apply {
-                    // Mirror the exact same glyph so both arrows have identical visual metrics.
-                    text = "→"
-                    textSize = 18f
-                    setTextColor(NAV_ACCENT)
-                    gravity = Gravity.CENTER
-                    setPadding(24, 8, 24, 8)
-                    scaleX = if (pointsLeft) -1f else 1f
-                    contentDescription = if (pointsLeft) "Previous message" else "Next message"
-                    setOnClickListener { onClick() }
-                }
+            // Left arrow only — always returns to Pending Replies. Sequential next/prev is swipe-only.
+            row.addView(TextView(context).apply {
+                text = "→"
+                textSize = 18f
+                setTextColor(NAV_ACCENT)
+                gravity = Gravity.CENTER
+                setPadding(24, 8, 24, 8)
+                scaleX = -1f
+                contentDescription = "Back to pending replies"
+                setOnClickListener { backToPendingList() }
+            })
+            val centerCol = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
-            row.addView(buildNavArrow(pointsLeft = true) { previous() })
             pendingCountView = TextView(context).apply {
                 textSize = 11f
                 setTextColor(MUTED_TEXT)
                 gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
             }
-            row.addView(pendingCountView)
-            row.addView(buildNavArrow(pointsLeft = false) { advance() })
+            centerCol.addView(pendingCountView)
+            swipeHintView = TextView(context).apply {
+                text = "Swipe to go to next message."
+                textSize = 10f
+                setTextColor(MUTED_TEXT)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            centerCol.addView(swipeHintView)
+            row.addView(centerCol)
             navRow = row
         }
         val row = navRow ?: return
@@ -3826,6 +4284,8 @@ class ReplyPanel(
         }
 
         pendingCountView?.text = "${currentIndex + 1} / ${pending.size} waiting"
+        swipeHintView?.visibility =
+            if (SettingsManager.shouldShowReplyPanelSwipeHint(context)) View.VISIBLE else View.GONE
     }
 
     private fun showIgnoreUserConfirmation(message: ReplyStore.ReplyableMessage) {
@@ -4063,8 +4523,11 @@ class ReplyPanel(
         cancelAccessibilityGrantPoll()
         messageSlideToken++
         messageSlideInProgress = false
+        clearGlassBackdropBlur()
+        glassBackdropView = null
         handler.removeCallbacksAndMessages(null)
         releaseSpeechRecognizer()
+        releaseTextToSpeech()
         setPanelFocusable(false)
         messageSlideColumn?.animate()?.cancel()
         panelView?.let {
@@ -4076,7 +4539,7 @@ class ReplyPanel(
         currentEntry = null
         navRow = null
         pendingCountView = null
-        newSenderArrow = null
+        swipeHintView = null
         messageBodyColumn = null
         messageSlideColumn = null
         messageFooterBlock = null

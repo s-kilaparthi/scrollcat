@@ -449,6 +449,52 @@ object SettingsManager {
             .edit().putString("voice_language_2", language.trim().ifBlank { "English" }).apply()
     }
 
+    /** MRU voice-recognition display names (Language 1), newest first, max 3. */
+    private const val KEY_RECENT_VOICE_LANGUAGES = "recent_voice_languages"
+    private const val RECENT_VOICE_LANGUAGES_MAX = 3
+
+    fun getRecentVoiceLanguages(context: Context): List<String> {
+        ensureVoiceLanguagesMigrated(context)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_RECENT_VOICE_LANGUAGES, "")?.trim().orEmpty()
+        val stored = raw.split('|')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+            .take(RECENT_VOICE_LANGUAGES_MAX)
+        if (stored.isNotEmpty()) return stored
+        // Seed from current Language 1 (and Language 2 if different) until recognition runs.
+        return listOf(getVoiceLanguage1(context), getVoiceLanguage2(context))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.equals("Other", ignoreCase = true) }
+            .distinctBy { it.lowercase() }
+            .take(RECENT_VOICE_LANGUAGES_MAX)
+    }
+
+    /** Call when speech recognition actually starts with the active Language 1. */
+    fun recordVoiceLanguageUsed(context: Context, language: String = getVoiceLanguage1(context)) {
+        val name = language.trim()
+        if (name.isEmpty() || name.equals("Other", ignoreCase = true)) return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val updated = (prefs.getString(KEY_RECENT_VOICE_LANGUAGES, "") ?: "")
+            .split('|')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toMutableList()
+        updated.removeAll { it.equals(name, ignoreCase = true) }
+        updated.add(0, name)
+        while (updated.size > RECENT_VOICE_LANGUAGES_MAX) {
+            updated.removeAt(updated.lastIndex)
+        }
+        prefs.edit()
+            .putString(KEY_RECENT_VOICE_LANGUAGES, updated.joinToString("|"))
+            .apply()
+        android.util.Log.d(
+            "ScrollCat",
+            "recordVoiceLanguageUsed recorded='$name' MRU now=$updated"
+        )
+    }
+
     fun isVoiceTranslateEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("voice_translate_enabled", false)
@@ -685,6 +731,27 @@ object SettingsManager {
     fun setOnDeviceReadyBannerPending(context: Context, pending: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("on_device_ready_banner_pending", pending).apply()
+    }
+
+    /** Successful reply-panel message swipes (hide swipe hint after 3). */
+    private const val KEY_REPLY_PANEL_SUCCESSFUL_SWIPES = "reply_panel_successful_swipes"
+    private const val REPLY_PANEL_SWIPE_HINT_THRESHOLD = 3
+
+    fun getReplyPanelSuccessfulSwipeCount(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_REPLY_PANEL_SUCCESSFUL_SWIPES, 0)
+    }
+
+    fun shouldShowReplyPanelSwipeHint(context: Context): Boolean {
+        return getReplyPanelSuccessfulSwipeCount(context) < REPLY_PANEL_SWIPE_HINT_THRESHOLD
+    }
+
+    /** Increments until the swipe-hint threshold; no-op once already met. */
+    fun recordReplyPanelSuccessfulSwipe(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = prefs.getInt(KEY_REPLY_PANEL_SUCCESSFUL_SWIPES, 0)
+        if (current >= REPLY_PANEL_SWIPE_HINT_THRESHOLD) return
+        prefs.edit().putInt(KEY_REPLY_PANEL_SUCCESSFUL_SWIPES, current + 1).apply()
     }
 
     // ── Onboarding / user profile ──
