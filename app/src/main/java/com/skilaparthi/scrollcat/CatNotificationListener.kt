@@ -1,7 +1,10 @@
 package com.skilaparthi.scrollcat
 
+import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -37,6 +40,43 @@ class CatNotificationListener : NotificationListenerService() {
             "com.schwab.mobile",
             "com.zellepay.zelle"
         )
+
+        /** True when the system has Notification Access enabled for this listener. */
+        fun isNotificationAccessGranted(context: Context): Boolean {
+            if (instance != null) return true
+            val flat = Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners"
+            ) ?: return false
+            val expected = ComponentName(context, CatNotificationListener::class.java)
+            return flat.split(':').any { entry ->
+                val cn = ComponentName.unflattenFromString(entry) ?: return@any false
+                cn == expected ||
+                    (cn.packageName == expected.packageName &&
+                        cn.className.endsWith("CatNotificationListener"))
+            }
+        }
+
+        /**
+         * After a *fresh* Notification Access grant (first time ever), call
+         * [requestRebind] once so Android confirms the binding promptly — mitigates a
+         * known platform quirk where the very first post-grant notification can be
+         * missed. No-op on later launches once the "ever granted" flag is set.
+         */
+        fun maybeRequestRebindAfterFreshGrant(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+            if (!isNotificationAccessGranted(context)) return
+            if (SettingsManager.wasNotificationAccessEverEnabled(context)) return
+
+            SettingsManager.setNotificationAccessWasEverEnabled(context, true)
+            try {
+                val cn = ComponentName(context, CatNotificationListener::class.java)
+                requestRebind(cn)
+                Log.i(TAG, "requestRebind after fresh Notification Access grant ($cn)")
+            } catch (e: Exception) {
+                Log.w(TAG, "requestRebind failed: ${e.message}")
+            }
+        }
     }
 
     private val lastNotificationTime = mutableMapOf<String, Long>()
@@ -81,6 +121,8 @@ class CatNotificationListener : NotificationListenerService() {
         super.onListenerConnected()
         instance = this
         Log.i(TAG, "Notification listener connected")
+        // First-ever bind after grant: force a confirmed rebind (platform timing quirk).
+        maybeRequestRebindAfterFreshGrant(this)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

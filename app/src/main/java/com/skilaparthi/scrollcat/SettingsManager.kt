@@ -166,13 +166,15 @@ object SettingsManager {
             .edit().putInt(KEY_CAT_SIZE, clamped).apply()
     }
 
-    // Cat display mode: "always_visible" | "edge_docking" (default)
+    // Cat display mode: "always_visible" | "edge_docking" (default) | "visible_when_notified"
     private const val KEY_CAT_DISPLAY_MODE = "cat_display_mode"
     private const val KEY_CAT_DOCK_SIDE = "cat_dock_side"
     private const val KEY_CAT_FLOAT_X = "cat_float_x"
     private const val KEY_CAT_FLOAT_Y = "cat_float_y"
     const val DISPLAY_MODE_ALWAYS_VISIBLE = "always_visible"
     const val DISPLAY_MODE_EDGE_DOCKING = "edge_docking"
+    /** Edge chrome + hide when idle; slide in on notification / text-field focus. */
+    const val DISPLAY_MODE_VISIBLE_WHEN_NOTIFIED = "visible_when_notified"
 
     fun getCatDisplayMode(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -185,8 +187,19 @@ object SettingsManager {
             .edit().putString(KEY_CAT_DISPLAY_MODE, mode).apply()
     }
 
+    /**
+     * True for classic edge-docking and for "Visible only when notified"
+     * (both use edge dock/undock geometry).
+     */
     fun isEdgeDockingMode(context: Context): Boolean {
-        return getCatDisplayMode(context) == DISPLAY_MODE_EDGE_DOCKING
+        val mode = getCatDisplayMode(context)
+        return mode == DISPLAY_MODE_EDGE_DOCKING ||
+            mode == DISPLAY_MODE_VISIBLE_WHEN_NOTIFIED
+    }
+
+    /** Hide fully when idle; reveal on notification / focus — not classic peeking dock. */
+    fun isHideWhenIdleMode(context: Context): Boolean {
+        return getCatDisplayMode(context) == DISPLAY_MODE_VISIBLE_WHEN_NOTIFIED
     }
 
     /** "left" or "right" — last Move-side preference for edge docking. */
@@ -543,6 +556,18 @@ object SettingsManager {
     fun setAccessibilityWasEverEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("accessibility_was_ever_enabled", enabled).apply()
+    }
+
+    // ── Notification Access — first-grant tracking (one-shot requestRebind) ──
+
+    fun wasNotificationAccessEverEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("notification_access_was_ever_enabled", false)
+    }
+
+    fun setNotificationAccessWasEverEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("notification_access_was_ever_enabled", enabled).apply()
     }
 
     // ── On-device model manual override (testing) ──

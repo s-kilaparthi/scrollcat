@@ -481,10 +481,7 @@ class MainActivity : Activity() {
                 UiKit.dp(this@MainActivity, 4),
                 UiKit.dp(this@MainActivity, 4)
             )
-            setOnClickListener {
-                accessibilityBannerDismissedThisSession = true
-                refreshAccessibilityBanner()
-            }
+            // Persistent while Accessibility is off — not dismissible.
         })
         row.addView(top)
         row.addView(TextView(this).apply {
@@ -618,21 +615,17 @@ class MainActivity : Activity() {
         if (a11yEnabled) {
             SettingsManager.setAccessibilityWasEverEnabled(this, true)
         }
-        val wasEver = SettingsManager.wasAccessibilityEverEnabled(this)
-        val showFirst = isAiConfigured() &&
-            !a11yEnabled &&
-            !wasEver &&
-            !accessibilityBannerDismissedThisSession
-        val showRepair = isAiConfigured() &&
-            !a11yEnabled &&
-            wasEver &&
-            !accessibilityRepairBannerDismissedThisSession
+        // Voice-to-text / Accessibility banner: always on while AI is set up and
+        // Accessibility is still not granted — every dashboard visit, no dismiss gate.
+        val showFirst = isAiConfigured() && !a11yEnabled
         firstTime?.visibility = if (showFirst) View.VISIBLE else View.GONE
-        repair?.visibility = if (showRepair) View.VISIBLE else View.GONE
+        // Repair card is superseded by the persistent voice-to-text banner above.
+        repair?.visibility = View.GONE
     }
 
     override fun onResume() {
         super.onResume()
+        CatNotificationListener.maybeRequestRebindAfterFreshGrant(this)
         dashboardCatAnimator?.showFrame(DASHBOARD_REST_FRAME)
         refreshAiKeyBanner()
         refreshAccessibilityBanner()

@@ -198,6 +198,8 @@ class OnboardingActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (editMode) return
+        // Detect grant when returning from system Notification Access settings.
+        CatNotificationListener.maybeRequestRebindAfterFreshGrant(this)
         resumeOnboardingFlow()
     }
 

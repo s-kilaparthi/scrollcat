@@ -7,8 +7,9 @@ import android.media.AudioManager
 import android.util.Log
 
 /**
- * Transient audio focus around voice recognition so other apps (e.g. YouTube)
- * pause via their own focus handling and resume when we abandon.
+ * Transient audio focus so other apps (e.g. YouTube / music) pause via their
+ * own focus handling and resume when we abandon — used for voice recognition
+ * and for TTS read-aloud.
  */
 object AudioFocusHelper {
 

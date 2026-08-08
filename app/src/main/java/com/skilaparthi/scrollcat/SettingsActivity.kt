@@ -67,6 +67,7 @@ class SettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        CatNotificationListener.maybeRequestRebindAfterFreshGrant(this)
         refreshGestureAccessibilityState()
         refreshSetupPermissionBadges()
     }
@@ -168,7 +169,8 @@ class SettingsActivity : Activity() {
             })
             val displayOptions = listOf(
                 SettingsManager.DISPLAY_MODE_ALWAYS_VISIBLE to "Always visible",
-                SettingsManager.DISPLAY_MODE_EDGE_DOCKING to "Edge docking"
+                SettingsManager.DISPLAY_MODE_EDGE_DOCKING to "Edge docking",
+                SettingsManager.DISPLAY_MODE_VISIBLE_WHEN_NOTIFIED to "Visible only when notified"
             )
             val selectedMode = SettingsManager.getCatDisplayMode(this@SettingsActivity)
             val displayGroup = RadioGroup(this@SettingsActivity).apply {

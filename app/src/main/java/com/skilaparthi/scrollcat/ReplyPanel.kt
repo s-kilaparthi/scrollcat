@@ -67,11 +67,13 @@ class ReplyPanel(
         private const val SWIPE_HORIZONTAL_DOMINANCE = 1.5f
         /** Rubber-band factor when there's nowhere to navigate (single pending message). */
         private const val SWIPE_RUBBER_BAND = 0.28f
+        /** Shared with list-card swipe-dismiss (same dominance / commit / flick feel). */
+        private const val LIST_SWIPE_DISMISS_MS = 180L
         private const val ACCENT = 0xFFB39DDB.toInt()
-        /** ~85% opaque charcoal — glass shell with less see-through distraction (was ~65%). */
-        private const val PANEL_BG = 0xD91A1A24.toInt()
-        /** Soft second stop for the frosted backdrop gradient (API 31+ blur plate). */
-        private const val PANEL_BG_SHEEN = 0xD31E1A2C.toInt()
+        /** Fully opaque RAL 9005 Jet Black (#0A0A0A) — solid shell under frost. */
+        private const val PANEL_BG = 0xFF0A0A0A.toInt()
+        /** ~68% of original sheen strength — subtle frost over the solid shell. */
+        private const val PANEL_BG_SHEEN = 0x8F1E1A2C.toInt()
         /** Slightly stronger glass edge than the old 0x33FFFFFF hairline. */
         private const val PANEL_STROKE = 0x66FFFFFF.toInt()
         private const val PANEL_STROKE_WIDTH_PX = 3
@@ -81,6 +83,9 @@ class ReplyPanel(
         private const val CHIP_STROKE = 0x55FFFFFF.toInt()
         private const val VOICE_CHIP_BG = 0xEF453A63.toInt()
         private const val VOICE_CHIP_STROKE = 0xFFB39DDB.toInt()
+        /** Voice-to-text border + selected translate/romanize/speaker — #6E7753. */
+        private const val VOICE_ROW_ACCENT = 0xFF6E7753.toInt()
+        private const val VOICE_ROW_SELECTED_BG = 0xEF6E7753.toInt()
         private const val MAX_PANEL_HEIGHT_FRACTION = 0.4f
         private const val TAG_NEW_SENDER_ARROW = "scrollcat_new_sender_arrow"
         private const val MUTED_TEXT = 0xFFA39BB0.toInt()
@@ -88,12 +93,18 @@ class ReplyPanel(
         private const val DANGER = 0xFFFCA5A5.toInt()
         /** Button / input fills — same proportional opacity bump as chips. */
         private const val BUTTON_BG = 0xEF3A3648.toInt()
+        /** Voice-to-text chip fill (~85% / 0xD9 opacity) — #9AA581. */
+        private const val VOICE_TO_TEXT_BG = 0xD99AA581.toInt()
+        /** Near-white label/icon on action fills and colored chips. */
+        private const val ON_ACTION_BTN = 0xFFF5F3F7.toInt()
+        /** White icon tint for translate / romanize / speaker controls. */
+        private const val VOICE_UTILITY_ICON = 0xFFFFFFFF.toInt()
         private const val INPUT_BG = 0xEF23222E.toInt()
         private const val PLACEHOLDER_BG = 0xE92E2C3A.toInt()
         private const val NAV_ACCENT = 0xFFC4B5E0.toInt()
         private const val TIP_ACCENT = 0xFFE9D5FF.toInt()
-        /** RenderEffect blur radius for the static glass backdrop only (API 31+). */
-        private const val GLASS_BLUR_RADIUS = 22f
+        /** ~68% of original 22f — moderate frost without washout. */
+        private const val GLASS_BLUR_RADIUS = 15f
         /** Poll after overlay Grant Access opens system Accessibility settings (~30s). */
         private const val A11Y_GRANT_POLL_INTERVAL_MS = 1_500L
         private const val A11Y_GRANT_POLL_MAX_ATTEMPTS = 20
@@ -138,6 +149,18 @@ class ReplyPanel(
      * Used by slide-in so window height is correct before the incoming animation starts.
      */
     private var messagePanelApplyHeightSync: (() -> Unit)? = null
+    /**
+     * True while a single-message rebuild is holding [panelView] at alpha 0 until
+     * [applyPanelHeightNow] has set window height AND ConstraintLayout has laid out
+     * the MATCH_CONSTRAINT body (reading body.height right after updateViewLayout is
+     * still 0 — layout hasn't run yet).
+     */
+    private var messagePanelAwaitingReveal = false
+    /**
+     * While editing a reply, footer ← exits to the reply-chips view first.
+     * Null when not in the edit panel.
+     */
+    private var exitEditModeToReplyPanel: (() -> Unit)? = null
     /** Notification entryIds the user has already viewed in this open panel session. */
     private val viewedKeys = mutableSetOf<String>()
     /**
@@ -365,6 +388,8 @@ class ReplyPanel(
     fun softFadeInFromScreenWake(durationMs: Long) {
         val panel: View = panelView ?: return
         if (!isShowing) return
+        // Wake fade owns visibility — don't leave a height-reveal gate fighting it.
+        messagePanelAwaitingReveal = false
         panel.animate().cancel()
         if (panel.alpha >= 0.99f) {
             panel.alpha = 0f
@@ -905,6 +930,9 @@ class ReplyPanel(
         messageSlideColumn = null
         messagePanelRelayout = null
         messagePanelApplyHeightSync = null
+        exitEditModeToReplyPanel = null
+        messageFooterBlock = null
+        messageSlideColumn = null
         val panel: ViewGroup = panelView ?: return
         panelParams?.let { params ->
             if (senderListBaseWindowX == null) {
@@ -934,6 +962,8 @@ class ReplyPanel(
         pendingCountView = null
         swipeHintView = null
         newSenderArrow = null
+        messagePanelAwaitingReveal = false
+        panel.alpha = 1f
 
         // Sender-list only: let cards spill into the panel's side padding so they run
         // nearly edge to edge. Restored in showMessage() so the reply panel is untouched.
@@ -968,7 +998,8 @@ class ReplyPanel(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), 0, dp(2), dp(8))
+            // Modest inset so right-edge actions aren't flush with the panel/screen edge.
+            setPadding(dp(12), dp(4), dp(14), dp(8))
         }
         header.addView(TextView(context).apply {
             text = "Pending replies"
@@ -978,29 +1009,29 @@ class ReplyPanel(
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = dp(36) }
+            )
+        })
+        // Push Clear all + ✕ to the trailing edge together.
+        header.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
         })
         header.addView(TextView(context).apply {
-            text = "Ignore all"
+            text = "Clear all"
             textSize = 13f
             setTextColor(DANGER)
             setPadding(0, dp(4), 0, dp(4))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = dp(30) }
+            ).apply { marginEnd = dp(8) }
             setOnClickListener { clearAllPendingReplies() }
         })
         header.addView(TextView(context).apply {
             text = "✕"
             textSize = 16f
             setTextColor(MUTED_TEXT)
-            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setPadding(dp(8), dp(4), dp(4), dp(4))
             setOnClickListener { dismiss() }
-        })
-        // Trailing filler keeps both actions left-anchored instead of pinned to the right edge.
-        header.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
         })
         list.addView(header)
 
@@ -1164,23 +1195,24 @@ class ReplyPanel(
         }
     }
 
-    private fun buildSenderListRow(entry: ReplyStore.ReplyableMessage): MaterialCardView {
+    private fun buildSenderListRow(entry: ReplyStore.ReplyableMessage): View {
         val themed = materialContext
+        val cardRadius = dp(16).toFloat()
         val card = MaterialCardView(themed).apply {
-            radius = dp(16).toFloat()
+            radius = cardRadius
             cardElevation = dp(2).toFloat()
             strokeWidth = 1
             strokeColor = CHIP_STROKE
             setCardBackgroundColor(CHIP_BG)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, dp(6), 0, dp(6)) }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
         val row = LinearLayout(themed).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.TOP
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(10), dp(4), dp(10))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1216,29 +1248,17 @@ class ReplyPanel(
                 1f
             )
         })
-        val headerCollapseChevron = FrameLayout(themed).apply {
-            visibility = View.GONE
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(CHIP_BG)
-                setStroke(dp(1), CHIP_STROKE)
-            }
-            contentDescription = "Show less"
-            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
-                marginStart = dp(6)
-                marginEnd = dp(4)
-            }
-            addView(ImageView(themed).apply {
-                setImageResource(R.drawable.ic_expand_more)
-                imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
-                rotation = 180f
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                layoutParams = FrameLayout.LayoutParams(dp(12), dp(12)).apply {
-                    gravity = Gravity.CENTER
-                }
-            })
-        }
-        senderHeader.addView(headerCollapseChevron)
+        // Timestamp shares the username row (messaging-app style).
+        senderHeader.addView(TextView(themed).apply {
+            text = formatReceivedTime(entry.timestamp)
+            textSize = 10f
+            setTextColor(MUTED_TEXT)
+            maxLines = 1
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(8) }
+        })
         textCol.addView(senderHeader)
         val preview = TextView(themed).apply {
             text = entry.message
@@ -1254,9 +1274,6 @@ class ReplyPanel(
             setPadding(0, dp(2), 0, 0)
         }
         textCol.addView(preview)
-        textCol.addView(
-            buildSenderListExpandChevron(themed, preview, headerCollapseChevron)
-        )
         row.addView(textCol)
 
         if (entry.priority) {
@@ -1271,7 +1288,7 @@ class ReplyPanel(
             })
         }
 
-        // Timestamp stacked directly above ✕ so it no longer competes with the preview text.
+        // Right rail: expand/collapse chevron only (timestamp now sits with the username).
         val trailingCol = LinearLayout(themed).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -1279,31 +1296,40 @@ class ReplyPanel(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
+                gravity = Gravity.CENTER_VERTICAL
                 marginStart = dp(4)
-                topMargin = dp(2)
+                marginEnd = dp(2)
             }
         }
-        trailingCol.addView(TextView(themed).apply {
-            text = formatReceivedTime(entry.timestamp)
-            textSize = 10f
-            setTextColor(MUTED_TEXT)
-            maxLines = 1
-        })
-        trailingCol.addView(TextView(themed).apply {
-            text = "✕"
-            textSize = 15f
-            setTextColor(MUTED_TEXT)
-            setPadding(dp(6), dp(2), dp(6), dp(2))
-            setOnClickListener { dismissSenderFromList(entry) }
-        })
+        val trailingChevronIcon = ImageView(themed).apply {
+            setImageResource(R.drawable.ic_expand_more)
+            imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            layoutParams = FrameLayout.LayoutParams(dp(12), dp(12)).apply {
+                gravity = Gravity.CENTER
+            }
+        }
+        val trailingChevron = FrameLayout(themed).apply {
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(CHIP_BG)
+                setStroke(dp(1), CHIP_STROKE)
+            }
+            contentDescription = "Show full message"
+            layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+            addView(trailingChevronIcon)
+        }
+        trailingCol.addView(trailingChevron)
+        wireSenderListExpandChevron(preview, trailingChevron, trailingChevronIcon)
         row.addView(trailingCol)
 
         row.setOnClickListener {
             // Per-card expand/collapse is local to this preview TextView — no ReplyPanel-level
             // shared expand flag. Capture before showMessage tears the list down.
-            val wasExpandedInList =
-                headerCollapseChevron.visibility == View.VISIBLE ||
-                    preview.maxLines == Integer.MAX_VALUE
+            val wasExpandedInList = preview.maxLines == Integer.MAX_VALUE
             currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }
                 .coerceAtLeast(0)
             showMessage(
@@ -1314,57 +1340,196 @@ class ReplyPanel(
             )
         }
         card.addView(row)
-        return card
+
+        // Custom horizontal swipe-to-dismiss (list is LinearLayout+ScrollView, not RecyclerView).
+        // Uses the same dismissSenderFromList path formerly wired to the card ✕ button.
+        // No colored underlay — the panel/card background stays as-is during the gesture.
+        val wrap = object : FrameLayout(themed) {
+            private var downX = 0f
+            private var downY = 0f
+            private var downRawX = 0f
+            private var dragging = false
+            private var dismissing = false
+            private var velocityTracker: VelocityTracker? = null
+            private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+            private fun recycleTracker() {
+                velocityTracker?.recycle()
+                velocityTracker = null
+            }
+
+            private fun track(ev: MotionEvent) {
+                if (velocityTracker == null) {
+                    velocityTracker = VelocityTracker.obtain()
+                }
+                velocityTracker?.addMovement(ev)
+            }
+
+            private fun applyFingerFollow(rawX: Float) {
+                card.translationX = rawX - downRawX
+            }
+
+            private fun snapBack() {
+                card.animate().cancel()
+                card.animate()
+                    .translationX(0f)
+                    .setDuration(LIST_SWIPE_DISMISS_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+
+            private fun commitDismiss(tx: Float) {
+                dismissing = true
+                parent?.requestDisallowInterceptTouchEvent(true)
+                val w = width.takeIf { it > 0 }?.toFloat() ?: card.width.toFloat().coerceAtLeast(1f)
+                val target = if (tx >= 0f) w else -w
+                card.animate().cancel()
+                card.animate()
+                    .translationX(target)
+                    .setDuration(LIST_SWIPE_DISMISS_MS)
+                    .setInterpolator(AccelerateDecelerateInterpolator())
+                    .withEndAction {
+                        // Exact same removal path as the card ✕ button.
+                        dismissSenderFromList(entry)
+                    }
+                    .start()
+            }
+
+            private fun endDrag(ev: MotionEvent) {
+                if (!dragging) {
+                    recycleTracker()
+                    return
+                }
+                dragging = false
+                track(ev)
+                velocityTracker?.computeCurrentVelocity(1000)
+                val vx = velocityTracker?.xVelocity ?: 0f
+                recycleTracker()
+
+                val tx = card.translationX
+                val w = width.takeIf { it > 0 } ?: card.width.coerceAtLeast(1)
+                val commitDist = w * SWIPE_COMMIT_FRACTION
+                val flickedOut =
+                    (vx <= -SWIPE_MIN_VELOCITY_PX_S && tx < 0f) ||
+                        (vx >= SWIPE_MIN_VELOCITY_PX_S && tx > 0f)
+                if (abs(tx) >= commitDist || flickedOut) {
+                    commitDismiss(tx)
+                } else {
+                    snapBack()
+                }
+            }
+
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                if (dismissing) return true
+                track(ev)
+                when (ev.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = ev.x
+                        downY = ev.y
+                        downRawX = ev.rawX
+                        dragging = false
+                        return false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = abs(ev.x - downX)
+                        val dy = abs(ev.y - downY)
+                        if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                            dragging = true
+                            card.animate().cancel()
+                            downRawX = ev.rawX - card.translationX
+                            applyFingerFollow(ev.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        recycleTracker()
+                    }
+                }
+                return false
+            }
+
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                if (dismissing) return true
+                track(event)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.x
+                        downY = event.y
+                        downRawX = event.rawX
+                        dragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!dragging) {
+                            val dx = abs(event.x - downX)
+                            val dy = abs(event.y - downY)
+                            if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                                dragging = true
+                                card.animate().cancel()
+                                downRawX = event.rawX - card.translationX
+                                parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                        }
+                        if (dragging) {
+                            applyFingerFollow(event.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        endDrag(event)
+                        return true
+                    }
+                }
+                return dragging
+            }
+        }.apply {
+            clipChildren = true
+            clipToPadding = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, dp(6), 0, dp(6)) }
+        }
+        wrap.addView(card)
+        return wrap
     }
 
     /**
-     * Same expand affordance as the reply panel's overflow chevron: shown only when the
-     * capped preview hides text, tapping it reveals the rest in place.
+     * Expand/collapse for a pending-list card: 3-line default, tap the trailing chevron
+     * to reveal the full message (and tap again to collapse). Chevron stays in the
+     * fixed right-side rail — not inline under the preview text.
      */
-    private fun buildSenderListExpandChevron(
-        themed: Context,
+    private fun wireSenderListExpandChevron(
         preview: TextView,
-        headerCollapseChevron: View
-    ): FrameLayout {
-        // Every card starts collapsed; only the chevron may reveal the full message.
+        chevron: FrameLayout,
+        chevronIcon: ImageView
+    ) {
         preview.isSingleLine = false
         preview.maxLines = SENDER_LIST_PREVIEW_MAX_LINES
         preview.ellipsize = android.text.TextUtils.TruncateAt.END
-        val outer = dp(14)
-        val icon = dp(10)
-        val chevronIcon = ImageView(themed).apply {
-            setImageResource(R.drawable.ic_expand_more)
-            imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            contentDescription = "Show full message"
-            layoutParams = FrameLayout.LayoutParams(icon, icon).apply {
-                gravity = Gravity.CENTER
-            }
-        }
-        val chevron = FrameLayout(themed).apply {
-            visibility = View.GONE
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(CHIP_BG)
-                setStroke(dp(1), CHIP_STROKE)
-            }
-            layoutParams = LinearLayout.LayoutParams(outer, outer).apply {
-                gravity = Gravity.START
-                topMargin = dp(2)
-            }
-            addView(chevronIcon)
-        }
-        chevron.setOnClickListener {
-            preview.maxLines = Integer.MAX_VALUE
-            preview.ellipsize = null
-            chevron.visibility = View.GONE
-            headerCollapseChevron.visibility = View.VISIBLE
-        }
-        headerCollapseChevron.setOnClickListener {
+
+        fun applyCollapsed() {
             preview.maxLines = SENDER_LIST_PREVIEW_MAX_LINES
             preview.ellipsize = android.text.TextUtils.TruncateAt.END
-            headerCollapseChevron.visibility = View.GONE
-            chevron.visibility = View.VISIBLE
+            chevronIcon.rotation = 0f
+            chevron.contentDescription = "Show full message"
+        }
+
+        fun applyExpanded() {
+            preview.maxLines = Integer.MAX_VALUE
+            preview.ellipsize = null
+            chevronIcon.rotation = 180f
+            chevron.contentDescription = "Show less"
+        }
+
+        applyCollapsed()
+        chevron.setOnClickListener {
+            if (preview.maxLines == Integer.MAX_VALUE) {
+                applyCollapsed()
+            } else {
+                applyExpanded()
+            }
         }
         preview.post {
             val width = preview.width - preview.paddingLeft - preview.paddingRight
@@ -1383,7 +1548,6 @@ class ReplyPanel(
                 View.GONE
             }
         }
-        return chevron
     }
 
     private fun dismissSenderFromList(entry: ReplyStore.ReplyableMessage) {
@@ -1414,36 +1578,23 @@ class ReplyPanel(
                         "panelParams.height=${panelParams?.height}"
                 )
                 // Same showMessage rebuild as card-tap / open — NOT a separate shortcut UI.
-                // fromPendingList=false here (unlike card tap). Height is NOT sync-applied
-                // on this call site; normal msgs rely on posted sizePanelForContent() from
-                // showThinking/showReplies (Gmail uses sync applyPanelHeightNow inside
-                // showMessage). 3-dot overflow also calls sizePanelForContent() — same
-                // relayout that makes content reappear when this bug hits.
+                // Sync height apply below; do not leave a WRAP_CONTENT stomp from a later
+                // refreshPendingFromStore/relayoutOpenPanelHeight on the ReplyStore change.
                 showMessage(pending.first(), captureOpenSnapshot = true)
-                fun logListToSingle(phase: String) {
-                    val p = panelView
-                    val h = messageBodyColumn?.getChildAt(0)
-                    val b = messageBodyColumn
-                    val f = messageFooterBlock
-                    android.util.Log.e(
-                        "ScrollCat",
-                        "###LIST_TO_SINGLE_DEBUG### $phase closing card from list, " +
-                            "remaining count=$remainingCount, " +
-                            "panel.childCount=${p?.childCount}, " +
-                            "header.visibility=${h?.visibility}, " +
-                            "body.visibility=${b?.visibility}, " +
-                            "footer.visibility=${f?.visibility}, " +
-                            "body.height=${b?.height}, " +
-                            "body.measuredH=${b?.measuredHeight}, " +
-                            "panelParams.height=${panelParams?.height}, " +
-                            "hasApplyHeightSync=${messagePanelApplyHeightSync != null}"
-                    )
-                }
-                logListToSingle("AFTER showMessage return")
-                // Two posts: run after showMessage's posted sizePanelForContent apply.
-                panelView?.post {
-                    panelView?.post { logListToSingle("AFTER nested post (past sizePanelForContent?)") }
-                }
+                // Prefer sync height when the rebuild already installed hooks (Gmail /
+                // pregenerated chips). Thinking-state still posts; reveal stays gated.
+                messagePanelApplyHeightSync?.invoke()
+                android.util.Log.e(
+                    "ScrollCat",
+                    "###LIST_TO_SINGLE_DEBUG### AFTER showMessage+syncHeight closing card from list, " +
+                        "remaining count=$remainingCount, " +
+                        "body.height=${messageBodyColumn?.height}, " +
+                        "body.measuredH=${messageBodyColumn?.measuredHeight}, " +
+                        "panelParams.height=${panelParams?.height}, " +
+                        "hasApplyHeightSync=${messagePanelApplyHeightSync != null}, " +
+                        "awaitingReveal=$messagePanelAwaitingReveal, " +
+                        "panel.alpha=${panelView?.alpha}"
+                )
             }
             else -> showSenderList()
         }
@@ -1533,48 +1684,58 @@ class ReplyPanel(
                         "ScrollCat",
                         "Slide-in height sync - panelParams.height before=$heightBefore, " +
                             "after synchronous applyAutoPanelHeight=$heightAfter, " +
-                            "starting slide-in now"
+                            "awaitingReveal=$messagePanelAwaitingReveal"
                     )
-                    // Log major view state right after rebuild, before slide-in starts.
-                    val headerView = messageBodyColumn?.getChildAt(0)
-                    val messageAreaView = messageSlideColumn?.getChildAt(0)
-                    val footerView = messageFooterBlock
-                    android.util.Log.e(
-                        "ScrollCat",
-                        "###NAV_BUG_DEBUG### post-rebuild state - " +
-                            "messageSlideColumn=${messageSlideColumn != null}, " +
-                            "messageArea.visibility=${messageAreaView?.visibility}, " +
-                            "header.visibility=${headerView?.visibility}, " +
-                            "panel.childCount=${panel.childCount}, " +
-                            "panel.background=${panel.background != null}, " +
-                            "footer.visibility=${footerView?.visibility}"
-                    )
-                    val newSlide = messageSlideColumn
-                    if (newSlide == null) {
-                        messageSlideInProgress = false
-                        applyGlassBackdropBlurIfAllowed()
-                        return@withEndAction
-                    }
-                    newSlide.animate().cancel()
-                    newSlide.translationX = inFrom
-                    android.util.Log.e(
-                        "ScrollCat",
-                        "###NAV_BUG_DEBUG### slide-in starting - " +
-                            "newSlide.visibility=${newSlide.visibility}, " +
-                            "newSlide.alpha=${newSlide.alpha}, " +
-                            "translationX=$inFrom, " +
-                            "panel.childCount=${panel.childCount}, " +
-                            "panel.background=${panel.background != null}"
-                    )
-                    newSlide.animate()
-                        .translationX(0f)
-                        .setDuration(MESSAGE_SLIDE_MS)
-                        .setInterpolator(DecelerateInterpolator())
-                        .withEndAction {
+                    fun startSlideIn() {
+                        // Log major view state right after rebuild, before slide-in starts.
+                        val headerView = messageBodyColumn?.getChildAt(0)
+                        val messageAreaView = messageSlideColumn?.getChildAt(0)
+                        val footerView = messageFooterBlock
+                        android.util.Log.e(
+                            "ScrollCat",
+                            "###NAV_BUG_DEBUG### post-rebuild state - " +
+                                "messageSlideColumn=${messageSlideColumn != null}, " +
+                                "messageArea.visibility=${messageAreaView?.visibility}, " +
+                                "header.visibility=${headerView?.visibility}, " +
+                                "panel.childCount=${panel.childCount}, " +
+                                "panel.background=${panel.background != null}, " +
+                                "footer.visibility=${footerView?.visibility}, " +
+                                "body.h=${messageBodyColumn?.height}, panel.alpha=${panel.alpha}"
+                        )
+                        val newSlide = messageSlideColumn
+                        if (newSlide == null) {
                             messageSlideInProgress = false
                             applyGlassBackdropBlurIfAllowed()
+                            return
                         }
-                        .start()
+                        newSlide.animate().cancel()
+                        newSlide.translationX = inFrom
+                        android.util.Log.e(
+                            "ScrollCat",
+                            "###NAV_BUG_DEBUG### slide-in starting - " +
+                                "newSlide.visibility=${newSlide.visibility}, " +
+                                "newSlide.alpha=${newSlide.alpha}, " +
+                                "translationX=$inFrom, " +
+                                "panel.childCount=${panel.childCount}, " +
+                                "panel.background=${panel.background != null}"
+                        )
+                        newSlide.animate()
+                            .translationX(0f)
+                            .setDuration(MESSAGE_SLIDE_MS)
+                            .setInterpolator(DecelerateInterpolator())
+                            .withEndAction {
+                                messageSlideInProgress = false
+                                applyGlassBackdropBlurIfAllowed()
+                            }
+                            .start()
+                    }
+                    // If the reveal gate still needs a layout frame, start the slide only
+                    // after alpha is restored — never animate a zero-height body on-screen.
+                    if (messagePanelAwaitingReveal) {
+                        panel.post { startSlideIn() }
+                    } else {
+                        startSlideIn()
+                    }
                 }
                 .start()
             return
@@ -1607,7 +1768,9 @@ class ReplyPanel(
         }
 
         panel.animate().cancel()
-        panel.alpha = 1f
+        // Hold invisible until applyPanelHeightNow + layout produce a real body height —
+        // MATCH_CONSTRAINT body.height stays 0 until the layout pass after updateViewLayout.
+        beginMessagePanelRevealGate(panel)
         restoreMessagePanelWindowGeometry()
         showingSenderList = false
         pending.indexOfFirst { it.entryId == message.entryId }
@@ -1628,6 +1791,7 @@ class ReplyPanel(
         newSenderArrow = null
         messagePanelRelayout = null
         messagePanelApplyHeightSync = null
+        exitEditModeToReplyPanel = null
         messageFooterBlock = null
         messageSlideColumn = null
 
@@ -1749,66 +1913,36 @@ class ReplyPanel(
         }
         // Existing spacing between message box and chips (was messageArea.bottomMargin).
         val messageChipGapPx = dp(14)
-        val scrollChevronOuter = messageChipGapPx // fits entirely in the gap — never covers text
-        val scrollChevronIcon = dp(10)
-        val scrollChevron = FrameLayout(context).apply {
-            visibility = View.GONE
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(CHIP_BG)
-                setStroke(dp(1), CHIP_STROKE)
-            }
-            layoutParams = FrameLayout.LayoutParams(scrollChevronOuter, scrollChevronOuter).apply {
-                gravity = Gravity.CENTER
-            }
-            addView(ImageView(context).apply {
-                setImageResource(R.drawable.ic_expand_more)
-                imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                contentDescription = "Scroll for more"
-                layoutParams = FrameLayout.LayoutParams(scrollChevronIcon, scrollChevronIcon).apply {
-                    gravity = Gravity.CENTER
-                }
-            })
-        }
         val messageChipGap = FrameLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 messageChipGapPx
             )
-            addView(scrollChevron)
         }
-        var lastChevronLog: Triple<Int, Int, Boolean>? = null
-        fun updateMessageScrollChevron() {
-            val visibleHeight = messageScroll.height
-            // Before layout, height is 0 — never treat that as overflow (false chevron).
-            if (visibleHeight <= 0) {
-                scrollChevron.visibility = View.GONE
-                return
+        // Expand/collapse long messages (replaces old in-gap "scroll for more" chevron).
+        var messageBodyExpanded = false
+        val expandChevronOuter = dp(28)
+        val expandChevronIconView = ImageView(context).apply {
+            setImageResource(R.drawable.ic_expand_more)
+            imageTintList = android.content.res.ColorStateList.valueOf(SOFT_TEXT)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            layoutParams = FrameLayout.LayoutParams(dp(12), dp(12)).apply {
+                gravity = Gravity.CENTER
             }
-            val layout = messagePreview.layout
-            val contentHeight = if (layout != null && messagePreview.lineCount > 0) {
-                layout.getLineTop(messagePreview.lineCount) +
-                    messagePreview.paddingTop +
-                    messagePreview.paddingBottom
-            } else {
-                messagePreview.measuredHeight
+        }
+        val messageExpandChevron = FrameLayout(context).apply {
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(CHIP_BG)
+                setStroke(dp(1), CHIP_STROKE)
             }
-            // Short messages (≤2 lines) show 3 chips directly and always fit the viewport.
-            val lineCount = measurePreviewLineCount(messagePreview)
-            val isOverflowing = lineCount > 2 && contentHeight > visibleHeight + 1
-            scrollChevron.visibility = if (isOverflowing) View.VISIBLE else View.GONE
-            val state = Triple(contentHeight, visibleHeight, isOverflowing)
-            if (state != lastChevronLog) {
-                lastChevronLog = state
-                android.util.Log.d(
-                    "ScrollCat",
-                    "Chevron check - contentHeight=$contentHeight, visibleHeight=$visibleHeight, " +
-                        "lineCount=$lineCount, isOverflowing=$isOverflowing, " +
-                        "position=in existing gap below message box"
-                )
+            contentDescription = "Show full message"
+            layoutParams = LinearLayout.LayoutParams(expandChevronOuter, expandChevronOuter).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(2)
             }
+            addView(expandChevronIconView)
         }
         val copyFeedback = TextView(context).apply {
             text = "Copied!"
@@ -1860,6 +1994,16 @@ class ReplyPanel(
             setPadding(dp(8), dp(8), dp(8), dp(8))
             layoutParams = LinearLayout.LayoutParams(copyIconHit, copyIconHit)
         }
+        fun paintMessageExpandChevron(canExpand: Boolean) {
+            if (!canExpand && !messageBodyExpanded) {
+                messageExpandChevron.visibility = View.GONE
+                return
+            }
+            messageExpandChevron.visibility = View.VISIBLE
+            expandChevronIconView.rotation = if (messageBodyExpanded) 180f else 0f
+            messageExpandChevron.contentDescription =
+                if (messageBodyExpanded) "Show less" else "Show full message"
+        }
         val iconColumn = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
@@ -1870,11 +2014,13 @@ class ReplyPanel(
             }
             addView(copyBtn)
             addView(writeCustomBtn)
+            addView(messageExpandChevron)
         }
         val messageArea = FrameLayout(context).apply {
             // applyAutoPanelHeight assigns a fixed height from message text. Short
             // messages can be < 2 icons tall and clipped the pencil into a "dot".
-            minimumHeight = copyIconHit * 2
+            // Room for copy + pencil + optional expand chevron (+ its topMargin).
+            minimumHeight = copyIconHit * 2 + expandChevronOuter + dp(2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -2091,7 +2237,7 @@ class ReplyPanel(
         val replyInAppBtn = TextView(context).apply {
             text = "↗ Reply in app"
             textSize = 13f
-            setTextColor(ACCENT)
+            setTextColor(ON_ACTION_BTN)
             gravity = Gravity.CENTER
             setSingleLine(false)
             maxLines = 2
@@ -2107,7 +2253,7 @@ class ReplyPanel(
         val ignoreBtn = TextView(context).apply {
             text = "✕ Ignore"
             textSize = 13f
-            setTextColor(MUTED_TEXT)
+            setTextColor(ON_ACTION_BTN)
             gravity = Gravity.CENTER
             setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
             minHeight = actionBtnHeight
@@ -2121,7 +2267,7 @@ class ReplyPanel(
         val moreBtn = TextView(context).apply {
             text = "⋮"
             textSize = 18f
-            setTextColor(SOFT_TEXT)
+            setTextColor(ON_ACTION_BTN)
             gravity = Gravity.CENTER
             setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
             minHeight = actionBtnHeight
@@ -2244,10 +2390,11 @@ class ReplyPanel(
                 bottomRow,
                 belowButtons,
                 messageGap = messageChipGap,
-                footerBlock = footer
+                footerBlock = footer,
+                messageExpanded = messageBodyExpanded,
+                onMessageOverflowChanged = { canExpand -> paintMessageExpandChevron(canExpand) }
             )
-            // Overflow depends on the allotted viewport after auto-grow.
-            messageScroll.post { updateMessageScrollChevron() }
+            // Scrollbars may still appear if somehow clipped; expand is the primary UX.
             logFooterLayout()
             if (fromPendingList) {
                 android.util.Log.e(
@@ -2266,11 +2413,18 @@ class ReplyPanel(
                         "panel.background=${panel.background != null}"
                 )
             }
+            // panelParams.height is set above, but body.height (MATCH_CONSTRAINT) often
+            // stays 0 until a layout pass — never show that intermediate frame.
+            finishMessagePanelRevealIfReady(panel)
         }
 
         fun sizePanelForContent() {
             // Async path for thinking/replies/edit/voice/etc. — not used for slide-in timing.
             panel.post { applyPanelHeightNow() }
+        }
+        messageExpandChevron.setOnClickListener {
+            messageBodyExpanded = !messageBodyExpanded
+            sizePanelForContent()
         }
         messagePanelRelayout = { sizePanelForContent() }
         messagePanelApplyHeightSync = { applyPanelHeightNow() }
@@ -2315,8 +2469,15 @@ class ReplyPanel(
             engine: String,
             openKeyboard: Boolean = true
         ) {
+            if (messageSlideInProgress) return
             aiRepliesExpanded = true
             releaseSpeechRecognizer()
+            var editInputRef: android.widget.EditText? = null
+
+            crossfadeChipsContent(
+                chipsContainer,
+                fadeIn = true,
+                swapContent = {
             writeCustomBtn.visibility = View.GONE
             chipsContainer.visibility = View.VISIBLE
             chipsContainer.removeAllViews()
@@ -2363,6 +2524,7 @@ class ReplyPanel(
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             }
+            editInputRef = input
 
             val actionsRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -2381,32 +2543,28 @@ class ReplyPanel(
                 }
             }
 
-            // ── Cancel (flat text) ──
-            val cancelBtn = TextView(context).apply {
-                text = "Cancel"
+            // ── Clear text (empties the box; stays in edit panel) ──
+            val clearTextBtn = TextView(context).apply {
+                text = "Clear text"
                 textSize = 14f
-                setTextColor(ACCENT)
+                setTextColor(ON_ACTION_BTN)
                 gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
-                background = null
+                background = GradientDrawable().apply {
+                    setColor(BUTTON_BG)
+                    cornerRadius = dp(10).toFloat()
+                }
                 layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
                 setOnClickListener {
-                    setPanelFocusable(false)
-                    releaseSpeechRecognizer()
-                    if (isGmailMessage) {
-                        chipsContainer.removeAllViews()
-                        chipsContainer.visibility = View.GONE
-                        sizePanelForContent()
-                    } else {
-                        renderReplies(suggestions, engine)
-                    }
+                    input.setText("")
+                    input.setSelection(0)
                 }
             }
 
-            // ── Continue (mic above + label below, flat) ──
+            // ── Continue (mic above + label below) ──
             val continueMic = ImageView(context).apply {
                 setImageResource(R.drawable.ic_mic)
-                imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+                imageTintList = android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
                 layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
                     gravity = Gravity.CENTER_HORIZONTAL
                 }
@@ -2415,7 +2573,7 @@ class ReplyPanel(
                 text = "Continue"
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(ACCENT)
+                setTextColor(ON_ACTION_BTN)
                 gravity = Gravity.CENTER_HORIZONTAL
                 maxLines = 1
                 isSingleLine = true
@@ -2428,7 +2586,10 @@ class ReplyPanel(
             val continueBtn = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                background = null
+                background = GradientDrawable().apply {
+                    setColor(BUTTON_BG)
+                    cornerRadius = dp(10).toFloat()
+                }
                 setPadding(dp(4), dp(4), dp(4), dp(4))
                 layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
                 addView(continueMic)
@@ -2441,9 +2602,9 @@ class ReplyPanel(
                 micPulseAnimator = null
                 continueMic.alpha = 1f
                 continueMic.imageTintList =
-                    android.content.res.ColorStateList.valueOf(ACCENT)
+                    android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
                 continueLabel.text = "Continue"
-                continueLabel.setTextColor(ACCENT)
+                continueLabel.setTextColor(ON_ACTION_BTN)
                 if (error != null) {
                     android.widget.Toast.makeText(
                         context,
@@ -2456,9 +2617,9 @@ class ReplyPanel(
             fun setContinueListening() {
                 voiceListening = true
                 continueLabel.text = "Listening"
-                continueLabel.setTextColor(TIP_ACCENT)
+                continueLabel.setTextColor(ON_ACTION_BTN)
                 continueMic.imageTintList =
-                    android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+                    android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
                 micPulseAnimator?.cancel()
                 micPulseAnimator = ObjectAnimator.ofFloat(continueMic, View.ALPHA, 1f, 0.35f).apply {
                     duration = 650L
@@ -2515,16 +2676,16 @@ class ReplyPanel(
                 )
             }
 
-            // ── Send (filled primary segment — Connect-style ACCENT fill + light icon) ──
+            // ── Send (same green as Voice-to-text chip) ──
             val sendIconPad = dp(14)
             val sendBtn = ImageView(context).apply {
                 setImageResource(R.drawable.ic_send)
-                imageTintList = android.content.res.ColorStateList.valueOf(0xFFF5F3F7.toInt())
+                imageTintList = android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 contentDescription = "Send"
                 setPadding(sendIconPad, sendIconPad, sendIconPad, sendIconPad)
                 background = GradientDrawable().apply {
-                    setColor(ACCENT)
+                    setColor(VOICE_TO_TEXT_BG)
                     cornerRadius = dp(10).toFloat()
                 }
                 layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
@@ -2534,6 +2695,7 @@ class ReplyPanel(
                     if (edited.isEmpty()) return@setOnClickListener
                     setPanelFocusable(false)
                     releaseSpeechRecognizer()
+                    exitEditModeToReplyPanel = null
                     if (entry.hasRemoteInput) {
                         sendReply(entry, edited)
                     } else {
@@ -2557,7 +2719,7 @@ class ReplyPanel(
                 }
             }
 
-            actionsRow.addView(cancelBtn)
+            actionsRow.addView(clearTextBtn)
             actionsRow.addView(toolbarDivider())
             actionsRow.addView(continueBtn)
             actionsRow.addView(toolbarDivider())
@@ -2566,6 +2728,30 @@ class ReplyPanel(
             editColumn.addView(actionsRow)
             chipsContainer.addView(editColumn)
 
+            exitEditModeToReplyPanel = exitEdit@{
+                if (messageSlideInProgress) return@exitEdit
+                setPanelFocusable(false)
+                releaseSpeechRecognizer()
+                crossfadeChipsContent(
+                    chipsContainer,
+                    fadeIn = !isGmailMessage,
+                    swapContent = {
+                        exitEditModeToReplyPanel = null
+                        if (isGmailMessage) {
+                            chipsContainer.removeAllViews()
+                            chipsContainer.visibility = View.GONE
+                            writeCustomBtn.visibility = View.VISIBLE
+                            updatePendingFooter()
+                        } else {
+                            renderReplies(suggestions, engine)
+                        }
+                    }
+                )
+            }
+            updatePendingFooter()
+                },
+                onComplete = complete@{
+            val input = editInputRef ?: return@complete
             if (openKeyboard) {
                 input.post {
                     input.requestFocus()
@@ -2581,11 +2767,13 @@ class ReplyPanel(
                     imm.hideSoftInputFromWindow(input.windowToken, 0)
                 }
             }
-            sizePanelForContent()
+                }
+            )
         }
 
         fun showReplies(suggestions: List<String>, engine: String = "Pre-generated") {
             if (!isShowing || currentEntry != message) return
+            exitEditModeToReplyPanel = null
             latestEditSuggestions = suggestions
             latestEditEngine = engine
             writeCustomBtn.visibility = View.VISIBLE
@@ -2601,6 +2789,7 @@ class ReplyPanel(
                     setPadding(0, 12, 0, 12)
                 })
                 sizePanelForContent()
+                updatePendingFooter()
                 return
             }
             Logger.d("Replies from $engine: count=${suggestions.size}")
@@ -2688,7 +2877,8 @@ class ReplyPanel(
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
                     setTextColor(0xFFF5F3F7.toInt())
                     gravity = Gravity.CENTER
-                    setPadding(24, 18, 24, 18)
+                    // Slightly less top padding; extra top margin clears the expand chevron.
+                    setPadding(24, 14, 24, 18)
                     background = GradientDrawable().apply {
                         setColor(CHIP_BG)
                         cornerRadius = 28f
@@ -2697,7 +2887,7 @@ class ReplyPanel(
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { setMargins(0, 6, 0, 6) }
+                    ).apply { setMargins(0, 14, 0, 6) }
                     setOnClickListener {
                         aiRepliesExpanded = true
                         showReplies(suggestions, engine)
@@ -2732,19 +2922,45 @@ class ReplyPanel(
                 )
             }
             sizePanelForContent()
+            updatePendingFooter()
         }
 
         renderReplies = ::showReplies
-        writeCustomBtn.setOnClickListener {
-            showEditInput("", latestEditSuggestions, latestEditEngine)
-        }
 
         // Gmail: no reply chips / mic / Groq — message + button row only.
+        // Pencil → speaker: read the email aloud (no custom-reply compose on Gmail).
         // Timing fix (Gmail-only): sync applyPanelHeightNow() so the overlay window gets
         // its real height before MATCH_CONSTRAINT body measures against it. A WRAP_CONTENT
         // window + height-0 body collapses to 0; posting sizePanelForContent() was too late.
         if (isGmailMessage) {
             Logger.d("Gmail message — skipping reply chips and AI generation")
+            writeCustomBtn.setImageResource(R.drawable.ic_volume_up)
+            writeCustomBtn.imageTintList =
+                android.content.res.ColorStateList.valueOf(MUTED_TEXT)
+            ensureTtsManager()
+            fun paintGmailSpeakBtn() {
+                val on = ttsSpeaking
+                writeCustomBtn.alpha = if (on) 1f else 0.85f
+                writeCustomBtn.contentDescription =
+                    if (on) "Stop reading aloud" else "Read message aloud"
+            }
+            speakButtonPaint = { paintGmailSpeakBtn() }
+            paintGmailSpeakBtn()
+            writeCustomBtn.setOnClickListener {
+                if (ttsSpeaking) {
+                    ttsManager?.stop()
+                    return@setOnClickListener
+                }
+                if (fullIncomingMessage.isBlank()) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Nothing to read",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@setOnClickListener
+                }
+                speakIncomingMessage(fullIncomingMessage)
+            }
             android.util.Log.e(
                 "ScrollCat",
                 "###GMAIL_HEIGHT_DEBUG### isGmailMessage path - " +
@@ -2768,6 +2984,10 @@ class ReplyPanel(
                     "footer.h=${footer.height}, panelParams.h=${panelParams?.height}"
             )
             return
+        }
+
+        writeCustomBtn.setOnClickListener {
+            showEditInput("", latestEditSuggestions, latestEditEngine)
         }
 
         // Onboarding demo: hardcoded chips, no AI / no real notification
@@ -2905,18 +3125,12 @@ class ReplyPanel(
             toggle.isEnabled = !sameLang
             toggle.isClickable = !sameLang
             toggle.isFocusable = !sameLang
-            toggle.imageTintList = android.content.res.ColorStateList.valueOf(
-                when {
-                    sameLang -> MUTED_TEXT
-                    on -> TIP_ACCENT
-                    else -> MUTED_TEXT
-                }
-            )
+            toggle.imageTintList = android.content.res.ColorStateList.valueOf(VOICE_UTILITY_ICON)
             toggle.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setCornerRadius(dp(10).toFloat())
-                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
-                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+                setColor(if (on) VOICE_ROW_SELECTED_BG else 0x00000000)
+                if (on) setStroke(dp(1), VOICE_ROW_ACCENT) else setStroke(0, 0)
             }
             toggle.clipToOutline = false
             toggle.alpha = when {
@@ -2974,14 +3188,12 @@ class ReplyPanel(
         }
         fun paint() {
             val on = SettingsManager.isVoiceRomanizeEnabled(context)
-            toggle.imageTintList = android.content.res.ColorStateList.valueOf(
-                if (on) TIP_ACCENT else MUTED_TEXT
-            )
+            toggle.imageTintList = android.content.res.ColorStateList.valueOf(VOICE_UTILITY_ICON)
             toggle.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setCornerRadius(dp(10).toFloat())
-                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
-                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+                setColor(if (on) VOICE_ROW_SELECTED_BG else 0x00000000)
+                if (on) setStroke(dp(1), VOICE_ROW_ACCENT) else setStroke(0, 0)
             }
             toggle.clipToOutline = false
             toggle.alpha = if (on) 1f else 0.75f
@@ -3038,14 +3250,12 @@ class ReplyPanel(
         }
         fun paint() {
             val on = ttsSpeaking
-            button.imageTintList = android.content.res.ColorStateList.valueOf(
-                if (on) TIP_ACCENT else MUTED_TEXT
-            )
+            button.imageTintList = android.content.res.ColorStateList.valueOf(VOICE_UTILITY_ICON)
             button.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setCornerRadius(dp(10).toFloat())
-                setColor(if (on) VOICE_CHIP_BG else 0x00000000)
-                if (on) setStroke(dp(1), ACCENT) else setStroke(0, 0)
+                setColor(if (on) VOICE_ROW_SELECTED_BG else 0x00000000)
+                if (on) setStroke(dp(1), VOICE_ROW_ACCENT) else setStroke(0, 0)
             }
             button.alpha = if (on) 1f else 0.75f
             button.contentDescription =
@@ -3152,9 +3362,9 @@ class ReplyPanel(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable().apply {
-                setColor(VOICE_CHIP_BG)
+                setColor(VOICE_TO_TEXT_BG)
                 cornerRadius = 24f
-                setStroke(dp(1), VOICE_CHIP_STROKE)
+                setStroke(dp(1), VOICE_ROW_ACCENT)
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -3169,7 +3379,7 @@ class ReplyPanel(
 
         val micIcon = ImageView(context).apply {
             setImageResource(R.drawable.ic_mic)
-            imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+            imageTintList = android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
             layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
                 marginEnd = dp(8)
             }
@@ -3177,7 +3387,7 @@ class ReplyPanel(
         val label = TextView(context).apply {
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(ACCENT)
+            setTextColor(ON_ACTION_BTN)
             maxLines = 2
             isSingleLine = false
             ellipsize = null
@@ -3235,15 +3445,15 @@ class ReplyPanel(
             micIcon.alpha = 1f
             micIcon.scaleX = 1f
             micIcon.scaleY = 1f
-            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(ACCENT)
+            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
             label.text = errorMessage ?: "Voice\nto text"
-            label.setTextColor(if (errorMessage != null) DANGER else ACCENT)
+            label.setTextColor(if (errorMessage != null) DANGER else ON_ACTION_BTN)
             onContentChanged()
             if (errorMessage != null) {
                 handler.postDelayed({
                     if (!voiceListening && label.text == errorMessage) {
                         label.text = "Voice\nto text"
-                        label.setTextColor(ACCENT)
+                        label.setTextColor(ON_ACTION_BTN)
                         onContentChanged()
                     }
                 }, 2200L)
@@ -3253,8 +3463,8 @@ class ReplyPanel(
         fun setListeningState() {
             voiceListening = true
             label.text = "Listening..."
-            label.setTextColor(TIP_ACCENT)
-            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(TIP_ACCENT)
+            label.setTextColor(ON_ACTION_BTN)
+            micIcon.imageTintList = android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
             micPulseAnimator?.cancel()
             micPulseAnimator = ObjectAnimator.ofFloat(micIcon, View.ALPHA, 1f, 0.35f).apply {
                 duration = 650L
@@ -3400,25 +3610,27 @@ class ReplyPanel(
     private fun measurePreviewLineCount(messagePreview: TextView): Int {
         val text = messagePreview.text ?: return 0
         if (text.isEmpty()) return 0
-        // Prefer live layout when the preview already has a real width.
-        if (messagePreview.width > 0 && messagePreview.layout != null) {
-            return messagePreview.lineCount
-        }
-        val panel: View? = panelView
-        val contentWidth = if (panel != null) {
-            (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+        // Same StaticLayout overflow measure as Pending Replies (wireSenderListExpandChevron).
+        val textWidth = if (messagePreview.width > 0) {
+            (messagePreview.width - messagePreview.paddingLeft - messagePreview.paddingRight)
+                .coerceAtLeast(1)
         } else {
-            panelWidthPx()
+            val panel: View? = panelView
+            val contentWidth = if (panel != null) {
+                (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+            } else {
+                panelWidthPx()
+            }
+            (contentWidth - messagePreview.paddingLeft - messagePreview.paddingRight)
+                .coerceAtLeast(1)
         }
-        val textWidth = (contentWidth - messagePreview.paddingLeft - messagePreview.paddingRight)
-            .coerceAtLeast(1)
-        val staticLayout = StaticLayout.Builder
+        return StaticLayout.Builder
             .obtain(text, 0, text.length, messagePreview.paint, textWidth)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(messagePreview.lineSpacingExtra, messagePreview.lineSpacingMultiplier)
             .setIncludePad(messagePreview.includeFontPadding)
             .build()
-        return staticLayout.lineCount
+            .lineCount
     }
 
     private fun applyAutoPanelHeight(
@@ -3430,7 +3642,9 @@ class ReplyPanel(
         bottomRow: View,
         extraBelowButtons: View? = null,
         messageGap: View? = null,
-        footerBlock: View? = null
+        footerBlock: View? = null,
+        messageExpanded: Boolean = false,
+        onMessageOverflowChanged: ((canExpand: Boolean) -> Unit)? = null
     ) {
         val panel: ViewGroup = panelView ?: return
         val params = panelParams ?: return
@@ -3491,18 +3705,33 @@ class ReplyPanel(
             "xlarge" -> 1.45f
             else -> 1.0f
         }
-        val baseMaxPanelHeight =
-            (context.resources.displayMetrics.heightPixels * MAX_PANEL_HEIGHT_FRACTION).toInt()
+        val dm = context.resources.displayMetrics
+        val baseMaxPanelHeight = (dm.heightPixels * MAX_PANEL_HEIGHT_FRACTION).toInt()
         val maxPanelHeight = (baseMaxPanelHeight * messageHeightMultiplier).toInt()
-        val messageBudget = (maxPanelHeight - fixedChrome).coerceAtLeast(dp(40))
+        val collapsedMessageBudget = (maxPanelHeight - fixedChrome).coerceAtLeast(dp(40))
+        // Expanded: grow enough for full text, still keep a screen-safe ceiling.
+        val expandedMessageBudget =
+            (dm.heightPixels - fixedChrome - dp(48)).coerceAtLeast(collapsedMessageBudget)
 
         val naturalMessageHeight = messagePreview.measuredHeight
         val preferredMessageHeight = (naturalMessageHeight * messageHeightMultiplier).toInt()
-        // Respect messageArea.minimumHeight (e.g. room for copy+pencil stacked at END)
+        // Same overflow gate as Pending Replies: full StaticLayout line count must
+        // exceed the 3-line preview cap (short messages must not show the chevron).
+        val lineCount = measurePreviewLineCount(messagePreview)
+        val canExpand = lineCount > SENDER_LIST_PREVIEW_MAX_LINES
+        onMessageOverflowChanged?.invoke(canExpand)
+
+        // Respect messageArea.minimumHeight (e.g. room for copy+pencil+chevron)
         // so short messages don't clip the lower overlay icon into a sliver/dot.
-        val messageHeight = preferredMessageHeight
-            .coerceAtMost(messageBudget)
-            .coerceAtLeast(messageArea.minimumHeight)
+        val messageHeight = if (messageExpanded) {
+            preferredMessageHeight
+                .coerceAtMost(expandedMessageBudget)
+                .coerceAtLeast(messageArea.minimumHeight)
+        } else {
+            preferredMessageHeight
+                .coerceAtMost(collapsedMessageBudget)
+                .coerceAtLeast(messageArea.minimumHeight)
+        }
 
         messageArea.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -3510,14 +3739,75 @@ class ReplyPanel(
         )
         messageScroll.isVerticalScrollBarEnabled = naturalMessageHeight > messageHeight
 
-        // Exact fit: content (incl. capped message) + combined footer.
+        // Exact fit: content (incl. capped or expanded message) + combined footer.
         params.height = fixedChrome + messageHeight
         try {
             windowManager.updateViewLayout(panel, params)
         } catch (e: Exception) {
             Logger.e("Failed to apply reply panel height: ${e.message}")
         }
+        // Force a layout pass against the new window size so MATCH_CONSTRAINT children
+        // (body height=0 lp) get real laid-out heights before the next paint when possible.
+        val windowW = (params.width.takeIf { it > 0 } ?: panelWidthPx()).coerceAtLeast(1)
+        val windowH = params.height
+        if (windowH > 0) {
+            panel.measure(
+                View.MeasureSpec.makeMeasureSpec(windowW, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(windowH, View.MeasureSpec.EXACTLY)
+            )
+            val left = panel.left
+            val top = panel.top
+            panel.layout(
+                left,
+                top,
+                left + panel.measuredWidth,
+                top + panel.measuredHeight
+            )
+        }
         panel.requestLayout()
+    }
+
+    /** Start a single-message rebuild hidden until height+layout have finished. */
+    private fun beginMessagePanelRevealGate(panel: View) {
+        messagePanelAwaitingReveal = true
+        panel.animate().cancel()
+        panel.alpha = 0f
+    }
+
+    /**
+     * Reveal the panel once window height is set and the MATCH_CONSTRAINT body has a
+     * real laid-out height. If layout hasn't assigned body.height yet (common right
+     * after [WindowManager.updateViewLayout]), wait one frame — never paint at alpha=1
+     * with a zero-height body.
+     */
+    private fun finishMessagePanelRevealIfReady(panel: View) {
+        if (!messagePanelAwaitingReveal || !isShowing) return
+        val paramsH = panelParams?.height ?: 0
+        val body = messageBodyColumn
+        val bodyH = (body?.height?.takeIf { it > 0 } ?: body?.measuredHeight ?: 0)
+        if (paramsH > 0 && bodyH > 0) {
+            messagePanelAwaitingReveal = false
+            panel.alpha = 1f
+            applyGlassBackdropBlurIfAllowed()
+            android.util.Log.e(
+                "ScrollCat",
+                "###LIST_TO_SINGLE_DEBUG### reveal immediate - body.h=$bodyH, panelParams.h=$paramsH"
+            )
+            return
+        }
+        panel.post {
+            if (!isShowing || !messagePanelAwaitingReveal) return@post
+            messagePanelAwaitingReveal = false
+            panel.alpha = 1f
+            applyGlassBackdropBlurIfAllowed()
+            android.util.Log.e(
+                "ScrollCat",
+                "###LIST_TO_SINGLE_DEBUG### reveal after layout post - " +
+                    "body.h=${messageBodyColumn?.height}, " +
+                    "body.measuredH=${messageBodyColumn?.measuredHeight}, " +
+                    "panelParams.h=${panelParams?.height}"
+            )
+        }
     }
 
     /**
@@ -3904,6 +4194,7 @@ class ReplyPanel(
         messageFooterBlock = null
         messagePanelRelayout = null
         messagePanelApplyHeightSync = null
+        exitEditModeToReplyPanel = null
         navRow = null
         pendingCountView = null
         swipeHintView = null
@@ -3968,9 +4259,14 @@ class ReplyPanel(
         showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.PREVIOUS)
     }
 
-    /** Left-arrow: always return to the Pending Replies list (not previous message). */
+    /** Left-arrow: from edit → reply chips; otherwise → Pending Replies list. */
     private fun backToPendingList() {
         if (messageSlideInProgress) return
+        val exitEdit = exitEditModeToReplyPanel
+        if (exitEdit != null) {
+            exitEdit.invoke()
+            return
+        }
         showSenderList()
     }
 
@@ -3982,6 +4278,72 @@ class ReplyPanel(
         if (pending.size <= 1 || messageSlideInProgress) return
         SettingsManager.recordReplyPanelSuccessfulSwipe(context)
         navigate()
+    }
+
+    /**
+     * Cross-fade chips area content (message replies ↔ edit). Matches message-slide
+     * timing ([MESSAGE_SLIDE_MS]) and easing so the switch is not an instant cut.
+     */
+    private fun crossfadeChipsContent(
+        chipsContainer: View,
+        fadeIn: Boolean = true,
+        swapContent: () -> Unit,
+        onComplete: (() -> Unit)? = null
+    ) {
+        if (!isShowing) return
+        if (messageSlideInProgress) return
+        messageSlideInProgress = true
+        chipsContainer.animate().cancel()
+
+        fun finishFadeIn() {
+            if (!isShowing) {
+                messageSlideInProgress = false
+                return
+            }
+            if (!fadeIn || chipsContainer.visibility != View.VISIBLE) {
+                chipsContainer.alpha = 1f
+                messageSlideInProgress = false
+                onComplete?.invoke()
+                return
+            }
+            chipsContainer.alpha = 0f
+            chipsContainer.animate()
+                .alpha(1f)
+                .setDuration(MESSAGE_SLIDE_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    messageSlideInProgress = false
+                    if (isShowing) onComplete?.invoke()
+                }
+                .start()
+        }
+
+        fun doSwap() {
+            if (!isShowing) {
+                messageSlideInProgress = false
+                return
+            }
+            swapContent()
+            messagePanelApplyHeightSync?.invoke()
+            finishFadeIn()
+        }
+
+        val shouldFadeOut =
+            chipsContainer.visibility == View.VISIBLE &&
+                chipsContainer.alpha > 0.05f &&
+                (chipsContainer !is ViewGroup || chipsContainer.childCount > 0)
+
+        if (!shouldFadeOut) {
+            doSwap()
+            return
+        }
+
+        chipsContainer.animate()
+            .alpha(0f)
+            .setDuration(MESSAGE_SLIDE_MS)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction { doSwap() }
+            .start()
     }
 
     /** Snap a mid-drag slide column back to rest without changing the queued message. */
@@ -4086,7 +4448,10 @@ class ReplyPanel(
                 showNewSenderArrowLiveOnOpenPanel(currentKey)
             } else {
                 removeNewSenderArrow()
-                relayoutOpenPanelHeight()
+                // Never fall back to WRAP_CONTENT here — that stomps a correctly measured
+                // fixed pixel height (list→single / swipe). Re-apply auto height instead.
+                messagePanelApplyHeightSync?.invoke()
+                    ?: messagePanelRelayout?.invoke()
             }
         } else {
             currentIndex = currentIndex.coerceIn(0, pending.size - 1)
@@ -4156,7 +4521,20 @@ class ReplyPanel(
         arrow.visibility = View.VISIBLE
     }
 
+    /**
+     * Soft re-measure for the open single-message panel. Prefers the same auto-height
+     * path as slide-in / chips — never blindly resets [panelParams] to WRAP_CONTENT while
+     * those hooks exist (WRAP_CONTENT + MATCH_CONSTRAINT body collapses to height 0).
+     */
     private fun relayoutOpenPanelHeight() {
+        messagePanelApplyHeightSync?.let {
+            it.invoke()
+            return
+        }
+        messagePanelRelayout?.let {
+            it.invoke()
+            return
+        }
         val panel = panelView ?: return
         val params = panelParams ?: return
         params.height = WindowManager.LayoutParams.WRAP_CONTENT
@@ -4210,7 +4588,9 @@ class ReplyPanel(
 
     private fun updatePendingFooter() {
         val footer = messageFooterBlock ?: return
-        if (pending.size <= 1) {
+        val editing = exitEditModeToReplyPanel != null
+        // Show nav when multi-message OR while editing (← must be able to leave edit).
+        if (pending.size <= 1 && !editing) {
             navRow?.let { row ->
                 try { (row.parent as? android.view.ViewGroup)?.removeView(row) } catch (e: Exception) { }
             }
@@ -4230,7 +4610,7 @@ class ReplyPanel(
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             }
-            // Left arrow only — always returns to Pending Replies. Sequential next/prev is swipe-only.
+            // Left arrow: from edit → reply chips; otherwise → Pending Replies list.
             row.addView(TextView(context).apply {
                 text = "→"
                 textSize = 18f
@@ -4238,8 +4618,16 @@ class ReplyPanel(
                 gravity = Gravity.CENTER
                 setPadding(24, 8, 24, 8)
                 scaleX = -1f
-                contentDescription = "Back to pending replies"
-                setOnClickListener { backToPendingList() }
+                contentDescription = "Back"
+                tag = "scrollcat_nav_back"
+                setOnClickListener {
+                    val exitEdit = exitEditModeToReplyPanel
+                    if (exitEdit != null) {
+                        exitEdit.invoke()
+                    } else {
+                        backToPendingList()
+                    }
+                }
             })
             val centerCol = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -4272,6 +4660,13 @@ class ReplyPanel(
             navRow = row
         }
         val row = navRow ?: return
+        row.findViewWithTag<TextView>("scrollcat_nav_back")?.apply {
+            contentDescription = if (editing) {
+                "Back to replies"
+            } else {
+                "Back to pending replies"
+            }
+        }
         // Nav sits under the button row; ↓ New message (if any) stays last below nav.
         try {
             (row.parent as? android.view.ViewGroup)?.removeView(row)
@@ -4283,9 +4678,17 @@ class ReplyPanel(
             footer.addView(arrow)
         }
 
-        pendingCountView?.text = "${currentIndex + 1} / ${pending.size} waiting"
+        pendingCountView?.text = if (pending.size > 1) {
+            "${currentIndex + 1} / ${pending.size} waiting"
+        } else {
+            ""
+        }
         swipeHintView?.visibility =
-            if (SettingsManager.shouldShowReplyPanelSwipeHint(context)) View.VISIBLE else View.GONE
+            if (pending.size > 1 && SettingsManager.shouldShowReplyPanelSwipeHint(context)) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
     }
 
     private fun showIgnoreUserConfirmation(message: ReplyStore.ReplyableMessage) {
@@ -4523,6 +4926,7 @@ class ReplyPanel(
         cancelAccessibilityGrantPoll()
         messageSlideToken++
         messageSlideInProgress = false
+        messagePanelAwaitingReveal = false
         clearGlassBackdropBlur()
         glassBackdropView = null
         handler.removeCallbacksAndMessages(null)
@@ -4545,6 +4949,7 @@ class ReplyPanel(
         messageFooterBlock = null
         messagePanelRelayout = null
         messagePanelApplyHeightSync = null
+        exitEditModeToReplyPanel = null
         viewedKeys.clear()
         knownEntryIdsAtOpen.clear()
         showingSenderList = false

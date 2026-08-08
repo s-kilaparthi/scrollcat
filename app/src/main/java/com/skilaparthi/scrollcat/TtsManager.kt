@@ -1,6 +1,7 @@
 package com.skilaparthi.scrollcat
 
 import android.content.Context
+import android.media.AudioFocusRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -9,6 +10,9 @@ import java.util.Locale
 /**
  * Thin TextToSpeech wrapper for reading incoming messages aloud from [ReplyPanel].
  * Language tags typically come from [ScreenTranslator.identifyLanguageCode].
+ *
+ * Uses [AudioFocusHelper] the same way mic recording does so background media
+ * pauses for the utterance and resumes when speech ends or is stopped.
  */
 class TtsManager(
     context: Context,
@@ -19,13 +23,15 @@ class TtsManager(
         private const val UTTERANCE_ID = "scrollcat_read_aloud"
     }
 
+    private val appContext = context.applicationContext
     private var tts: TextToSpeech? = null
     private var isInitialized = false
     private var pendingText: String? = null
     private var pendingLang: String? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     init {
-        tts = TextToSpeech(context.applicationContext) { status ->
+        tts = TextToSpeech(appContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 isInitialized = true
                 setupProgressListener()
@@ -36,9 +42,21 @@ class TtsManager(
                 }
             } else {
                 Log.e(TAG, "TextToSpeech initialization failed status=$status")
+                releaseAudioFocus()
                 onSpeechStatusChanged(false)
             }
         }
+    }
+
+    private fun takeAudioFocus() {
+        if (audioFocusRequest == null) {
+            audioFocusRequest = AudioFocusHelper.requestTransientAudioFocus(appContext)
+        }
+    }
+
+    private fun releaseAudioFocus() {
+        AudioFocusHelper.abandonAudioFocus(appContext, audioFocusRequest)
+        audioFocusRequest = null
     }
 
     private fun setupProgressListener() {
@@ -48,17 +66,26 @@ class TtsManager(
             }
 
             override fun onDone(utteranceId: String?) {
-                if (utteranceId == UTTERANCE_ID) onSpeechStatusChanged(false)
+                if (utteranceId == UTTERANCE_ID) {
+                    releaseAudioFocus()
+                    onSpeechStatusChanged(false)
+                }
             }
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                if (utteranceId == UTTERANCE_ID) onSpeechStatusChanged(false)
+                if (utteranceId == UTTERANCE_ID) {
+                    releaseAudioFocus()
+                    onSpeechStatusChanged(false)
+                }
             }
 
             override fun onError(utteranceId: String?, errorCode: Int) {
                 Log.e(TAG, "TTS Error code: $errorCode")
-                if (utteranceId == UTTERANCE_ID) onSpeechStatusChanged(false)
+                if (utteranceId == UTTERANCE_ID) {
+                    releaseAudioFocus()
+                    onSpeechStatusChanged(false)
+                }
             }
         })
     }
@@ -96,9 +123,11 @@ class TtsManager(
             ttsEngine.language = Locale.getDefault()
         }
 
+        takeAudioFocus()
         val ok = ttsEngine.speak(trimmed, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
         if (ok == TextToSpeech.ERROR) {
             Log.w(TAG, "TTS speak() returned ERROR")
+            releaseAudioFocus()
             onSpeechStatusChanged(false)
         } else {
             // Optimistic UI; onStart/onDone keep it accurate.
@@ -110,6 +139,7 @@ class TtsManager(
         try {
             tts?.stop()
         } catch (_: Exception) { }
+        releaseAudioFocus()
         onSpeechStatusChanged(false)
         pendingText = null
         pendingLang = null
@@ -124,6 +154,7 @@ class TtsManager(
         } catch (_: Exception) { }
         tts = null
         isInitialized = false
+        releaseAudioFocus()
         onSpeechStatusChanged(false)
     }
 }

@@ -63,6 +63,8 @@ class OverlayService : Service() {
         const val DOCK_VISIBILITY_MS = 3_000L
         const val INITIAL_SETTLE_DOCK_MS = 10_000L
         const val MOVE_MODE_TIMEOUT_MS = 10_000L
+        /** Edge dock / off-screen hide slide duration (matches dockToEdge / undock). */
+        const val DOCK_SLIDE_MS = 320L
         /** Debounce before docking after an editable field loses focus (avoids form-tab flicker). */
         const val TEXT_FOCUS_HIDE_DEBOUNCE_MS = 400L
         var DISTANCE_TRIGGER_THRESHOLD_LIVE = 70
@@ -247,6 +249,11 @@ class OverlayService : Service() {
 
     // Edge-docking state (only used when display mode is edge_docking)
     private var isEdgeDocked = false
+    /**
+     * Zero pending + not held by text focus: cat is fully off-screen (View.GONE),
+     * not the peeking dock pose. Revealed by new notifications or editable focus.
+     */
+    private var isCatFullyHidden = false
     /** True while waiting for the post-summon settle-into-dock (not the post-message re-dock timer). */
     private var awaitingInitialDock = false
     /**
@@ -255,6 +262,13 @@ class OverlayService : Service() {
      */
     private var heldByTextFocus = false
     private var isDismissing = false
+    /**
+     * Latest [onStartCommand] startId. Used with [dismissAtStartId] so a fade-complete
+     * [stopSelf] cannot kill a service that already received a newer SUMMON.
+     */
+    private var currentStartId = 0
+    /** startId of the [ACTION_DISMISS] that began the in-flight dismiss teardown. */
+    private var dismissAtStartId = -1
     /**
      * Bumped to cancel an in-flight dismiss fade / posted finish when a new SUMMON
      * arrives mid-shutdown — prevents stopForeground/stopSelf racing a re-start.
@@ -267,20 +281,48 @@ class OverlayService : Service() {
     private var lastSummonElapsedMs = 0L
     private var lastDismissElapsedMs = 0L
     private var dockAnimator: ValueAnimator? = null
+    /** Bumped to ignore stale hide/reveal animator end callbacks after cancel. */
+    private var dockAnimToken = 0
+    /**
+     * When true, [dockVisibilityRunnable] hides in notify-only mode even if ReplyStore still
+     * has pending items. Set only for a fresh service show (first launch / post-dismiss Summon);
+     * cleared for continuous-running re-arms (new notification, panel close, etc.).
+     */
+    private var idleHideIgnoresPending = false
     private val dockHandler = Handler(Looper.getMainLooper())
     private val dockVisibilityRunnable = Runnable {
         // Keep fully visible while the reply panel is open; timer resumes on dismiss.
         if (replyPanel?.isShowing == true) {
             Logger.d("Dock visibility timer fired but reply panel is open — skipping re-dock")
+            logDismissResummonDebug("dockVisibility_skip_panel_open")
             return@Runnable
         }
         // Focus-held visibility wins over the notification dock timer — but only when
         // there are no pending replies (pending always takes priority).
         if (isHeldByEditableFocus()) {
             Logger.d("Dock visibility timer fired but text field focused — keeping undocked")
+            logDismissResummonDebug("dockVisibility_skip_text_focus")
             return@Runnable
         }
-        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
+        if (!SettingsManager.isEdgeDockingMode(this)) return@Runnable
+        val hasPending = ReplyStore.count() > 0 || badgeCount > 0
+        // Consume fresh-start flag for this fire only.
+        val hideDespitePending = idleHideIgnoresPending
+        idleHideIgnoresPending = false
+        logDismissResummonDebug(
+            "dockVisibility_fire hasPending=$hasPending hideDespitePending=$hideDespitePending " +
+                "hideWhenIdle=${SettingsManager.isHideWhenIdleMode(this)}"
+        )
+        if (SettingsManager.isHideWhenIdleMode(this) && (hideDespitePending || !hasPending)) {
+            // Fresh summon / first launch: hide even when ReplyStore still has stale pending.
+            // Continuous empty-queue: hide as usual.
+            hideCatFullyOffScreen(animate = true)
+        } else if (hasPending) {
+            if (!isEdgeDocked) {
+                dockToEdge(animate = true)
+            }
+        } else if (!isEdgeDocked) {
+            // Classic edge docking: always return to the peeking dock.
             dockToEdge(animate = true)
         }
     }
@@ -297,8 +339,14 @@ class OverlayService : Service() {
         }
         if (SettingsManager.isEdgeDockingMode(this) && awaitingInitialDock && !isEdgeDocked) {
             awaitingInitialDock = false
-            dockToEdge(animate = true)
-            Logger.d("Initial settle timer elapsed — docking")
+            val hasPending = ReplyStore.count() > 0 || badgeCount > 0
+            if (hasPending || !SettingsManager.isHideWhenIdleMode(this)) {
+                dockToEdge(animate = true)
+                Logger.d("Initial settle timer elapsed — docking")
+            } else {
+                hideCatFullyOffScreen(animate = true)
+                Logger.d("Initial settle timer elapsed — hiding off-screen (notify-only, empty)")
+            }
         }
     }
 
@@ -343,13 +391,12 @@ class OverlayService : Service() {
         addCatView()
         replyPanel = ReplyPanel(this, windowManager).also { wireReplyPanel(it) }
         if (SettingsManager.isEdgeDockingMode(this)) {
-            // Summon at full float + full opacity; dock after settle timer if untouched
+            // Summon at full float + full opacity; idle-hide / settle armed from shared path.
             catAnimator?.setIdleSleepEnabled(false)
             isEdgeDocked = false
             catView?.alpha = 1f
             containerView?.visibility = View.VISIBLE
-            awaitingInitialDock = true
-            startInitialSettleTimer()
+            scheduleIdleVisibilityCountdown("onCreate", freshStartIgnorePending = true)
         } else {
             catAnimator?.setIdleSleepEnabled(true)
         }
@@ -380,9 +427,20 @@ class OverlayService : Service() {
         }.start()
     }
 
+    /** First-install dismiss→resummon disappearance bug — filter logcat: DISMISS_RESUMMON_DEBUG */
+    private fun logDismissResummonDebug(action: String) {
+        android.util.Log.e(
+            "ScrollCat",
+            "###DISMISS_RESUMMON_DEBUG### action=$action, isCatFullyHidden=$isCatFullyHidden, " +
+                "isEdgeDocked=$isEdgeDocked, view.visibility=${catView?.visibility}, " +
+                "alpha=${catView?.alpha}, pendingCount=${ReplyStore.count()}"
+        )
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         val now = SystemClock.elapsedRealtime()
+        currentStartId = startId
         android.util.Log.d(
             "ScrollCat",
             "Summon called - current state: action=$action isDestroyed=$isDestroyed " +
@@ -390,11 +448,14 @@ class OverlayService : Service() {
                 "catView=$catView isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha} startId=$startId"
         )
         if (action == ACTION_DISMISS) {
+            logDismissResummonDebug("ACTION_DISMISS_enter")
             if (now - lastDismissElapsedMs < SUMMON_DISMISS_DEBOUNCE_MS) {
+                logDismissResummonDebug("ACTION_DISMISS_debounced")
                 android.util.Log.d("ScrollCat", "Dismiss debounced — ignoring rapid repeat")
                 return START_NOT_STICKY
             }
             lastDismissElapsedMs = now
+            dismissAtStartId = startId
             android.util.Log.d(
                 "ScrollCat",
                 "Dismiss called - current state: isDestroyed=$isDestroyed " +
@@ -402,6 +463,7 @@ class OverlayService : Service() {
                     "isEdgeDocked=$isEdgeDocked alpha=${catView?.alpha}"
             )
             dismissAndStop(animated = true)
+            logDismissResummonDebug("ACTION_DISMISS_after_dismissAndStop")
             return START_NOT_STICKY
         }
 
@@ -411,11 +473,18 @@ class OverlayService : Service() {
         startAsForeground()
 
         if (action == ACTION_SUMMON) {
+            logDismissResummonDebug("ACTION_SUMMON_enter")
             val attached = isViewAttached(containerView)
             if (!isDismissing && attached &&
                 now - lastSummonElapsedMs < SUMMON_DISMISS_DEBOUNCE_MS
             ) {
+                logDismissResummonDebug("ACTION_SUMMON_debounced")
                 android.util.Log.d("ScrollCat", "Summon debounced — already on screen")
+                // Continuously running + debounced: do not treat as fresh-start (pending still wins).
+                scheduleIdleVisibilityCountdown(
+                    "ACTION_SUMMON_debounced",
+                    freshStartIgnorePending = false
+                )
                 return START_STICKY
             }
             lastSummonElapsedMs = now
@@ -427,7 +496,20 @@ class OverlayService : Service() {
             abortDismissForResummon()
         }
 
+        if (action == ACTION_SUMMON) {
+            logDismissResummonDebug("ACTION_SUMMON_before_ensureCatOnScreen")
+        }
         ensureCatOnScreen()
+        // Fresh service show (Summon / sticky restart after Dismiss, or true first launch):
+        // idle-hide must fire even if ReplyStore still has pending from before Dismiss.
+        val freshStart = action == ACTION_SUMMON || action == null
+        scheduleIdleVisibilityCountdown(
+            if (action == ACTION_SUMMON) "ACTION_SUMMON" else "onStartCommand_${action ?: "null"}",
+            freshStartIgnorePending = freshStart
+        )
+        if (action == ACTION_SUMMON) {
+            logDismissResummonDebug("ACTION_SUMMON_after_ensureCatOnScreen")
+        }
         return START_STICKY
     }
 
@@ -449,8 +531,17 @@ class OverlayService : Service() {
 
     /** Tear down overlay and stop the service (used by Dismiss). */
     private fun dismissAndStop(animated: Boolean = true) {
-        if (isDismissing) return
+        logDismissResummonDebug("dismissAndStop_enter animated=$animated isDismissing=$isDismissing")
+        if (isDismissing) {
+            logDismissResummonDebug("dismissAndStop_already_dismissing")
+            return
+        }
         isDismissing = true
+        // Close-zone / onboarding dismiss may not go through ACTION_DISMISS — bind stopSelf to
+        // the latest startId so a concurrent SUMMON can supersede the teardown.
+        if (dismissAtStartId < 0) {
+            dismissAtStartId = currentStartId
+        }
         val token = ++dismissGeneration
         android.util.Log.d(
             "ScrollCat",
@@ -473,19 +564,23 @@ class OverlayService : Service() {
                 "ScrollCat",
                 "Fade skipped - animated=$animated attached=${isViewAttached(container)} container=$container"
             )
+            logDismissResummonDebug("dismissAndStop_fade_skipped")
             if (token == dismissGeneration && isDismissing) finishDismissAndStop()
             return
         }
 
-        // Cancel prior animators; do NOT remove/hide the WindowManager view yet.
-        dismissFadeAnimator?.removeAllListeners()
-        dismissFadeAnimator?.cancel()
+        // Cancel prior dismiss fade + any in-flight reveal/dock slide that owns catView.alpha.
+        // cancelDockAnimator already ran above; drop listeners/cancel again for a prior fade.
+        val priorFade = dismissFadeAnimator
         dismissFadeAnimator = null
+        priorFade?.removeAllListeners()
+        priorFade?.cancel()
         container!!.animate().cancel()
         catView?.animate()?.cancel()
         catAnimator?.showStatic()
 
-        // Force a visible starting point — fade-out must go 1.0 → 0.0.
+        // Force a visible starting point — fade-out must go 1.0 → 0.0 on BOTH views.
+        // Reveal/hide animate catView.alpha; fading only container fought mid-entrance state.
         container.alpha = 1f
         catView?.alpha = 1f
         container.visibility = View.VISIBLE
@@ -495,6 +590,7 @@ class OverlayService : Service() {
             "ScrollCat",
             "Fade pre-start — container.alpha=${container.alpha} cat.alpha=${catView?.alpha}"
         )
+        logDismissResummonDebug("dismissFade_pre_start token=$token")
 
         // Post so a full-opacity frame can paint before the fade begins.
         container.post {
@@ -506,27 +602,61 @@ class OverlayService : Service() {
                     "Fade aborted before start — tokenMatch=${token == dismissGeneration} " +
                         "isDismissing=$isDismissing"
                 )
+                logDismissResummonDebug("dismissFade_aborted_before_start")
                 return@post
             }
+            // Re-invalidate dock/reveal in case anything restarted between cancel and this frame.
+            cancelDockAnimator()
+            container.animate().cancel()
+            catView?.animate()?.cancel()
             container.alpha = 1f
             catView?.alpha = 1f
             android.util.Log.d("ScrollCat", "Fade animation started")
-            dismissFadeAnimator = ObjectAnimator.ofFloat(container, View.ALPHA, 1f, 0f).apply {
+            logDismissResummonDebug("dismissFade_started")
+            // Same ValueAnimator + token pattern as reveal/hide — drive both alphas together.
+            dismissFadeAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
                 duration = 250L
+                var fadeCanceled = false
                 addUpdateListener { animator ->
+                    if (token != dismissGeneration || !isDismissing || isDestroyed) {
+                        return@addUpdateListener
+                    }
+                    val a = animator.animatedValue as Float
+                    container.alpha = a
+                    catView?.alpha = a
                     android.util.Log.d(
                         "ScrollCat",
-                        "Fade alpha value: ${container.alpha} (animatedValue=${animator.animatedValue})"
+                        "Fade alpha value: container=${container.alpha} cat=${catView?.alpha} " +
+                            "(animatedValue=$a)"
                     )
                 }
                 addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationCancel(animation: Animator) {
+                        fadeCanceled = true
+                        logDismissResummonDebug("dismissFade_onAnimationCancel")
+                        if (dismissFadeAnimator === animation) {
+                            dismissFadeAnimator = null
+                        }
+                    }
+
                     override fun onAnimationEnd(animation: Animator) {
-                        android.util.Log.d("ScrollCat", "Fade animation completed")
-                        dismissFadeAnimator = null
-                        // ONLY place in this flow that removes the view / stops the service.
+                        android.util.Log.d(
+                            "ScrollCat",
+                            "Fade animation completed fadeCanceled=$fadeCanceled"
+                        )
+                        logDismissResummonDebug(
+                            "dismissFade_onAnimationEnd fadeCanceled=$fadeCanceled"
+                        )
+                        if (dismissFadeAnimator === animation) {
+                            dismissFadeAnimator = null
+                        }
+                        // Cancel still delivers onAnimationEnd — do not tear down on cancel
+                        // (e.g. mid-fight with a reveal that we aborted); abortDismiss handles that.
+                        if (fadeCanceled) return
                         if (token == dismissGeneration && isDismissing && !isDestroyed) {
                             finishDismissAndStop()
                         } else {
+                            logDismissResummonDebug("dismissFade_end_ignored_aborted")
                             android.util.Log.d(
                                 "ScrollCat",
                                 "Fade end ignored — dismiss was aborted by summon " +
@@ -545,25 +675,46 @@ class OverlayService : Service() {
      * a delayed stopForeground/stopSelf from the previous fade.
      */
     private fun abortDismissForResummon() {
+        logDismissResummonDebug("abortDismissForResummon_enter")
         android.util.Log.d("ScrollCat", "abortDismissForResummon — cancelling mid-fade dismiss")
         dismissGeneration++
         isDismissing = false
         onDismissFadeCompleted = null
-        dismissFadeAnimator?.removeAllListeners()
-        dismissFadeAnimator?.cancel()
+        val priorFade = dismissFadeAnimator
         dismissFadeAnimator = null
+        priorFade?.removeAllListeners()
+        priorFade?.cancel()
+        cancelDockAnimator()
         containerView?.animate()?.cancel()
         catView?.animate()?.cancel()
         containerView?.alpha = 1f
         catView?.alpha = 1f
         containerView?.visibility = View.VISIBLE
         catView?.visibility = View.VISIBLE
+        logDismissResummonDebug("abortDismissForResummon_done")
     }
 
     private fun finishDismissAndStop() {
-        dismissFadeAnimator?.removeAllListeners()
-        dismissFadeAnimator?.cancel()
+        logDismissResummonDebug("finishDismissAndStop_enter")
+        // A newer onStartCommand (resummon) owns the service — do not tear down its cat
+        // or cancel the idle-hide timer it just armed.
+        if (currentStartId != dismissAtStartId) {
+            logDismissResummonDebug(
+                "finishDismissAndStop_skipped_superseded " +
+                    "currentStartId=$currentStartId dismissAtStartId=$dismissAtStartId"
+            )
+            isDismissing = false
+            onDismissFadeCompleted = null
+            dismissAtStartId = -1
+            return
+        }
+        val priorFade = dismissFadeAnimator
         dismissFadeAnimator = null
+        priorFade?.removeAllListeners()
+        priorFade?.cancel()
+        cancelDockAnimator()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
         containerView?.animate()?.cancel()
         catView?.animate()?.cancel()
         // Sole removeView for the cat overlay in the dismiss flow.
@@ -573,6 +724,7 @@ class OverlayService : Service() {
         badgeView = null
         layoutParams = null
         isEdgeDocked = false
+        isCatFullyHidden = false
         awaitingInitialDock = false
         isDismissing = false
 
@@ -580,7 +732,10 @@ class OverlayService : Service() {
         onDismissFadeCompleted = null
 
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        // Only stop if no newer start arrived — avoids onDestroy cancelling a resummon's timer.
+        stopSelf(dismissAtStartId)
+        logDismissResummonDebug("finishDismissAndStop_after_stopSelf dismissAtStartId=$dismissAtStartId")
+        dismissAtStartId = -1
 
         // Notify after removeView so onboarding can advance once the fade is done.
         if (completed != null) {
@@ -593,10 +748,13 @@ class OverlayService : Service() {
     /**
      * Ensures the cat overlay is attached and visible. Handles the case where
      * Summon is called while the service is still running but the view was removed.
+     * Idle-hide / settle timers are armed by [scheduleIdleVisibilityCountdown] from the
+     * shared call sites (onCreate / onStartCommand) — not duplicated here.
      */
     private fun ensureCatOnScreen() {
         if (isDestroyed) return
         val attached = isViewAttached(containerView)
+        logDismissResummonDebug("ensureCatOnScreen_enter attached=$attached")
         android.util.Log.d(
             "ScrollCat",
             "ensureCatOnScreen - attached=$attached container=$containerView"
@@ -618,28 +776,31 @@ class OverlayService : Service() {
             if (SettingsManager.isEdgeDockingMode(this)) {
                 catAnimator?.setIdleSleepEnabled(false)
                 isEdgeDocked = false
+                isCatFullyHidden = false
                 catView?.alpha = 1f
-                awaitingInitialDock = true
-                startInitialSettleTimer()
+                containerView?.visibility = View.VISIBLE
             } else {
                 catAnimator?.setIdleSleepEnabled(true)
             }
         } else {
             // Already on screen — wake to full float visibility
             isEdgeDocked = false
+            isCatFullyHidden = false
             catView?.alpha = 1f
             containerView?.visibility = View.VISIBLE
             catAnimator?.play("idle")
-            cancelDockVisibilityTimer()
             if (SettingsManager.isEdgeDockingMode(this)) {
-                awaitingInitialDock = true
-                startInitialSettleTimer()
+                catAnimator?.setIdleSleepEnabled(false)
             }
         }
         android.util.Log.d(
             "ScrollCat",
             "ensureCatOnScreen done - attached=${isViewAttached(containerView)} " +
                 "alpha=${catView?.alpha} size=${layoutParams?.width}"
+        )
+        logDismissResummonDebug(
+            "ensureCatOnScreen_done recreated=${!attached} " +
+                "mode=${SettingsManager.getCatDisplayMode(this)}"
         )
     }
 
@@ -1279,12 +1440,22 @@ class OverlayService : Service() {
                 heldByTextFocus = true
                 cancelInitialSettleTimer()
                 awaitingInitialDock = false
-                if (isEdgeDocked) {
-                    // Same pop-out as new-message arrivals — but no dock visibility timer.
-                    undockToFloat(animate = true, startVisibilityTimer = false)
-                } else {
-                    // Already undocked (e.g. recent notification) — extend visibility, no re-anim.
-                    cancelDockVisibilityTimer()
+                when {
+                    needsEntranceRevealFromHidden() -> {
+                        // Same robust GONE/flag/alpha check as notification reveal.
+                        revealCatFromOffScreen(
+                            toFloat = true,
+                            startVisibilityTimer = false
+                        )
+                    }
+                    isEdgeDocked -> {
+                        // Same pop-out as new-message arrivals — but no dock visibility timer.
+                        undockToFloat(animate = true, startVisibilityTimer = false)
+                    }
+                    else -> {
+                        // Already undocked (e.g. recent notification) — extend visibility, no re-anim.
+                        cancelDockVisibilityTimer()
+                    }
                 }
                 android.util.Log.d(
                     "ScrollCat",
@@ -1348,8 +1519,14 @@ class OverlayService : Service() {
 
         if (replyPanel?.isShowing == true) return
 
-        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
-            dockToEdge(animate = true)
+        if (SettingsManager.isEdgeDockingMode(this)) {
+            if (SettingsManager.isHideWhenIdleMode(this)) {
+                // Notify-only: fully off-screen when focus ends with an empty queue.
+                hideCatFullyOffScreen(animate = true)
+            } else if (!isEdgeDocked) {
+                // Classic edge docking: return to peeking dock.
+                dockToEdge(animate = true)
+            }
         }
         android.util.Log.d(
             "ScrollCat",
@@ -1384,6 +1561,225 @@ class OverlayService : Service() {
         }
     }
 
+    /** Fully past the edge — no peek visible when the queue is empty. */
+    private fun fullyHiddenEdgeX(
+        dockSize: Int,
+        screenWidth: Int = resources.displayMetrics.widthPixels,
+    ): Int {
+        return if (SettingsManager.getCatDockSide(this) == "left") {
+            -dockSize - dp(8)
+        } else {
+            screenWidth + dp(8)
+        }
+    }
+
+    /**
+     * Slide the cat fully off the dock edge and hide it ([View.GONE]).
+     * Same 320ms DecelerateInterpolator motion language as [dockToEdge] / [undockToFloat].
+     */
+    private fun hideCatFullyOffScreen(animate: Boolean) {
+        logDismissResummonDebug("hideCatFullyOffScreen_enter animate=$animate")
+        if (!SettingsManager.isHideWhenIdleMode(this)) {
+            logDismissResummonDebug("hideCatFullyOffScreen_skip_not_hide_when_idle")
+            return
+        }
+        val params = layoutParams
+        if (params == null) {
+            logDismissResummonDebug("hideCatFullyOffScreen_skip_null_params")
+            return
+        }
+        val view = containerView
+        if (view == null) {
+            logDismissResummonDebug("hideCatFullyOffScreen_skip_null_container")
+            return
+        }
+        if (isCatFullyHidden && view.visibility != View.VISIBLE) {
+            logDismissResummonDebug("hideCatFullyOffScreen_skip_already_hidden")
+            return
+        }
+
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+        cancelDockAnimator()
+
+        if (!isEdgeDocked) {
+            persistFloatPositionAndDockSide(params.x, params.y)
+        }
+
+        val dockSize = dockedIconSize()
+        val (screenWidth, screenHeight) = currentDisplaySize()
+        val targetX = fullyHiddenEdgeX(dockSize, screenWidth)
+        val targetY = SettingsManager.getCatFloatY(this)
+            .coerceIn(40, (screenHeight - dockSize - 40).coerceAtLeast(40))
+        val startX = params.x
+        val startY = params.y
+        val startW = params.width
+        val startH = params.height
+        val startAlpha = catView?.alpha ?: 1f
+
+        isEdgeDocked = true
+        catAnimator?.showFrame(69)
+
+        fun finishHidden() {
+            params.width = dockSize
+            params.height = dockSize
+            params.x = targetX
+            params.y = targetY
+            safeUpdateViewLayout(view, params)
+            catView?.alpha = 0f
+            view.visibility = View.GONE
+            isCatFullyHidden = true
+            // Match clearBadge / empty-queue paths: reset so the next setBadgeCount(realTotal)
+            // always satisfies badgeCount > previous and can trigger reveal. ReplyStore may
+            // still hold pending; the next sync re-applies the true count onto the badge.
+            badgeCount = 0
+            updateBadge()
+            Logger.d("Cat fully hidden off-screen x=$targetX (badgeCount reset)")
+            logDismissResummonDebug("hideCatFullyOffScreen_finishHidden")
+        }
+
+        if (!animate || view.visibility != View.VISIBLE) {
+            logDismissResummonDebug(
+                "hideCatFullyOffScreen_immediate " +
+                    "animate=$animate containerVis=${view.visibility}"
+            )
+            finishHidden()
+            return
+        }
+
+        val token = ++dockAnimToken
+        dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = DOCK_SLIDE_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (isDestroyed || token != dockAnimToken) return@addUpdateListener
+                val t = anim.animatedValue as Float
+                params.width = (startW + (dockSize - startW) * t).toInt()
+                params.height = (startH + (dockSize - startH) * t).toInt()
+                params.x = (startX + (targetX - startX) * t).toInt()
+                params.y = (startY + (targetY - startY) * t).toInt()
+                catView?.alpha = startAlpha * (1f - t)
+                safeUpdateViewLayout(view, params)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (token != dockAnimToken) return
+                    dockAnimator = null
+                    finishHidden()
+                }
+            })
+        }
+        dockAnimator?.start()
+    }
+
+    /**
+     * Reveal the cat by sliding in from fully off-screen (mirrored hide).
+     * [toFloat]=true lands at the saved float spot (notification pop-out / dictation).
+     */
+    private fun revealCatFromOffScreen(
+        toFloat: Boolean,
+        startVisibilityTimer: Boolean,
+        onComplete: (() -> Unit)? = null
+    ) {
+        if (!SettingsManager.isEdgeDockingMode(this)) return
+        val params = layoutParams ?: return
+        val view = containerView ?: return
+
+        cancelDockAnimator()
+        cancelDockVisibilityTimer()
+        cancelInitialSettleTimer()
+        awaitingInitialDock = false
+
+        val dockSize = dockedIconSize()
+        val fullSize = SettingsManager.getCatSizePx(this)
+        val (screenWidth, screenHeight) = currentDisplaySize()
+        val startX = fullyHiddenEdgeX(dockSize, screenWidth)
+        val targetX: Int
+        val targetY: Int
+        val targetW: Int
+        val targetH: Int
+        val targetAlpha: Float
+        if (toFloat) {
+            targetX = SettingsManager.getCatFloatX(this)
+            targetY = SettingsManager.getCatFloatY(this)
+            targetW = fullSize
+            targetH = fullSize
+            targetAlpha = 1f
+        } else {
+            targetX = dockedEdgeX(dockSize, screenWidth)
+            targetY = SettingsManager.getCatFloatY(this)
+                .coerceIn(40, (screenHeight - dockSize - 40).coerceAtLeast(40))
+            targetW = dockSize
+            targetH = dockSize
+            targetAlpha = SettingsManager.getSleepOpacity(this)
+        }
+
+        isCatFullyHidden = false
+        view.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
+        params.width = dockSize
+        params.height = dockSize
+        params.x = startX
+        params.y = targetY
+        catView?.alpha = 0f
+        safeUpdateViewLayout(view, params)
+        catAnimator?.showFrame(69)
+
+        fun finishReveal() {
+            params.width = targetW
+            params.height = targetH
+            params.x = targetX
+            params.y = targetY
+            safeUpdateViewLayout(view, params)
+            catView?.alpha = targetAlpha
+            isEdgeDocked = !toFloat
+            if (toFloat) {
+                catAnimator?.showStatic()
+                if (startVisibilityTimer) {
+                    resetDockVisibilityTimer(forceDespiteTextFocus = true)
+                }
+            } else {
+                applyDockedOpacity()
+            }
+            Logger.d(
+                "Cat revealed from off-screen toFloat=$toFloat " +
+                    "pos=($targetX,$targetY) timer=$startVisibilityTimer"
+            )
+            onComplete?.invoke()
+        }
+
+        val token = ++dockAnimToken
+        dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = DOCK_SLIDE_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (isDestroyed || token != dockAnimToken) return@addUpdateListener
+                val t = anim.animatedValue as Float
+                params.width = (dockSize + (targetW - dockSize) * t).toInt()
+                params.height = (dockSize + (targetH - dockSize) * t).toInt()
+                params.x = (startX + (targetX - startX) * t).toInt()
+                params.y = targetY
+                catView?.alpha = targetAlpha * t
+                safeUpdateViewLayout(view, params)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (token != dockAnimToken) return
+                    dockAnimator = null
+                    finishReveal()
+                }
+            })
+        }
+        dockAnimator?.start()
+        android.util.Log.d(
+            "ScrollCat",
+            "###CAT_ENTRANCE_DEBUG### revealCatFromOffScreen started - " +
+                "toFloat=$toFloat startX=$startX target=($targetX,$targetY) " +
+                "token=$token thread=${Thread.currentThread().name}"
+        )
+    }
+
     /** Fresh display size for dock math (avoids stale portrait metrics after rotation). */
     private fun currentDisplaySize(): Pair<Int, Int> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -1409,7 +1805,11 @@ class OverlayService : Service() {
         cancelDockAnimator()
         val (newWidth, newHeight) = currentDisplaySize()
         val dockSize = dockedIconSize()
-        val newX = dockedEdgeX(dockSize, newWidth)
+        val newX = if (isCatFullyHidden) {
+            fullyHiddenEdgeX(dockSize, newWidth)
+        } else {
+            dockedEdgeX(dockSize, newWidth)
+        }
         val newY = params.y.coerceIn(40, (newHeight - dockSize - 40).coerceAtLeast(40))
         params.width = dockSize
         params.height = dockSize
@@ -1419,7 +1819,7 @@ class OverlayService : Service() {
         android.util.Log.d(
             "ScrollCat",
             "Orientation change detected - new width=$newWidth, new height=$newHeight, " +
-                "recalculated dock position=($newX, $newY)",
+                "recalculated dock position=($newX, $newY) fullyHidden=$isCatFullyHidden",
         )
     }
 
@@ -1428,9 +1828,29 @@ class OverlayService : Service() {
         recalculateDockPositionForCurrentDisplay()
     }
 
+    /**
+     * Invalidate any in-flight dock/reveal/hide slide. Remove listeners BEFORE cancel so
+     * [AnimatorListenerAdapter.onAnimationEnd] (which Android still fires on cancel) cannot
+     * run finishReveal / applyDockedOpacity / finishUndock and fight a dismiss fade over alpha.
+     */
     private fun cancelDockAnimator() {
-        dockAnimator?.cancel()
+        dockAnimToken++
+        val anim = dockAnimator
         dockAnimator = null
+        anim?.removeAllListeners()
+        anim?.cancel()
+    }
+
+    /** True when the cat is off-screen / not visible and a notification must play the entrance slide. */
+    private fun needsEntranceRevealFromHidden(): Boolean {
+        val container = containerView
+        if (isCatFullyHidden) return true
+        if (container == null) return true
+        if (container.visibility != View.VISIBLE) return true
+        // Fully off-screen / faded dock without the flag (e.g. cancelled hide mid-flight).
+        val alpha = catView?.alpha ?: 1f
+        if (isEdgeDocked && alpha < 0.05f) return true
+        return false
     }
 
     private fun cancelDockVisibilityTimer() {
@@ -1441,19 +1861,91 @@ class OverlayService : Service() {
         dockHandler.removeCallbacks(initialSettleDockRunnable)
     }
 
-    private fun startInitialSettleTimer() {
-        cancelInitialSettleTimer()
+    /**
+     * Single source of truth for post-visibility idle countdown. Called whenever the cat
+     * becomes (or stays) visible from onCreate, ACTION_SUMMON / ensureCatOnScreen, or a
+     * sticky restart — so first-launch and dismiss→resummon cannot drift apart.
+     *
+     * - Visible-only-when-notified → [DOCK_VISIBILITY_MS] then [hideCatFullyOffScreen]
+     *   via [dockVisibilityRunnable]. When [freshStartIgnorePending] is true (first launch /
+     *   post-dismiss Summon), hide fires even if ReplyStore still has pending; continuous
+     *   re-arms ([resetDockVisibilityTimer]) keep pending-aware hide/dock behavior.
+     * - Classic edge docking → [INITIAL_SETTLE_DOCK_MS] settle-into-peek via
+     *   [initialSettleDockRunnable]
+     */
+    private fun scheduleIdleVisibilityCountdown(
+        reason: String,
+        freshStartIgnorePending: Boolean = false
+    ) {
+        if (isDestroyed || isDismissing) {
+            logDismissResummonDebug("scheduleIdle_skip_destroyed_or_dismissing reason=$reason")
+            return
+        }
+        if (!SettingsManager.isEdgeDockingMode(this)) return
+        if (isCatFullyHidden) {
+            logDismissResummonDebug("scheduleIdle_skip_fully_hidden reason=$reason")
+            return
+        }
+        if (replyPanel?.isShowing == true) {
+            logDismissResummonDebug("scheduleIdle_skip_panel_open reason=$reason")
+            return
+        }
+        if (isHeldByEditableFocus() || heldByTextFocus) {
+            // Focus owns visibility; completeTextFocusHide will hide/dock on blur.
+            cancelDockVisibilityTimer()
+            cancelInitialSettleTimer()
+            awaitingInitialDock = false
+            idleHideIgnoresPending = false
+            logDismissResummonDebug("scheduleIdle_skip_text_focus reason=$reason")
+            return
+        }
+
         cancelDockVisibilityTimer()
-        if (!SettingsManager.isEdgeDockingMode(this) || isEdgeDocked) return
-        awaitingInitialDock = true
-        dockHandler.postDelayed(initialSettleDockRunnable, INITIAL_SETTLE_DOCK_MS)
-        Logger.d("Initial settle dock timer started (${INITIAL_SETTLE_DOCK_MS}ms)")
+        cancelInitialSettleTimer()
+
+        if (SettingsManager.isHideWhenIdleMode(this)) {
+            awaitingInitialDock = false
+            idleHideIgnoresPending = freshStartIgnorePending
+            // Fresh start always floats briefly then hides — stale pending must not skip arming.
+            isEdgeDocked = false
+            dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
+            logDismissResummonDebug(
+                "scheduleIdle_armed hideWhenIdle freshStartIgnorePending=$freshStartIgnorePending " +
+                    "pending=${ReplyStore.count()} reason=$reason"
+            )
+            Logger.d(
+                "Idle visibility timer armed (${DOCK_VISIBILITY_MS}ms) " +
+                    "hideWhenIdle=true freshStartIgnorePending=$freshStartIgnorePending reason=$reason"
+            )
+        } else {
+            idleHideIgnoresPending = false
+            if (isEdgeDocked) {
+                logDismissResummonDebug("scheduleIdle_skip_already_docked reason=$reason")
+                return
+            }
+            awaitingInitialDock = true
+            dockHandler.postDelayed(initialSettleDockRunnable, INITIAL_SETTLE_DOCK_MS)
+            logDismissResummonDebug("scheduleIdle_armed edge_settle reason=$reason")
+            Logger.d(
+                "Initial settle dock timer started (${INITIAL_SETTLE_DOCK_MS}ms) reason=$reason"
+            )
+        }
+    }
+
+    private fun startInitialSettleTimer() {
+        // Interaction reset while awaiting classic edge settle — not a fresh-start summon.
+        scheduleIdleVisibilityCountdown(
+            "startInitialSettleTimer",
+            freshStartIgnorePending = false
+        )
     }
 
     private fun resetDockVisibilityTimer(forceDespiteTextFocus: Boolean = false) {
         cancelDockVisibilityTimer()
         cancelInitialSettleTimer()
         awaitingInitialDock = false
+        // Continuous-running re-arm: pending must again control hide vs dock.
+        idleHideIgnoresPending = false
         if (!SettingsManager.isEdgeDockingMode(this) || isEdgeDocked) return
         if (replyPanel?.isShowing == true) {
             Logger.d("Dock visibility timer not started — reply panel open")
@@ -1472,14 +1964,29 @@ class OverlayService : Service() {
     /** Resume normal edge-dock countdown after the reply panel closes. */
     private fun onReplyPanelDismissed() {
         if (isDestroyed || isDismissing) return
-        if (SettingsManager.isEdgeDockingMode(this) && !isEdgeDocked) {
-            if (isHeldByEditableFocus()) {
-                cancelDockVisibilityTimer()
-                Logger.d("Reply panel closed — kept undocked (text field focused)")
-                return
+        if (!SettingsManager.isEdgeDockingMode(this)) return
+        if (isHeldByEditableFocus()) {
+            cancelDockVisibilityTimer()
+            Logger.d("Reply panel closed — kept undocked (text field focused)")
+            return
+        }
+        val hasPending = ReplyStore.count() > 0 || badgeCount > 0
+        if (hasPending) {
+            if (!isEdgeDocked) {
+                resetDockVisibilityTimer()
+                Logger.d("Reply panel closed — dock visibility timer resumed")
             }
+        } else if (SettingsManager.isHideWhenIdleMode(this) && !isCatFullyHidden) {
+            // Notify-only: keep visible briefly, then slide off-screen.
+            cancelDockVisibilityTimer()
+            cancelInitialSettleTimer()
+            awaitingInitialDock = false
+            idleHideIgnoresPending = false
+            dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
+            Logger.d("Reply panel closed (empty) — hide-off-screen timer started")
+        } else if (!isEdgeDocked) {
             resetDockVisibilityTimer()
-            Logger.d("Reply panel closed — dock visibility timer resumed")
+            Logger.d("Reply panel closed (empty) — dock visibility timer resumed")
         }
     }
 
@@ -1495,15 +2002,25 @@ class OverlayService : Service() {
             catAnimator?.setIdleSleepEnabled(false)
             cancelInitialSettleTimer()
             awaitingInitialDock = false
-            if (!isEdgeDocked) {
-                dockToEdge(animate = true)
-            } else {
-                applyDockedOpacity()
+            val hasPending = ReplyStore.count() > 0 || badgeCount > 0
+            when {
+                hasPending && isCatFullyHidden ->
+                    revealCatFromOffScreen(toFloat = false, startVisibilityTimer = false)
+                hasPending && !isEdgeDocked ->
+                    dockToEdge(animate = true)
+                hasPending && isEdgeDocked ->
+                    applyDockedOpacity()
+                !hasPending && SettingsManager.isHideWhenIdleMode(this) ->
+                    hideCatFullyOffScreen(animate = !isCatFullyHidden)
+                !hasPending ->
+                    dockToEdge(animate = true)
             }
         } else {
             cancelInitialSettleTimer()
             cancelDockVisibilityTimer()
             awaitingInitialDock = false
+            isCatFullyHidden = false
+            containerView?.visibility = View.VISIBLE
             catAnimator?.setIdleSleepEnabled(true)
             if (isEdgeDocked) {
                 undockToFloat(animate = true, startVisibilityTimer = false)
@@ -1545,6 +2062,9 @@ class OverlayService : Service() {
         val startAlpha = catView?.alpha ?: 1f
         val targetAlpha = SettingsManager.getSleepOpacity(this)
 
+        isCatFullyHidden = false
+        view.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
         isEdgeDocked = true
         catAnimator?.showFrame(69)
 
@@ -1559,11 +2079,12 @@ class OverlayService : Service() {
             return
         }
 
+        val token = ++dockAnimToken
         dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 320
+            duration = DOCK_SLIDE_MS
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
-                if (isDestroyed) return@addUpdateListener
+                if (isDestroyed || token != dockAnimToken) return@addUpdateListener
                 val t = anim.animatedValue as Float
                 params.width = (startW + (dockSize - startW) * t).toInt()
                 params.height = (startH + (dockSize - startH) * t).toInt()
@@ -1574,6 +2095,7 @@ class OverlayService : Service() {
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (token != dockAnimToken) return
                     dockAnimator = null
                     params.width = dockSize
                     params.height = dockSize
@@ -1596,6 +2118,15 @@ class OverlayService : Service() {
         val params = layoutParams ?: return
         val view = containerView ?: return
 
+        if (isCatFullyHidden) {
+            revealCatFromOffScreen(
+                toFloat = true,
+                startVisibilityTimer = startVisibilityTimer,
+                onComplete = onComplete
+            )
+            return
+        }
+
         if (!isEdgeDocked) {
             if (startVisibilityTimer && SettingsManager.isEdgeDockingMode(this)) {
                 resetDockVisibilityTimer(forceDespiteTextFocus = true)
@@ -1613,6 +2144,9 @@ class OverlayService : Service() {
         val startW = params.width
         val startH = params.height
 
+        isCatFullyHidden = false
+        view.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
         isEdgeDocked = false
         catView?.alpha = 1f
         awaitingInitialDock = false
@@ -1639,11 +2173,12 @@ class OverlayService : Service() {
             return
         }
 
+        val token = ++dockAnimToken
         dockAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 320
+            duration = DOCK_SLIDE_MS
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
-                if (isDestroyed) return@addUpdateListener
+                if (isDestroyed || token != dockAnimToken) return@addUpdateListener
                 val t = anim.animatedValue as Float
                 params.width = (startW + (fullSize - startW) * t).toInt()
                 params.height = (startH + (fullSize - startH) * t).toInt()
@@ -1653,6 +2188,7 @@ class OverlayService : Service() {
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (token != dockAnimToken) return
                     dockAnimator = null
                     finishUndock()
                 }
@@ -1682,13 +2218,43 @@ class OverlayService : Service() {
             replyPanel?.dismiss()
         }
 
-        // Notification priority: start/reset the normal dock visibility timer.
-        // If already undocked (e.g. was focus-held), do not restart the pop-out animation.
+        val needsSlideIn = needsEntranceRevealFromHidden()
+        android.util.Log.d(
+            "ScrollCat",
+            "###CAT_ENTRANCE_DEBUG### onReplyableBadgeIncreased - " +
+                "isCatFullyHidden=$isCatFullyHidden isEdgeDocked=$isEdgeDocked " +
+                "awaitingInitialDock=$awaitingInitialDock badgeCount=$badgeCount " +
+                "containerVis=${containerView?.visibility} catAlpha=${catView?.alpha} " +
+                "needsSlideIn=$needsSlideIn hasLayoutParams=${layoutParams != null} " +
+                "thread=${Thread.currentThread().name}"
+        )
+
+        // Hidden / not visible (incl. fresh-install first reveal): always slide in from edge.
+        if (needsSlideIn) {
+            revealCatFromOffScreen(toFloat = true, startVisibilityTimer = true)
+            return
+        }
+
+        // Peeking dock → pop out to float (existing notification attention).
         if (isEdgeDocked) {
             undockToFloat(animate = true, startVisibilityTimer = true)
-        } else {
-            resetDockVisibilityTimer(forceDespiteTextFocus = true)
+            return
         }
+
+        // Third state: already floating (post-summon / undocked) but neither hidden nor
+        // docked — previously only reset a timer, so the first badge could land with no motion.
+        // Play the same shake/pulse used for badge attention, then keep the dock timer.
+        containerView?.visibility = View.VISIBLE
+        catView?.visibility = View.VISIBLE
+        if ((catView?.alpha ?: 0f) < 0.5f) {
+            catView?.alpha = 1f
+        }
+        catView?.post { animateNotification() }
+        resetDockVisibilityTimer(forceDespiteTextFocus = true)
+        android.util.Log.d(
+            "ScrollCat",
+            "###CAT_ENTRANCE_DEBUG### floating-undocked branch — animateNotification shake + timer"
+        )
     }
 
     private fun startIdleAnimation() {
@@ -2002,31 +2568,51 @@ class OverlayService : Service() {
 
     fun incrementBadge() {
         if (isDestroyed) return
-        val panelOpen = replyPanel?.isShowing == true
-        android.util.Log.d(
-            "ScrollCat",
-            "Incrementing badge, panel currently open: $panelOpen, current count before: $badgeCount"
-        )
-        catView?.post { animateNotification() }
-        badgeCount++
-        updateBadge()
-        onReplyableBadgeIncreased()
-        onReplyablesChanged()
+        // Notification listener may call from a binder thread — UI/anim must be main.
+        dockHandler.post {
+            if (isDestroyed) return@post
+            val panelOpen = replyPanel?.isShowing == true
+            android.util.Log.d(
+                "ScrollCat",
+                "Incrementing badge, panel currently open: $panelOpen, current count before: $badgeCount"
+            )
+            catView?.post { animateNotification() }
+            badgeCount++
+            updateBadge()
+            onReplyableBadgeIncreased()
+            onReplyablesChanged()
+        }
     }
 
     fun clearBadge() {
-        badgeCount = 0
-        updateBadge()
+        if (isDestroyed) return
+        dockHandler.post {
+            if (isDestroyed) return@post
+            badgeCount = 0
+            updateBadge()
+        }
     }
 
     fun setBadgeCount(count: Int) {
-        val previous = badgeCount
-        badgeCount = count.coerceAtLeast(0)
-        updateBadge()
-        if (badgeCount > previous) {
-            onReplyableBadgeIncreased()
+        if (isDestroyed) return
+        // Notification listener may call from a binder thread — UI/anim must be main.
+        dockHandler.post {
+            if (isDestroyed) return@post
+            val previous = badgeCount
+            badgeCount = count.coerceAtLeast(0)
+            android.util.Log.d(
+                "ScrollCat",
+                "###CAT_ENTRANCE_DEBUG### setBadgeCount - previous=$previous " +
+                    "new=$badgeCount isCatFullyHidden=$isCatFullyHidden " +
+                    "containerVis=${containerView?.visibility} " +
+                    "thread=${Thread.currentThread().name}"
+            )
+            updateBadge()
+            if (badgeCount > previous) {
+                onReplyableBadgeIncreased()
+            }
+            onReplyablesChanged()
         }
-        onReplyablesChanged()
     }
 
     /**
@@ -2052,14 +2638,38 @@ class OverlayService : Service() {
     fun isReplyPanelShowing(): Boolean = replyPanel?.isShowing == true
 
     fun updateBadgeAfterReply() {
-        val remaining = ReplyStore.getAll().size
-        if (remaining == 0) {
-            clearBadge()
-        } else {
-            badgeCount = remaining
-            updateBadge()
+        dockHandler.post {
+            if (isDestroyed) return@post
+            val remaining = ReplyStore.getAll().size
+            if (remaining == 0) {
+                badgeCount = 0
+                updateBadge()
+                // Empty queue (notify-only): keep visible for DOCK_VISIBILITY_MS, then hide.
+                if (SettingsManager.isHideWhenIdleMode(this) &&
+                    !isCatFullyHidden &&
+                    !isHeldByEditableFocus() &&
+                    replyPanel?.isShowing != true
+                ) {
+                    cancelDockVisibilityTimer()
+                    cancelInitialSettleTimer()
+                    awaitingInitialDock = false
+                    idleHideIgnoresPending = false
+                    dockHandler.postDelayed(dockVisibilityRunnable, DOCK_VISIBILITY_MS)
+                    Logger.d("Empty queue — hide-off-screen timer started (${DOCK_VISIBILITY_MS}ms)")
+                } else if (SettingsManager.isEdgeDockingMode(this) &&
+                    !SettingsManager.isHideWhenIdleMode(this) &&
+                    !isEdgeDocked &&
+                    !isHeldByEditableFocus() &&
+                    replyPanel?.isShowing != true
+                ) {
+                    resetDockVisibilityTimer()
+                }
+            } else {
+                badgeCount = remaining
+                updateBadge()
+            }
+            Logger.d("Badge updated after reply - remaining: $remaining")
         }
-        Logger.d("Badge updated after reply - remaining: $remaining")
     }
 
     fun showReplyPanel() {
@@ -2540,6 +3150,7 @@ class OverlayService : Service() {
         badgeView = null
         layoutParams = null
         isEdgeDocked = false
+        isCatFullyHidden = false
         awaitingInitialDock = false
         reactionHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
