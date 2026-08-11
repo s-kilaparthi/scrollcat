@@ -370,6 +370,19 @@ class ReplyPanel(
         panelView = panel
         panelParams = params
 
+        val distinctKeys = pending.map { it.conversationKey }.distinct()
+        val keyCounts = distinctKeys.joinToString(", ") { key ->
+            "$key=${pending.count { it.conversationKey == key }}"
+        }
+        android.util.Log.e(
+            "ScrollCat",
+            "###THREAD_KEY_DEBUG### ROUTE_OPEN " +
+                "pending.size=${pending.size} " +
+                "distinctConversationKeys=${distinctKeys.size} " +
+                "keyCounts=[$keyCounts] " +
+                "route=${if (pending.size == 1) "showMessage" else "showSenderList"} " +
+                "(NO showThread path exists; routing uses total pending.size only)"
+        )
         if (pending.size == 1) {
             showMessage(pending.first(), captureOpenSnapshot = true)
         } else {
@@ -1047,6 +1060,13 @@ class ReplyPanel(
         pending.forEach { entry ->
             cardsCol.addView(buildSenderListRow(entry))
         }
+        android.util.Log.e(
+            "ScrollCat",
+            "###THREAD_KEY_DEBUG### SHOW_SENDER_LIST " +
+                "cards=${pending.size} " +
+                "keys=${pending.map { it.conversationKey }} " +
+                "(one card per flattened message; not grouped by conversation)"
+        )
 
         val listScrollChevronOuter = dp(14)
         val (screenHeight, availableHeight, topSafe, bottomSafe) = pendingListScreenMetrics()
@@ -4166,6 +4186,15 @@ class ReplyPanel(
         val remaining = sameSender.size
         val nextSame = sameSender.minByOrNull { it.timestamp }
         val autoAdvance = nextSame != null
+        android.util.Log.e(
+            "ScrollCat",
+            "###THREAD_KEY_DEBUG### ADVANCE_SAME_SENDER " +
+                "handledKey='${handled.conversationKey}' " +
+                "remainingSameSender=$remaining " +
+                "pendingTotal=${pending.size} " +
+                "pendingKeys=${pending.map { it.conversationKey }} " +
+                "autoAdvance=$autoAdvance"
+        )
         android.util.Log.d(
             "ScrollCat",
             "Post-send check for $senderKey - remaining queue entries: $remaining, " +

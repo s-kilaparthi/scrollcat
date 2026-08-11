@@ -230,6 +230,17 @@ object ReplyStore {
             "ScrollCat",
             "ReplyStore append for ${msg.conversationKey}: queue size=${queue.size}, total=${count()}"
         )
+        android.util.Log.e(
+            "ScrollCat",
+            "###THREAD_KEY_DEBUG### STORE " +
+                "conversationKey='${msg.conversationKey}' " +
+                "package='${msg.packageName}' sender='${msg.sender}' " +
+                "senderLen=${msg.sender.length} " +
+                "queueSize=${queue.size} " +
+                "distinctConversationKeys=${messages.size} " +
+                "allKeys=${messages.keys.joinToString("|")} " +
+                "entryId=${msg.entryId}"
+        )
 
         while (count() > MAX_ENTRIES) {
             evictOldestEntry()
