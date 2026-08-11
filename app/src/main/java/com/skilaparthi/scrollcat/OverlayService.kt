@@ -435,6 +435,12 @@ class OverlayService : Service() {
                 "isEdgeDocked=$isEdgeDocked, view.visibility=${catView?.visibility}, " +
                 "alpha=${catView?.alpha}, pendingCount=${ReplyStore.count()}"
         )
+        android.util.Log.e(
+            "ScrollCat",
+            "###MODE_CHECK_DEBUG### actual mode=${SettingsManager.getCatDisplayMode(this)}, " +
+                "isHideWhenIdleMode=${SettingsManager.isHideWhenIdleMode(this)}, " +
+                "isEdgeDockingMode=${SettingsManager.isEdgeDockingMode(this)}"
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -1025,6 +1031,14 @@ class OverlayService : Service() {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                     // Edge-docked: undock then run panel logic if pending; otherwise just undock
                     if (SettingsManager.isEdgeDockingMode(this@OverlayService) && isEdgeDocked) {
+                        val pendingNow = ReplyStore.getAll()
+                        if (badgeCount > 0 && pendingNow.isNotEmpty()) {
+                            // Tap to open panel: skip undock expand so the panel appears
+                            // instantly. New-message pop-out still uses animate=true elsewhere.
+                            undockToFloat(animate = false, startVisibilityTimer = false)
+                            showReplyPanel()
+                            return true
+                        }
                         undockToFloat(animate = true, startVisibilityTimer = true) {
                             if (badgeCount > 0) {
                                 val pending = ReplyStore.getAll()

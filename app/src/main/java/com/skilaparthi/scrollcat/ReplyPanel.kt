@@ -170,6 +170,11 @@ class ReplyPanel(
      */
     private val knownEntryIdsAtOpen = mutableSetOf<String>()
     private var showingSenderList = false
+    /** Thread chat view for one conversationKey (structural bubble list). */
+    private var showingThread = false
+    private var threadConversationKey: String? = null
+    /** Selected incoming bubble in [showThread]; null = none (chips prompt / actions disabled). */
+    private var threadSelectedEntryId: String? = null
     /** Window geometry before the pending-list-only widening/repositioning. */
     private var senderListBaseWindowX: Int? = null
     private var senderListBaseWindowY: Int? = null
@@ -370,10 +375,31 @@ class ReplyPanel(
         panelView = panel
         panelParams = params
 
-        if (pending.size == 1) {
-            showMessage(pending.first(), captureOpenSnapshot = true)
-        } else {
-            showSenderList()
+        val routeKeys = pending.map { it.conversationKey }
+        val distinctKeys = routeKeys.distinct()
+        val routeDecision = when {
+            pending.size == 1 -> "showMessage(single)"
+            distinctKeys.size == 1 -> "showThread"
+            else -> "showSenderList"
+        }
+        // TEMP DIAG: initial open routing — compare keys against ###CONV_KEY_STORE_DEBUG###
+        android.util.Log.e(
+            "ScrollCat",
+            "###CONV_KEY_ROUTE_DEBUG### show() pending=${pending.size} " +
+                "distinctKeys=${distinctKeys.size} decision=$routeDecision " +
+                "keys=$routeKeys " +
+                "senders=${pending.map { it.sender }} " +
+                "liveCounts=${distinctKeys.associateWith { ReplyStore.countForConversation(it) }}"
+        )
+
+        when {
+            pending.size == 1 ->
+                showMessage(pending.first(), captureOpenSnapshot = true)
+            distinctKeys.size == 1 ->
+                // All pending belong to one conversation — open the thread view.
+                showThread(pending.first().conversationKey)
+            else ->
+                showSenderList()
         }
     }
 
@@ -921,6 +947,9 @@ class ReplyPanel(
 
     private fun showSenderList() {
         showingSenderList = true
+        showingThread = false
+        threadConversationKey = null
+        threadSelectedEntryId = null
         currentEntry = null
         navRow = null
         pendingCountView = null
@@ -1138,7 +1167,7 @@ class ReplyPanel(
         panel.addView(list)
         // A tall list can otherwise extend past the bottom of the screen, leaving the last
         // cards unreachable even though the list itself scrolls.
-        panel.post { keepSenderListPanelOnScreen(topSafe, bottomSafe) }
+        panel.post { keepOverlayPanelOnScreen(topSafe, bottomSafe) }
     }
 
     /**
@@ -1179,12 +1208,14 @@ class ReplyPanel(
         val bottomSafe: Int
     )
 
-    /** Nudges the sender-list window so it stays inside the top/bottom safe band. */
-    private fun keepSenderListPanelOnScreen(topSafe: Int, bottomSafe: Int) {
-        if (!showingSenderList) return
+    /** Nudges an open overlay window so it stays inside the top/bottom safe band. */
+    private fun keepOverlayPanelOnScreen(topSafe: Int, bottomSafe: Int) {
+        if (!showingSenderList && !showingThread) return
         val panel = panelView ?: return
         val params = panelParams ?: return
-        val panelHeight = panel.height.takeIf { it > 0 } ?: return
+        val panelHeight = panel.height.takeIf { it > 0 }
+            ?: params.height.takeIf { it > 0 }
+            ?: return
         val maxY = (bottomSafe - panelHeight).coerceAtLeast(topSafe)
         val clampedY = params.y.coerceIn(topSafe, maxY)
         if (clampedY != params.y) {
@@ -1193,6 +1224,11 @@ class ReplyPanel(
                 windowManager.updateViewLayout(panel, params)
             } catch (_: Exception) { }
         }
+    }
+
+    /** @deprecated Prefer [keepOverlayPanelOnScreen] — kept name for list-call clarity. */
+    private fun keepSenderListPanelOnScreen(topSafe: Int, bottomSafe: Int) {
+        keepOverlayPanelOnScreen(topSafe, bottomSafe)
     }
 
     private fun buildSenderListRow(entry: ReplyStore.ReplyableMessage): View {
@@ -1332,12 +1368,29 @@ class ReplyPanel(
             val wasExpandedInList = preview.maxLines == Integer.MAX_VALUE
             currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }
                 .coerceAtLeast(0)
-            showMessage(
-                entry,
-                captureOpenSnapshot = true,
-                fromPendingList = true,
-                wasExpandedInList = wasExpandedInList
+            val sameConversationCount = pending.count {
+                it.conversationKey == entry.conversationKey
+            }
+            val liveCount = ReplyStore.countForConversation(entry.conversationKey)
+            // TEMP DIAG: list-tap routing — same key format as store?
+            android.util.Log.e(
+                "ScrollCat",
+                "###CONV_KEY_ROUTE_DEBUG### listTap entryId=${entry.entryId} " +
+                    "key='${entry.conversationKey}' sender='${entry.sender}' " +
+                    "pendingSameCount=$sameConversationCount liveCount=$liveCount " +
+                    "decision=${if (sameConversationCount >= 2) "showThread" else "showMessage"} " +
+                    "allPendingKeys=${pending.map { it.conversationKey }}"
             )
+            if (sameConversationCount >= 2) {
+                showThread(entry.conversationKey)
+            } else {
+                showMessage(
+                    entry,
+                    captureOpenSnapshot = true,
+                    fromPendingList = true,
+                    wasExpandedInList = wasExpandedInList
+                )
+            }
         }
         card.addView(row)
 
@@ -1619,6 +1672,1286 @@ class ReplyPanel(
         PREVIOUS
     }
 
+    /**
+     * Threaded chat for one [conversationKey]: incoming pending (left) +
+     * [SentReplyLog] outgoing (right), chronological. Tap an incoming bubble to
+     * select it; chips / footer / voice act on that selection. Per-message resolve
+     * keeps the thread open; Ignore with no selection discards the whole conversation queue.
+     */
+    fun showThread(conversationKey: String) {
+        showThread(conversationKey, slideDirection = null)
+    }
+
+    private fun showThread(
+        conversationKey: String,
+        slideDirection: MessageSlideDirection?
+    ) {
+        val panel = panelView as? ConstraintLayout ?: return
+        val key = conversationKey.trim()
+        if (key.isEmpty()) return
+
+        val existingSlide = messageSlideColumn
+        if (slideDirection != null && existingSlide != null && existingSlide.parent != null) {
+            val previousEntryId = currentEntry?.entryId ?: "none"
+            val token = ++messageSlideToken
+            messageSlideInProgress = true
+            clearGlassBackdropBlur()
+            val widthPx = existingSlide.width
+                .takeIf { it > 0 }
+                ?: (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
+            val width = widthPx.toFloat()
+            val outTo = if (slideDirection == MessageSlideDirection.NEXT) -width else width
+            val inFrom = -outTo
+            android.util.Log.d(
+                "ScrollCat",
+                "Thread slide transition - direction=${slideDirection.name.lowercase()}, " +
+                    "from=$previousEntryId, toConversation=$key"
+            )
+            existingSlide.animate().cancel()
+            existingSlide.animate()
+                .translationX(outTo)
+                .setDuration(MESSAGE_SLIDE_MS)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .withEndAction {
+                    if (token != messageSlideToken || !isShowing || panelView !== panel) {
+                        messageSlideInProgress = false
+                        applyGlassBackdropBlurIfAllowed()
+                        return@withEndAction
+                    }
+                    showThread(key, slideDirection = null)
+                    messagePanelApplyHeightSync?.invoke()
+                    fun startSlideIn() {
+                        val newSlide = messageSlideColumn
+                        if (newSlide == null) {
+                            messageSlideInProgress = false
+                            applyGlassBackdropBlurIfAllowed()
+                            return
+                        }
+                        newSlide.animate().cancel()
+                        newSlide.translationX = inFrom
+                        newSlide.animate()
+                            .translationX(0f)
+                            .setDuration(MESSAGE_SLIDE_MS)
+                            .setInterpolator(DecelerateInterpolator())
+                            .withEndAction {
+                                messageSlideInProgress = false
+                                applyGlassBackdropBlurIfAllowed()
+                            }
+                            .start()
+                    }
+                    if (messagePanelAwaitingReveal) {
+                        panel.post { startSlideIn() }
+                    } else {
+                        startSlideIn()
+                    }
+                }
+                .start()
+            return
+        }
+
+        val incoming = pending.filter { it.conversationKey == key }
+            .sortedBy { it.timestamp }
+        val liveIncoming = ReplyStore.countForConversation(key)
+        // TEMP DIAG: thread open — does filter find the same key the store used?
+        android.util.Log.e(
+            "ScrollCat",
+            "###CONV_KEY_ROUTE_DEBUG### showThread key='$key' " +
+                "pendingFilterIncoming=${incoming.size} liveCount=$liveIncoming " +
+                "pendingKeys=${pending.map { it.conversationKey }} " +
+                "pendingSenders=${pending.map { it.sender }}"
+        )
+        val outgoing = SentReplyLog.getSentRepliesForConversation(context, key)
+        if (incoming.isEmpty()) {
+            // No pending left in this conversation — fall back to normal panel routing.
+            // Do not wipe ResolvedThreadMessages / SentReplyLog here (persist until discard).
+            android.util.Log.d("ScrollCat", "showThread — no pending for $key")
+            showingThread = false
+            threadConversationKey = null
+            threadSelectedEntryId = null
+            when {
+                pending.isEmpty() -> dismiss()
+                pending.size == 1 -> showMessage(pending.first(), captureOpenSnapshot = true)
+                pending.map { it.conversationKey }.distinct().size == 1 ->
+                    showThread(pending.first().conversationKey)
+                else -> showSenderList()
+            }
+            return
+        }
+
+        // Prefer oldest unresolved for chrome + initial selection — those chips are
+        // far more likely already ready (batch gen / longer queue time), avoiding the
+        // race where a just-arrived message's in-progress gen is auto-selected.
+        val oldestUnresolved = incoming.minByOrNull { it.timestamp } ?: return
+        val headerEntry = oldestUnresolved
+
+        notePanelOpenForDebug()
+        panel.animate().cancel()
+        beginMessagePanelRevealGate(panel)
+        restoreMessagePanelWindowGeometry()
+        showingSenderList = false
+        // Live same-thread refresh must not wipe other conversations out of the
+        // open-snapshot (that would swallow the ↓ New message signal).
+        val isLiveSameThreadRefresh =
+            showingThread && threadConversationKey == key
+        showingThread = true
+        threadConversationKey = key
+        // Drop any in-flight chip crossfade from a previous thread render.
+        messageSlideInProgress = false
+        exitEditModeToReplyPanel = null
+        // Clear selection so force-select below does not toggle-deselect on rebuild.
+        threadSelectedEntryId = null
+        currentEntry = headerEntry
+        currentIndex = pending.indexOfFirst { it.entryId == headerEntry.entryId }
+            .takeIf { it >= 0 } ?: currentIndex
+        if (isLiveSameThreadRefresh) {
+            // Absorb this conversation's (possibly new) messages only.
+            knownEntryIdsAtOpen.addAll(incoming.map { it.entryId })
+        } else {
+            snapshotKnownOthersAtOpen(headerEntry)
+            knownEntryIdsAtOpen.addAll(incoming.map { it.entryId })
+        }
+        viewedKeys.addAll(incoming.map { it.entryId })
+        // Critical: without this, live arrivals while the thread is open still use
+        // storeForWholeConversation and overwrite EVERY entry's chips with the latest merge.
+        incoming
+            .map { Triple(it.packageName, it.notificationId, it.sender) }
+            .distinct()
+            .forEach { (pkg, notifId, sender) ->
+                CatNotificationListener.instance?.markReplyPanelOpened(pkg, notifId, sender)
+            }
+        panel.clipToPadding = true
+        panel.clipChildren = true
+        resetGlassPanelContent(panel)
+        navRow = null
+        pendingCountView = null
+        swipeHintView = null
+        newSenderArrow = null
+        messagePanelRelayout = null
+        messagePanelApplyHeightSync = null
+        exitEditModeToReplyPanel = null
+        messageFooterBlock = null
+        messageSlideColumn = null
+
+        val contentId = View.generateViewId()
+        val footerId = View.generateViewId()
+
+        val body = LinearLayout(context).apply {
+            id = contentId
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ConstraintLayout.LayoutParams(0, 0).apply {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToTop = footerId
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        }
+        messageBodyColumn = body
+
+        val footer = LinearLayout(context).apply {
+            id = footerId
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ConstraintLayout.LayoutParams(
+                0,
+                ConstraintLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topToBottom = contentId
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        }
+        messageFooterBlock = footer
+
+        // ── Header (same chrome as showMessage) ──
+        val header = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val headerRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val latestTs = (incoming.map { it.timestamp } + outgoing.map { it.timestamp })
+            .maxOrNull() ?: headerEntry.timestamp
+        headerRow.addView(TextView(context).apply {
+            text = formatReceivedTime(latestTs)
+            textSize = 11f
+            setTextColor(MUTED_TEXT)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        })
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
+        })
+        headerRow.addView(
+            appIconView(headerEntry.packageName, sizeDp = 22, viewContext = materialContext).apply {
+                val iconSize = dp(22)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                    setMargins(0, 0, dp(8), 0)
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+            }
+        )
+        headerRow.addView(TextView(context).apply {
+            text = "✕"
+            textSize = 16f
+            setTextColor(MUTED_TEXT)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setOnClickListener { dismissClosedThread() }
+        })
+        header.addView(headerRow)
+        header.addView(TextView(context).apply {
+            text = headerEntry.sender
+            textSize = 15f
+            setTextColor(0xFFF5F3F7.toInt())
+            typeface = UiKit.headingTypeface(context)
+            setSingleLine(false)
+            maxLines = Integer.MAX_VALUE
+            ellipsize = null
+            setPadding(0, dp(6), 0, dp(8))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        })
+        body.addView(header)
+
+        // ── Chronological bubble list (pending + resolved + sent) ──
+        data class ThreadBubble(
+            val timestamp: Long,
+            val text: String,
+            val isOutgoing: Boolean,
+            /** Pending incoming — selectable. */
+            val entry: ReplyStore.ReplyableMessage? = null,
+            /** Persisted resolved incoming — dimmed, not selectable. */
+            val resolved: ResolvedThreadMessages.ResolvedEntry? = null
+        )
+        val persistedResolved = ResolvedThreadMessages.getForConversation(context, key)
+        val pendingIds = incoming.map { it.entryId }.toSet()
+        val items = buildList {
+            incoming.forEach {
+                add(ThreadBubble(it.timestamp, it.message, isOutgoing = false, entry = it))
+            }
+            persistedResolved.forEach { snap ->
+                if (snap.entryId !in pendingIds) {
+                    add(
+                        ThreadBubble(
+                            timestamp = snap.timestamp,
+                            text = snap.text,
+                            isOutgoing = false,
+                            resolved = snap
+                        )
+                    )
+                }
+            }
+            outgoing.forEach {
+                add(
+                    ThreadBubble(
+                        timestamp = it.timestamp,
+                        text = it.text,
+                        isOutgoing = true
+                    )
+                )
+            }
+        }.sortedBy { it.timestamp }
+
+        val bubblesCol = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val replyTextSp = SettingsManager.getReplyTextSizeSp(context)
+        val bubbleCorner = dp(16).toFloat()
+        /** Selectable pending incoming bubbles only. */
+        val incomingBubbles = linkedMapOf<String, TextView>()
+
+        fun paintBubbleChrome(
+            bubble: TextView,
+            selected: Boolean,
+            resolved: Boolean = false
+        ) {
+            bubble.background = GradientDrawable().apply {
+                setColor(CHIP_BG)
+                cornerRadius = bubbleCorner
+                if (selected) {
+                    setStroke(dp(2), VOICE_ROW_ACCENT)
+                } else {
+                    setStroke(1, CHIP_STROKE)
+                }
+            }
+            bubble.alpha = if (resolved) 0.72f else 1f
+        }
+
+        // Fixed chips area (below scroll, above footer buttons) — same role as single-message chips.
+        val chipsContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(4)
+                // Keep prompt / chips clear of the footer action row below.
+                bottomMargin = dp(10)
+            }
+        }
+
+        fun sizeThreadPanel() {
+            messagePanelRelayout?.invoke()
+        }
+
+        fun selectedEntry(): ReplyStore.ReplyableMessage? =
+            threadSelectedEntryId?.let { id -> incoming.firstOrNull { it.entryId == id } }
+                ?: currentEntry?.takeIf {
+                    threadSelectedEntryId != null && it.entryId == threadSelectedEntryId
+                }
+
+        var replyInAppBtn: TextView? = null
+        var ignoreBtn: TextView? = null
+        var writeCustomBtn: ImageView? = null
+
+        fun setSelectionActionsEnabled(enabled: Boolean) {
+            // Reply in app is always armed (auto-selects oldest unresolved if needed).
+            // Ignore stays fully enabled so it can discard the whole thread when nothing
+            // is selected. [enabled] is retained for call-site compatibility only.
+            replyInAppBtn?.let { reply ->
+                reply.isEnabled = true
+                reply.isClickable = true
+                reply.isFocusable = true
+                reply.alpha = 1f
+            }
+            ignoreBtn?.let { ignore ->
+                ignore.isEnabled = true
+                ignore.isClickable = true
+                ignore.isFocusable = true
+                ignore.alpha = 1f
+            }
+        }
+
+        lateinit var showThreadReplies: (ReplyStore.ReplyableMessage) -> Unit
+        lateinit var showThreadEditInput: (ReplyStore.ReplyableMessage, String, List<String>, String, Boolean) -> Unit
+
+        fun showChipsPrompt() {
+            exitEditModeToReplyPanel = null
+            setPanelFocusable(false)
+            releaseSpeechRecognizer()
+            chipsContainer.animate().cancel()
+            chipsContainer.alpha = 1f
+            chipsContainer.removeAllViews()
+            writeCustomBtn?.visibility = View.VISIBLE
+            chipsContainer.addView(TextView(context).apply {
+                text = "Tap a message to see replies"
+                textSize = 12f
+                setTextColor(MUTED_TEXT)
+                gravity = Gravity.CENTER
+                // Extra bottom padding lifts the line clear of the footer button row.
+                setPadding(dp(8), dp(2), dp(8), dp(14))
+            })
+            setSelectionActionsEnabled(false)
+            sizeThreadPanel()
+        }
+
+        /** Clears bubble selection + chips (prompt). Cancels in-flight chip crossfades. */
+        fun clearThreadBubbleSelection() {
+            threadSelectedEntryId = null
+            currentEntry = headerEntry
+            incomingBubbles.forEach { (_, view) ->
+                paintBubbleChrome(view, selected = false)
+            }
+            // Abort any pending edit/crossfade so it cannot repaint stale chips after clear.
+            chipsContainer.animate().cancel()
+            chipsContainer.alpha = 1f
+            if (messageSlideInProgress) messageSlideInProgress = false
+            showChipsPrompt()
+        }
+
+        showThreadEditInput = edit@{ message, initialText, suggestions, engine, openKeyboard ->
+            if (threadSelectedEntryId != message.entryId) return@edit
+            releaseSpeechRecognizer()
+            var editInputRef: android.widget.EditText? = null
+            crossfadeChipsContent(
+                chipsContainer,
+                fadeIn = true,
+                swapContent = swap@{
+                    // Selection may have changed while fade-out was running.
+                    if (threadSelectedEntryId != message.entryId) {
+                        chipsContainer.removeAllViews()
+                        writeCustomBtn?.visibility = View.VISIBLE
+                        if (threadSelectedEntryId == null) {
+                            showChipsPrompt()
+                        } else {
+                            selectedEntry()?.let { showThreadReplies(it) }
+                        }
+                        return@swap
+                    }
+                    writeCustomBtn?.visibility = View.GONE
+                    chipsContainer.removeAllViews()
+                    setPanelFocusable(true)
+                    if (!openKeyboard) {
+                        panelParams?.let { params ->
+                            params.softInputMode =
+                                WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
+                            try {
+                                val host: View = panelView ?: return@let
+                                windowManager.updateViewLayout(host, params)
+                            } catch (_: Exception) { }
+                        }
+                    }
+                    val editColumn = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                    }
+                    val input = android.widget.EditText(context).apply {
+                        setText(initialText)
+                        setSelection(text.length)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
+                        setTextColor(0xFFF5F3F7.toInt())
+                        hint = "Type your message..."
+                        setHintTextColor(MUTED_TEXT)
+                        setSingleLine(false)
+                        minLines = 1
+                        maxLines = 5
+                        val oneLinePx = (replyTextSp * context.resources.displayMetrics.density)
+                            .toInt().coerceAtLeast(1)
+                        val previousMinPx = oneLinePx + 14 + 14
+                        minimumHeight = (previousMinPx * 3) / 2
+                        setPadding(18, 14, 18, 14)
+                        background = GradientDrawable().apply {
+                            setColor(INPUT_BG)
+                            cornerRadius = 20f
+                            setStroke(1, CHIP_STROKE)
+                        }
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                    }
+                    editInputRef = input
+                    val actionsRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = dp(8) }
+                    }
+                    val rowHeight = dp(52)
+                    val dividerColor = 0x446B6578
+                    fun toolbarDivider(): View = View(context).apply {
+                        setBackgroundColor(dividerColor)
+                        layoutParams = LinearLayout.LayoutParams(dp(1), rowHeight - dp(12)).apply {
+                            gravity = Gravity.CENTER_VERTICAL
+                        }
+                    }
+                    val clearTextBtn = TextView(context).apply {
+                        text = "Clear text"
+                        textSize = 14f
+                        setTextColor(ON_ACTION_BTN)
+                        gravity = Gravity.CENTER
+                        background = GradientDrawable().apply {
+                            setColor(BUTTON_BG)
+                            cornerRadius = dp(10).toFloat()
+                        }
+                        layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
+                        setOnClickListener {
+                            input.setText("")
+                            input.setSelection(0)
+                        }
+                    }
+                    val continueMic = ImageView(context).apply {
+                        setImageResource(R.drawable.ic_mic)
+                        imageTintList =
+                            android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
+                        layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+                            gravity = Gravity.CENTER_HORIZONTAL
+                        }
+                    }
+                    val continueLabel = TextView(context).apply {
+                        text = "Continue"
+                        textSize = 11f
+                        typeface = Typeface.DEFAULT_BOLD
+                        setTextColor(ON_ACTION_BTN)
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        maxLines = 1
+                        isSingleLine = true
+                        setPadding(0, dp(2), 0, 0)
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { gravity = Gravity.CENTER_HORIZONTAL }
+                    }
+                    val continueBtn = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        background = GradientDrawable().apply {
+                            setColor(BUTTON_BG)
+                            cornerRadius = dp(10).toFloat()
+                        }
+                        setPadding(dp(4), dp(4), dp(4), dp(4))
+                        layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
+                        addView(continueMic)
+                        addView(continueLabel)
+                    }
+                    fun setContinueIdle(error: String? = null) {
+                        voiceListening = false
+                        micPulseAnimator?.cancel()
+                        micPulseAnimator = null
+                        continueMic.alpha = 1f
+                        continueMic.imageTintList =
+                            android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
+                        continueLabel.text = "Continue"
+                        continueLabel.setTextColor(ON_ACTION_BTN)
+                        if (error != null) {
+                            android.widget.Toast.makeText(
+                                context, error, android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                    fun setContinueListening() {
+                        voiceListening = true
+                        continueLabel.text = "Listening"
+                        continueLabel.setTextColor(ON_ACTION_BTN)
+                        continueMic.imageTintList =
+                            android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
+                        micPulseAnimator?.cancel()
+                        micPulseAnimator =
+                            ObjectAnimator.ofFloat(continueMic, View.ALPHA, 1f, 0.35f).apply {
+                                duration = 650L
+                                repeatMode = ValueAnimator.REVERSE
+                                repeatCount = ValueAnimator.INFINITE
+                                interpolator = AccelerateDecelerateInterpolator()
+                                start()
+                            }
+                    }
+                    continueBtn.setOnClickListener {
+                        if (voiceListening || RecordAudioPermissionActivity.isActive()) {
+                            releaseSpeechRecognizer()
+                            setContinueIdle()
+                            return@setOnClickListener
+                        }
+                        if (!RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+                            setContinueIdle("Speech not available")
+                            return@setOnClickListener
+                        }
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                            as android.view.inputmethod.InputMethodManager
+                        imm.hideSoftInputFromWindow(input.windowToken, 0)
+                        setContinueListening()
+                        RecordAudioPermissionActivity.start(
+                            context,
+                            object : RecordAudioPermissionActivity.Callback {
+                                override fun onListening() {
+                                    handler.post { setContinueListening() }
+                                }
+
+                                override fun onTranscript(text: String) {
+                                    handler.post {
+                                        setContinueIdle()
+                                        resolveVoiceTranscript(text) { resolved ->
+                                            appendTranscriptToEdit(input, resolved)
+                                            val again = context.getSystemService(
+                                                Context.INPUT_METHOD_SERVICE
+                                            ) as android.view.inputmethod.InputMethodManager
+                                            again.hideSoftInputFromWindow(input.windowToken, 0)
+                                        }
+                                    }
+                                }
+
+                                override fun onError(message: String) {
+                                    handler.post { setContinueIdle(message) }
+                                }
+
+                                override fun onCancelled() {
+                                    handler.post { setContinueIdle() }
+                                }
+                            },
+                            source = "continue"
+                        )
+                    }
+                    val sendIconPad = dp(14)
+                    val sendBtn = ImageView(context).apply {
+                        setImageResource(R.drawable.ic_send)
+                        imageTintList =
+                            android.content.res.ColorStateList.valueOf(ON_ACTION_BTN)
+                        scaleType = ImageView.ScaleType.CENTER_INSIDE
+                        contentDescription = "Send"
+                        setPadding(sendIconPad, sendIconPad, sendIconPad, sendIconPad)
+                        background = GradientDrawable().apply {
+                            setColor(VOICE_TO_TEXT_BG)
+                            cornerRadius = dp(10).toFloat()
+                        }
+                        layoutParams = LinearLayout.LayoutParams(0, rowHeight, 1f)
+                        setOnClickListener {
+                            val entry = selectedEntry() ?: return@setOnClickListener
+                            val edited = input.text.toString().trim()
+                            if (edited.isEmpty()) return@setOnClickListener
+                            setPanelFocusable(false)
+                            releaseSpeechRecognizer()
+                            exitEditModeToReplyPanel = null
+                            if (entry.hasRemoteInput) {
+                                sendReply(entry, edited)
+                            } else {
+                                val clipboard =
+                                    context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                        as android.content.ClipboardManager
+                                clipboard.setPrimaryClip(
+                                    android.content.ClipData.newPlainText("reply", edited)
+                                )
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Copied! Opening app...",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                resolveThreadEntryWithBatch(
+                                    entry,
+                                    ResolvedThreadMessages.ResolutionType.REPLIED,
+                                    cancelEmptyNotifications = false
+                                )
+                                openMessagingAppForEntry(entry)
+                                finishThreadMessageResolution(entry)
+                            }
+                        }
+                    }
+                    actionsRow.addView(clearTextBtn)
+                    actionsRow.addView(toolbarDivider())
+                    actionsRow.addView(continueBtn)
+                    actionsRow.addView(toolbarDivider())
+                    actionsRow.addView(sendBtn)
+                    editColumn.addView(input)
+                    editColumn.addView(actionsRow)
+                    chipsContainer.addView(editColumn)
+                    exitEditModeToReplyPanel = {
+                        setPanelFocusable(false)
+                        releaseSpeechRecognizer()
+                        crossfadeChipsContent(
+                            chipsContainer,
+                            fadeIn = true,
+                            swapContent = swap@{
+                                exitEditModeToReplyPanel = null
+                                writeCustomBtn?.visibility = View.VISIBLE
+                                if (threadSelectedEntryId != message.entryId) {
+                                    chipsContainer.removeAllViews()
+                                    if (threadSelectedEntryId == null) showChipsPrompt()
+                                    else selectedEntry()?.let { showThreadReplies(it) }
+                                    return@swap
+                                }
+                                showThreadReplies(message)
+                            }
+                        )
+                    }
+                    sizeThreadPanel()
+                    updatePendingFooter()
+                },
+                onComplete = complete@{
+                    val input = editInputRef ?: return@complete
+                    if (openKeyboard) {
+                        input.post {
+                            input.requestFocus()
+                            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                                as android.view.inputmethod.InputMethodManager
+                            imm.showSoftInput(
+                                input,
+                                android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
+                            )
+                        }
+                    } else {
+                        input.clearFocus()
+                        input.post {
+                            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                                as android.view.inputmethod.InputMethodManager
+                            imm.hideSoftInputFromWindow(input.windowToken, 0)
+                        }
+                    }
+                }
+            )
+        }
+
+        showThreadReplies = showReplies@{ message ->
+            if (!isShowing || !showingThread) return@showReplies
+            // Stale callback (deselected / switched / resolved) — never repaint old chips.
+            if (threadSelectedEntryId != message.entryId) return@showReplies
+            exitEditModeToReplyPanel = null
+            setPanelFocusable(false)
+            releaseSpeechRecognizer()
+            chipsContainer.animate().cancel()
+            chipsContainer.alpha = 1f
+            chipsContainer.removeAllViews()
+            writeCustomBtn?.visibility = View.VISIBLE
+            val isGmail =
+                message.packageName.equals("com.google.android.gm", ignoreCase = true)
+            if (isGmail) {
+                chipsContainer.addView(TextView(context).apply {
+                    text = "Use Reply in app or Ignore"
+                    textSize = 12f
+                    setTextColor(MUTED_TEXT)
+                    gravity = Gravity.CENTER
+                    setPadding(dp(8), dp(10), dp(8), dp(10))
+                })
+                setSelectionActionsEnabled(true)
+                sizeThreadPanel()
+                return@showReplies
+            }
+            val suggestions = ReplyStore.getStoredReplies(message.entryId).orEmpty()
+            fun sendOrCopyReply(replyText: String) {
+                val entry = selectedEntry() ?: return
+                if (entry.entryId != message.entryId) return
+                if (entry.hasRemoteInput) {
+                    sendReply(entry, replyText)
+                } else {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText("reply", replyText)
+                    )
+                    android.widget.Toast.makeText(
+                        context,
+                        "Copied! Opening app...",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    resolveThreadEntryWithBatch(
+                        entry,
+                        ResolvedThreadMessages.ResolutionType.REPLIED,
+                        cancelEmptyNotifications = false
+                    )
+                    openMessagingAppForEntry(entry)
+                    finishThreadMessageResolution(entry)
+                }
+            }
+            if (suggestions.isEmpty()) {
+                chipsContainer.addView(TextView(context).apply {
+                    text = "😿 Couldn't think of a reply"
+                    textSize = 13f
+                    setTextColor(MUTED_TEXT)
+                    gravity = Gravity.CENTER
+                    setPadding(0, 12, 0, 12)
+                })
+            } else {
+                if (!message.hasRemoteInput) {
+                    chipsContainer.addView(TextView(context).apply {
+                        text = "💡 Tap a suggestion to copy it, or tap ✎ to edit first"
+                        textSize = 12f
+                        setTextColor(MUTED_TEXT)
+                        setPadding(16, 8, 16, 8)
+                    })
+                }
+                suggestions.forEach { suggestion ->
+                    val chipRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        background = GradientDrawable().apply {
+                            setColor(CHIP_BG)
+                            cornerRadius = 28f
+                            setStroke(1, CHIP_STROKE)
+                        }
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { setMargins(0, 6, 0, 6) }
+                    }
+                    chipRow.addView(TextView(context).apply {
+                        text = suggestion
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
+                        setTextColor(0xFFF5F3F7.toInt())
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(24, 18, 12, 18)
+                        layoutParams = LinearLayout.LayoutParams(
+                            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                        )
+                        setOnClickListener { sendOrCopyReply(suggestion) }
+                    })
+                    chipRow.addView(TextView(context).apply {
+                        text = "✎"
+                        textSize = 16f
+                        setTextColor(SOFT_TEXT)
+                        gravity = Gravity.CENTER
+                        setPadding(18, 18, 24, 18)
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.MATCH_PARENT
+                        )
+                        setOnClickListener {
+                            showThreadEditInput(
+                                message, suggestion, suggestions, "Pre-generated", true
+                            )
+                        }
+                    })
+                    chipsContainer.addView(chipRow)
+                }
+            }
+            if (RecordAudioPermissionActivity.isSpeechRecognitionAvailable(context)) {
+                chipsContainer.addView(
+                    buildVoiceToTextChip(
+                        messageText = message.message,
+                        onVoiceTranscript = voice@{ text ->
+                            if (threadSelectedEntryId != message.entryId) return@voice
+                            resolveVoiceTranscript(text) restore@{ resolved ->
+                                if (threadSelectedEntryId != message.entryId) return@restore
+                                showThreadEditInput(
+                                    message, resolved, suggestions, "Pre-generated", false
+                                )
+                            }
+                        },
+                        onContentChanged = {
+                            if (threadSelectedEntryId == message.entryId) sizeThreadPanel()
+                        }
+                    )
+                )
+            }
+            // Re-check: selection may have been cleared while we built chips.
+            if (threadSelectedEntryId != message.entryId) {
+                chipsContainer.removeAllViews()
+                if (threadSelectedEntryId == null) showChipsPrompt()
+                else selectedEntry()?.let { showThreadReplies(it) }
+                return@showReplies
+            }
+            setSelectionActionsEnabled(true)
+            sizeThreadPanel()
+            updatePendingFooter()
+        }
+
+        fun selectIncoming(entry: ReplyStore.ReplyableMessage) {
+            // Tap same bubble again → deselect + clear chips back to prompt.
+            if (threadSelectedEntryId == entry.entryId) {
+                clearThreadBubbleSelection()
+                return
+            }
+            // Abort in-flight chip edit/crossfade so it cannot restore the previous message.
+            exitEditModeToReplyPanel = null
+            chipsContainer.animate().cancel()
+            chipsContainer.alpha = 1f
+            if (messageSlideInProgress) messageSlideInProgress = false
+            releaseSpeechRecognizer()
+            setPanelFocusable(false)
+
+            threadSelectedEntryId = entry.entryId
+            currentEntry = entry
+            currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }
+                .takeIf { it >= 0 } ?: currentIndex
+            incomingBubbles.forEach { (id, view) ->
+                paintBubbleChrome(view, selected = id == entry.entryId)
+            }
+            // Clear first so previous message's chips never linger during refresh.
+            chipsContainer.removeAllViews()
+            showThreadReplies(entry)
+            setSelectionActionsEnabled(true)
+        }
+
+        /** Same fallback as Reply in app: select oldest unresolved if nothing selected. */
+        fun ensureSelectedEntry(): ReplyStore.ReplyableMessage? {
+            selectedEntry()?.let { return it }
+            val oldest = incoming.minByOrNull { it.timestamp } ?: return null
+            selectIncoming(oldest)
+            return oldest
+        }
+
+        items.forEach { item ->
+            val isOutgoing = item.isOutgoing
+            val isResolved = item.resolved != null
+            val showRepliedCheck = item.resolved?.resolution ==
+                ResolvedThreadMessages.ResolutionType.REPLIED
+            val sideGravity = if (isOutgoing) Gravity.END else Gravity.START
+
+            val cell = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(8) }
+                gravity = sideGravity
+            }
+            val bubble = TextView(context).apply {
+                text = item.text
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, replyTextSp)
+                setTextColor(SOFT_TEXT)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                maxWidth = (panelWidthPx() * 0.78f).toInt()
+            }
+            val entry = item.entry
+            when {
+                entry != null -> {
+                    incomingBubbles[entry.entryId] = bubble
+                    paintBubbleChrome(
+                        bubble,
+                        selected = entry.entryId == threadSelectedEntryId,
+                        resolved = false
+                    )
+                    bubble.setOnClickListener { selectIncoming(entry) }
+                }
+                isResolved -> {
+                    paintBubbleChrome(bubble, selected = false, resolved = true)
+                    bubble.isClickable = false
+                }
+                else -> {
+                    paintBubbleChrome(bubble, selected = false)
+                }
+            }
+            cell.addView(
+                bubble,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { gravity = sideGravity }
+            )
+            val meta = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = sideGravity
+                    topMargin = dp(2)
+                }
+            }
+            if (showRepliedCheck) {
+                meta.addView(TextView(context).apply {
+                    text = "✓"
+                    textSize = 11f
+                    setTextColor(VOICE_ROW_ACCENT)
+                    setPadding(0, 0, dp(4), 0)
+                })
+            }
+            meta.addView(TextView(context).apply {
+                text = formatReceivedTime(item.timestamp)
+                textSize = 10f
+                setTextColor(MUTED_TEXT)
+            })
+            cell.addView(meta)
+            bubblesCol.addView(cell)
+        }
+
+        val threadScroll = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            addView(bubblesCol)
+        }
+        // Same fixed TOP|END icon column as showMessage (not per-bubble).
+        val copyIconHit = dp(32)
+        val copyFeedback = TextView(context).apply {
+            text = "Copied!"
+            textSize = 11f
+            setTextColor(ACCENT)
+            visibility = View.GONE
+            setPadding(dp(2), 0, dp(2), 0)
+        }
+        val copyBtn = ImageView(context).apply {
+            setImageResource(R.drawable.ic_content_copy)
+            imageTintList = android.content.res.ColorStateList.valueOf(MUTED_TEXT)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Copy message"
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            layoutParams = LinearLayout.LayoutParams(copyIconHit, copyIconHit)
+            // Always enabled — auto-selects oldest unresolved if none selected.
+            setOnClickListener {
+                val entry = ensureSelectedEntry() ?: return@setOnClickListener
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                clipboard.setPrimaryClip(
+                    android.content.ClipData.newPlainText("message", entry.message)
+                )
+                (copyFeedback.tag as? Runnable)?.let { handler.removeCallbacks(it) }
+                copyFeedback.animate().cancel()
+                copyFeedback.alpha = 1f
+                copyFeedback.visibility = View.VISIBLE
+                val hide = Runnable {
+                    if (copyFeedback.visibility != View.VISIBLE) return@Runnable
+                    copyFeedback.animate()
+                        .alpha(0f)
+                        .setDuration(200L)
+                        .withEndAction {
+                            copyFeedback.visibility = View.GONE
+                            copyFeedback.alpha = 1f
+                        }
+                        .start()
+                }
+                copyFeedback.tag = hide
+                handler.postDelayed(hide, 1600L)
+            }
+        }
+        writeCustomBtn = ImageView(context).apply {
+            setImageResource(R.drawable.ic_edit)
+            imageTintList = android.content.res.ColorStateList.valueOf(MUTED_TEXT)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Write custom message"
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            layoutParams = LinearLayout.LayoutParams(copyIconHit, copyIconHit)
+            // Always enabled — auto-selects oldest unresolved if none selected.
+            setOnClickListener {
+                val entry = ensureSelectedEntry() ?: return@setOnClickListener
+                val suggestions = ReplyStore.getStoredReplies(entry.entryId).orEmpty()
+                showThreadEditInput(entry, "", suggestions, "Pre-generated", true)
+            }
+        }
+        val iconColumn = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.END
+            }
+            addView(copyBtn)
+            addView(writeCustomBtn)
+        }
+        val threadMessageArea = FrameLayout(context).apply {
+            // Match single-message minimum so the pencil isn't clipped.
+            minimumHeight = copyIconHit * 2 + dp(2)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { weight = 1f }
+            addView(threadScroll)
+            addView(iconColumn)
+            addView(copyFeedback, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(6)
+                marginEnd = copyIconHit + dp(2)
+            })
+        }
+        // Same sliding region as showMessage (header/footer stay put).
+        val slideColumn = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            addView(threadMessageArea)
+            addView(chipsContainer)
+        }
+        messageSlideColumn = slideColumn
+        body.addView(
+            buildMessageSlideSwipeClip(
+                slideColumn = slideColumn,
+                canNavigate = { pendingConversationKeysInOrder().size > 1 },
+                onCommitNext = { advance() },
+                onCommitPrev = { previous() }
+            )
+        )
+
+        // ── Footer actions ──
+        val bottomRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(6) }
+        }
+        val actionBtnHeight = dp(56)
+        val actionHPad = dp(8)
+        val actionVPad = dp(8)
+        val actionGap = dp(6)
+        fun equalActionButtonParams(index: Int): LinearLayout.LayoutParams {
+            return LinearLayout.LayoutParams(0, actionBtnHeight, 1f).apply {
+                marginStart = if (index == 0) 0 else actionGap
+            }
+        }
+        replyInAppBtn = TextView(context).apply {
+            text = "↗ Reply in app"
+            textSize = 13f
+            setTextColor(ON_ACTION_BTN)
+            gravity = Gravity.CENTER
+            setSingleLine(false)
+            maxLines = 2
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
+                cornerRadius = dp(12).toFloat()
+            }
+            layoutParams = equalActionButtonParams(0)
+            // Always active — if nothing selected, auto-select oldest unresolved then open.
+            isEnabled = true
+            isClickable = true
+            alpha = 1f
+            setOnClickListener {
+                val entry = ensureSelectedEntry() ?: return@setOnClickListener
+                Logger.d(
+                    "Thread Reply in app - entry: ${entry.packageName} " +
+                        "contentIntent: ${entry.contentIntent}"
+                )
+                openMessagingAppForEntry(entry)
+                dismiss()
+            }
+        }
+        ignoreBtn = TextView(context).apply {
+            text = "✕ Ignore"
+            textSize = 13f
+            setTextColor(ON_ACTION_BTN)
+            gravity = Gravity.CENTER
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
+                cornerRadius = dp(12).toFloat()
+            }
+            layoutParams = equalActionButtonParams(1)
+            setOnClickListener {
+                val entry = selectedEntry()
+                if (entry != null) {
+                    resolveThreadEntryWithBatch(
+                        entry,
+                        ResolvedThreadMessages.ResolutionType.IGNORED,
+                        cancelEmptyNotifications = true
+                    )
+                    Logger.d(
+                        "Thread message ignored (batch-aware): ${entry.sender} " +
+                            "id=${entry.entryId}"
+                    )
+                    finishThreadMessageResolution(entry)
+                } else {
+                    Logger.d("Thread Ignore with no selection — discard entire thread")
+                    discardCurrentThread()
+                }
+            }
+        }
+        val moreBtn = TextView(context).apply {
+            text = "⋮"
+            textSize = 18f
+            setTextColor(ON_ACTION_BTN)
+            gravity = Gravity.CENTER
+            setPadding(actionHPad, actionVPad, actionHPad, actionVPad)
+            minHeight = actionBtnHeight
+            background = GradientDrawable().apply {
+                setColor(BUTTON_BG)
+                cornerRadius = dp(12).toFloat()
+            }
+            layoutParams = equalActionButtonParams(2)
+        }
+        bottomRow.addView(replyInAppBtn!!)
+        bottomRow.addView(ignoreBtn!!)
+        bottomRow.addView(moreBtn)
+        footer.addView(bottomRow)
+
+        val belowButtons = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val overflowMenu = buildInlineOverflowMenu().also {
+            it.visibility = View.GONE
+            belowButtons.addView(it)
+        }
+        footer.addView(belowButtons)
+
+        panel.addView(body)
+        panel.addView(footer)
+        updatePendingFooter()
+
+        moreBtn.setOnClickListener {
+            overflowMenu.visibility =
+                if (overflowMenu.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            sizeThreadPanel()
+        }
+
+        fun applyThreadHeight() {
+            val p = panelView ?: return
+            val params = panelParams ?: return
+            if (!isShowing || !showingThread) return
+            updatePendingFooter()
+            val contentWidth =
+                (panelWidthPx() - p.paddingLeft - p.paddingRight).coerceAtLeast(1)
+            val widthSpec =
+                View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
+            val heightUnspec =
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            header.measure(widthSpec, heightUnspec)
+            chipsContainer.measure(widthSpec, heightUnspec)
+            footer.measure(widthSpec, heightUnspec)
+            bubblesCol.measure(widthSpec, heightUnspec)
+            fun heightWithMargins(view: View): Int {
+                val margins = (view.layoutParams as? ViewGroup.MarginLayoutParams)
+                    ?.let { it.topMargin + it.bottomMargin } ?: 0
+                return view.measuredHeight + margins
+            }
+            // Same usable-band sizing as Pending Replies (WindowMetrics / inset fallback).
+            // Include LayoutParams margins — measuredHeight alone under-counts "fixed"
+            // and can push chips/prompt below the clipped body.
+            val (screenHeight, availableHeight, topSafe, bottomSafe) = pendingListScreenMetrics()
+            val fixed = p.paddingTop + p.paddingBottom +
+                heightWithMargins(header) +
+                heightWithMargins(chipsContainer) +
+                heightWithMargins(footer)
+            val natural = bubblesCol.measuredHeight
+            // Edit mode must stay compact (keyboard-friendly). Do NOT reuse the
+            // full-screen thread band — that made the panel fill top→bottom and
+            // bury the EditText under the IME.
+            val editing = exitEditModeToReplyPanel != null
+            val scrollH: Int
+            val targetH: Int
+            if (editing) {
+                val compactMax = (context.resources.displayMetrics.heightPixels *
+                    MAX_PANEL_HEIGHT_FRACTION).toInt()
+                    .coerceAtMost(availableHeight)
+                val peekScroll = if (fixed >= compactMax) {
+                    0
+                } else {
+                    natural.coerceAtMost(dp(72)).coerceAtMost(compactMax - fixed)
+                }
+                scrollH = peekScroll
+                targetH = (fixed + scrollH).coerceAtMost(compactMax).coerceAtLeast(dp(160))
+            } else {
+                val scrollBudget = (availableHeight - fixed).coerceAtLeast(dp(80))
+                scrollH = natural.coerceAtMost(scrollBudget)
+                targetH = (fixed + scrollH).coerceAtLeast(dp(160))
+            }
+            threadMessageArea.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                scrollH.coerceAtLeast(if (editing) 0 else dp(40))
+            )
+            threadScroll.layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            params.height = targetH
+            try {
+                windowManager.updateViewLayout(p, params)
+            } catch (_: Exception) { }
+            messagePanelAwaitingReveal = false
+            p.alpha = 1f
+            if (!editing) {
+                threadScroll.post {
+                    threadScroll.fullScroll(View.FOCUS_DOWN)
+                }
+            }
+            applyGlassBackdropBlurIfAllowed()
+            android.util.Log.d(
+                "ScrollCat",
+                "Thread panel sizing - screen height=$screenHeight, " +
+                    "available=$availableHeight, naturalBubbles=$natural, " +
+                    "scrollH=$scrollH, targetH=$targetH, editing=$editing, " +
+                    "chipsWithMargins=${heightWithMargins(chipsContainer)}, " +
+                    "footerWithMargins=${heightWithMargins(footer)}"
+            )
+            p.post { keepOverlayPanelOnScreen(topSafe, bottomSafe) }
+        }
+        messagePanelApplyHeightSync = { applyThreadHeight() }
+        messagePanelRelayout = { applyThreadHeight() }
+
+        // Auto-select oldest unresolved + show chips (no tap required).
+        // Live appends rebuild showThread; this also re-selects the oldest pending.
+        selectIncoming(oldestUnresolved)
+        // After footer exists — restore ↓ New message for other-conversation arrivals.
+        updateNewSenderIndicator()
+        panel.post { applyThreadHeight() }
+
+        android.util.Log.d(
+            "ScrollCat",
+            "showThread key=$key incoming=${incoming.size} outgoing=${outgoing.size} " +
+                "bubbles=${items.size} autoSelected=${oldestUnresolved.entryId}"
+        )
+    }
+
     private fun showMessage(
         message: ReplyStore.ReplyableMessage,
         captureOpenSnapshot: Boolean = false,
@@ -1773,6 +3106,9 @@ class ReplyPanel(
         beginMessagePanelRevealGate(panel)
         restoreMessagePanelWindowGeometry()
         showingSenderList = false
+        showingThread = false
+        threadConversationKey = null
+        threadSelectedEntryId = null
         pending.indexOfFirst { it.entryId == message.entryId }
             .takeIf { it >= 0 }
             ?.let { currentIndex = it }
@@ -2060,151 +3396,16 @@ class ReplyPanel(
             addView(chipsContainer)
         }
         messageSlideColumn = slideColumn
-        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
         // Live finger-follow horizontal drag on the same region that animates for ←/→.
         // Intercept only after a clearly horizontal move so vertical ScrollView still works.
-        val slideClip = object : FrameLayout(context) {
-            private var downX = 0f
-            private var downY = 0f
-            private var downRawX = 0f
-            private var dragging = false
-            private var velocityTracker: VelocityTracker? = null
-
-            private fun recycleTracker() {
-                velocityTracker?.recycle()
-                velocityTracker = null
-            }
-
-            private fun track(ev: MotionEvent) {
-                if (velocityTracker == null) {
-                    velocityTracker = VelocityTracker.obtain()
-                }
-                velocityTracker?.addMovement(ev)
-            }
-
-            private fun applyFingerFollow(rawX: Float) {
-                val dx = rawX - downRawX
-                val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
-                        .coerceAtLeast(1)
-                slideColumn.translationX = if (pending.size <= 1) {
-                    // Rubber-band: limited give, no navigation possible.
-                    val capped = dx.coerceIn(-width.toFloat(), width.toFloat())
-                    SWIPE_RUBBER_BAND * capped
-                } else {
-                    dx
-                }
-            }
-
-            private fun endDrag(ev: MotionEvent) {
-                if (!dragging) {
-                    recycleTracker()
-                    return
-                }
-                dragging = false
-                track(ev)
-                velocityTracker?.computeCurrentVelocity(1000)
-                val vx = velocityTracker?.xVelocity ?: 0f
-                recycleTracker()
-
-                val tx = slideColumn.translationX
-                val width = slideColumn.width.takeIf { it > 0 }
-                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) - (panelView?.paddingRight ?: 0))
-                        .coerceAtLeast(1)
-                val commitDist = width * SWIPE_COMMIT_FRACTION
-
-                if (pending.size <= 1 || messageSlideInProgress) {
-                    snapSlideBackToCenter(slideColumn)
-                    return
-                }
-
-                val flickedNext = vx <= -SWIPE_MIN_VELOCITY_PX_S
-                val flickedPrev = vx >= SWIPE_MIN_VELOCITY_PX_S
-                val draggedNext = tx <= -commitDist
-                val draggedPrev = tx >= commitDist
-
-                when {
-                    flickedNext || draggedNext -> commitSwipeNavigation { advance() }
-                    flickedPrev || draggedPrev -> commitSwipeNavigation { previous() }
-                    else -> snapSlideBackToCenter(slideColumn)
-                }
-            }
-
-            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-                if (messageSlideInProgress) return false
-                track(ev)
-                when (ev.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        downX = ev.x
-                        downY = ev.y
-                        downRawX = ev.rawX
-                        dragging = false
-                        return false
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = abs(ev.x - downX)
-                        val dy = abs(ev.y - downY)
-                        if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
-                            parent?.requestDisallowInterceptTouchEvent(true)
-                            dragging = true
-                            slideColumn.animate().cancel()
-                            // Capture current contact as drag origin so content doesn't jump.
-                            downRawX = ev.rawX - slideColumn.translationX
-                            applyFingerFollow(ev.rawX)
-                            return true
-                        }
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        recycleTracker()
-                    }
-                }
-                return false
-            }
-
-            override fun onTouchEvent(event: MotionEvent): Boolean {
-                if (messageSlideInProgress && !dragging) return false
-                track(event)
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        downX = event.x
-                        downY = event.y
-                        downRawX = event.rawX
-                        dragging = false
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        if (!dragging) {
-                            val dx = abs(event.x - downX)
-                            val dy = abs(event.y - downY)
-                            if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
-                                dragging = true
-                                slideColumn.animate().cancel()
-                                downRawX = event.rawX - slideColumn.translationX
-                                parent?.requestDisallowInterceptTouchEvent(true)
-                            }
-                        }
-                        if (dragging) {
-                            applyFingerFollow(event.rawX)
-                            return true
-                        }
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        endDrag(event)
-                        return true
-                    }
-                }
-                return dragging || super.onTouchEvent(event)
-            }
-        }.apply {
-            clipChildren = true
-            clipToPadding = true
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+        body.addView(
+            buildMessageSlideSwipeClip(
+                slideColumn = slideColumn,
+                canNavigate = { pending.size > 1 },
+                onCommitNext = { advance() },
+                onCommitPrev = { previous() }
             )
-            addView(slideColumn)
-        }
-        body.addView(slideClip)
+        )
 
         val isGmailMessage = message.packageName.equals("com.google.android.gm", ignoreCase = true)
         // Gmail: preview + Reply in app / Ignore only — no AI chips, mic, or Send.
@@ -3362,7 +4563,8 @@ class ReplyPanel(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable().apply {
-                setColor(VOICE_TO_TEXT_BG)
+                // Transparent fill — panel jet black shows through; keep outline only.
+                setColor(0x00000000)
                 cornerRadius = 24f
                 setStroke(dp(1), VOICE_ROW_ACCENT)
             }
@@ -3648,7 +4850,7 @@ class ReplyPanel(
     ) {
         val panel: ViewGroup = panelView ?: return
         val params = panelParams ?: return
-        if (showingSenderList || !isShowing) return
+        if (showingSenderList || showingThread || !isShowing) return
 
         val contentWidth = (panelWidthPx() - panel.paddingLeft - panel.paddingRight).coerceAtLeast(1)
         val widthSpec = View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY)
@@ -3721,16 +4923,25 @@ class ReplyPanel(
         val canExpand = lineCount > SENDER_LIST_PREVIEW_MAX_LINES
         onMessageOverflowChanged?.invoke(canExpand)
 
-        // Respect messageArea.minimumHeight (e.g. room for copy+pencil+chevron)
-        // so short messages don't clip the lower overlay icon into a sliver/dot.
-        val messageHeight = if (messageExpanded) {
-            preferredMessageHeight
-                .coerceAtMost(expandedMessageBudget)
-                .coerceAtLeast(messageArea.minimumHeight)
-        } else {
-            preferredMessageHeight
-                .coerceAtMost(collapsedMessageBudget)
-                .coerceAtLeast(messageArea.minimumHeight)
+        // While editing, keep the incoming-message area compact so the EditText stays
+        // above the keyboard (do not use expandedMessageBudget).
+        val editing = exitEditModeToReplyPanel != null
+        val messageHeight = when {
+            editing -> {
+                preferredMessageHeight
+                    .coerceAtMost(dp(72).coerceAtMost(collapsedMessageBudget))
+                    .coerceAtLeast(dp(40))
+            }
+            messageExpanded -> {
+                preferredMessageHeight
+                    .coerceAtMost(expandedMessageBudget)
+                    .coerceAtLeast(messageArea.minimumHeight)
+            }
+            else -> {
+                preferredMessageHeight
+                    .coerceAtMost(collapsedMessageBudget)
+                    .coerceAtLeast(messageArea.minimumHeight)
+            }
         }
 
         messageArea.layoutParams = LinearLayout.LayoutParams(
@@ -4077,14 +5288,30 @@ class ReplyPanel(
             return
         }
 
-        // Remove this entry first so sibling detection / notification cancel is accurate
-        ReplyStore.removeEntry(message.entryId)
-        clearPregeneratedReplies(message)
-        pending.removeAll { it.entryId == message.entryId }
-        currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
-        OverlayService.instance?.updateBadgeAfterReply()
+        // Persist resolved bubble(s) before removing from the pending queue.
+        if (showingThread) {
+            resolveThreadEntryWithBatch(
+                message,
+                ResolvedThreadMessages.ResolutionType.REPLIED,
+                cancelEmptyNotifications = true
+            )
+        } else {
+            // Remove this entry first so sibling detection / notification cancel is accurate
+            ReplyStore.removeEntry(message.entryId)
+            clearPregeneratedReplies(message)
+            pending.removeAll { it.entryId == message.entryId }
+            currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
+            OverlayService.instance?.updateBadgeAfterReply()
+        }
 
         val sent = ReplySender.send(context, message, replyText)
+        if (showingThread) {
+            if (!sent) {
+                ReplySender.openApp(context, message)
+            }
+            finishThreadMessageResolution(message)
+            return
+        }
         if (sent) {
             // Auto-advance immediately when more remain for this sender (no full close)
             if (advanceToNextSameSenderOrNull(message) != null) {
@@ -4133,8 +5360,13 @@ class ReplyPanel(
     /**
      * After handling one queue entry: if the same sender still has queued messages,
      * keep the panel open and show the next one. Otherwise close/dock as today.
+     * Thread view: resolve in-place via [finishThreadMessageResolution].
      */
     private fun continueAfterHandling(handled: ReplyStore.ReplyableMessage) {
+        if (showingThread) {
+            finishThreadMessageResolution(handled)
+            return
+        }
         if (advanceToNextSameSenderOrNull(handled) != null) return
 
         pending = ReplyStore.getAll().toMutableList()
@@ -4149,6 +5381,144 @@ class ReplyPanel(
                 currentIndex = currentIndex.coerceIn(0, pending.size - 1)
                 showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.NEXT)
             }
+        }
+    }
+
+    /**
+     * After resolving one message inside a thread: clear selection, rebuild the thread
+     * (resolved bubbles come from [ResolvedThreadMessages]) if anything remains pending,
+     * otherwise exit to normal panel routing.
+     */
+    private fun finishThreadMessageResolution(handled: ReplyStore.ReplyableMessage) {
+        pending = ReplyStore.getAll().toMutableList()
+        val key = threadConversationKey ?: handled.conversationKey
+        threadSelectedEntryId = null
+        exitEditModeToReplyPanel = null
+        // Don't let a pending chip crossfade repaint into the rebuilt thread.
+        messageSlideInProgress = false
+        val remainingSame = pending.filter { it.conversationKey == key }
+        android.util.Log.d(
+            "ScrollCat",
+            "finishThreadMessageResolution key=$key remaining=${remainingSame.size} " +
+                "totalPending=${pending.size} " +
+                "persistedResolved=${ResolvedThreadMessages.getForConversation(context, key).size}"
+        )
+        if (remainingSame.isEmpty()) {
+            showingThread = false
+            threadConversationKey = null
+            // Same clean-slate as explicit ✕: wipe history + reset grouping for this
+            // conversation so a later arrival starts a genuinely fresh thread.
+            clearThreadSlateForConversation(key, handled)
+            when {
+                pending.isEmpty() -> dismiss()
+                pending.size == 1 ->
+                    showMessage(pending.first(), captureOpenSnapshot = true)
+                pending.map { it.conversationKey }.distinct().size == 1 ->
+                    showThread(pending.first().conversationKey)
+                else -> showSenderList()
+            }
+            return
+        }
+        showThread(key)
+    }
+
+    /** Persist a resolved incoming message before it leaves [ReplyStore]. */
+    private fun rememberThreadResolved(
+        message: ReplyStore.ReplyableMessage,
+        resolution: ResolvedThreadMessages.ResolutionType
+    ) {
+        if (!showingThread) return
+        ResolvedThreadMessages.record(
+            context = context,
+            conversationKey = message.conversationKey,
+            entryId = message.entryId,
+            text = message.message,
+            timestamp = message.timestamp,
+            resolution = resolution
+        )
+    }
+
+    /**
+     * Thread-only: resolve [selected] plus any same interactive-merge generation batch.
+     * The user-targeted entry keeps [primaryResolution] (REPLIED → ✓, IGNORED → no ✓).
+     * Other batch mates are recorded as [IGNORED] (resolved, no checkmark).
+     * Entries without a shared batch (post-open per-message gen) resolve alone.
+     */
+    private fun resolveThreadEntryWithBatch(
+        selected: ReplyStore.ReplyableMessage,
+        primaryResolution: ResolvedThreadMessages.ResolutionType,
+        cancelEmptyNotifications: Boolean = true
+    ): List<ReplyStore.ReplyableMessage> {
+        if (!showingThread) {
+            rememberThreadResolved(selected, primaryResolution)
+            ReplyStore.removeEntry(selected.entryId)
+            clearPregeneratedReplies(selected)
+            pending.removeAll { it.entryId == selected.entryId }
+            return listOf(selected)
+        }
+        val batch = ReplyStore.getSharedGenerationBatch(selected.entryId)
+            .ifEmpty { listOf(selected) }
+        val notifKeys = linkedSetOf<String>()
+        for (entry in batch) {
+            val resolution =
+                if (entry.entryId == selected.entryId) primaryResolution
+                else ResolvedThreadMessages.ResolutionType.IGNORED
+            rememberThreadResolved(entry, resolution)
+            notifKeys.add(entry.notificationKey)
+            ReplyStore.removeEntry(entry.entryId)
+            clearPregeneratedReplies(entry)
+            pending.removeAll { it.entryId == entry.entryId }
+        }
+        currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
+        OverlayService.instance?.updateBadgeAfterReply()
+        if (cancelEmptyNotifications) {
+            for (key in notifKeys) {
+                if (ReplyStore.countForNotificationKey(key) == 0) {
+                    batch.firstOrNull { it.notificationKey == key }
+                        ?.let { cancelShadeNotification(it) }
+                }
+            }
+        }
+        android.util.Log.d(
+            "ScrollCat",
+            "resolveThreadEntryWithBatch selected=${selected.entryId} " +
+                "primary=$primaryResolution batchSize=${batch.size} " +
+                "ids=${batch.joinToString { it.entryId }}"
+        )
+        return batch
+    }
+
+    /** Clears every pending message for the open thread (Ignore with no selection). */
+    private fun discardCurrentThread() {
+        val key = threadConversationKey ?: return
+        val toRemove = ReplyStore.getAll().filter { it.conversationKey == key }
+        toRemove.forEach { entry ->
+            ReplyStore.removeEntry(entry.entryId)
+            clearPregeneratedReplies(entry)
+            if (ReplyStore.countForNotificationKey(entry.notificationKey) == 0) {
+                cancelShadeNotification(entry)
+            }
+        }
+        // Full wipe of thread history for this conversation.
+        SentReplyLog.clearConversation(context, key)
+        ResolvedThreadMessages.clearConversation(context, key)
+        pending = ReplyStore.getAll().toMutableList()
+        currentIndex = currentIndex.coerceAtMost((pending.size - 1).coerceAtLeast(0))
+        OverlayService.instance?.updateBadgeAfterReply()
+        threadSelectedEntryId = null
+        showingThread = false
+        threadConversationKey = null
+        android.util.Log.d(
+            "ScrollCat",
+            "discardCurrentThread key=$key removed=${toRemove.size} remaining=${pending.size}"
+        )
+        when {
+            pending.isEmpty() -> dismiss()
+            pending.size == 1 ->
+                showMessage(pending.first(), captureOpenSnapshot = true)
+            pending.map { it.conversationKey }.distinct().size == 1 ->
+                showThread(pending.first().conversationKey)
+            else -> showSenderList()
         }
     }
 
@@ -4248,15 +5618,112 @@ class ReplyPanel(
     }
 
     private fun advance() {
+        if (showingThread) {
+            navigateThreadToAdjacentConversation(next = true)
+            return
+        }
         if (pending.size <= 1 || messageSlideInProgress) return
-        currentIndex = (currentIndex + 1) % pending.size
-        showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.NEXT)
+        val nextIndex = (currentIndex + 1) % pending.size
+        openPendingEntryFromMessageNav(nextIndex, MessageSlideDirection.NEXT)
     }
 
     private fun previous() {
+        if (showingThread) {
+            navigateThreadToAdjacentConversation(next = false)
+            return
+        }
         if (pending.size <= 1 || messageSlideInProgress) return
-        currentIndex = if (currentIndex == 0) pending.size - 1 else currentIndex - 1
-        showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.PREVIOUS)
+        val prevIndex = if (currentIndex == 0) pending.size - 1 else currentIndex - 1
+        openPendingEntryFromMessageNav(prevIndex, MessageSlideDirection.PREVIOUS)
+    }
+
+    /**
+     * Single-message ←/→ : if the destination entry's conversation actually has 2+
+     * pending in the live store, open that conversation as a thread instead of
+     * staying stuck in index-by-index [showMessage] navigation.
+     */
+    private fun openPendingEntryFromMessageNav(
+        targetIndex: Int,
+        direction: MessageSlideDirection
+    ) {
+        pending = ReplyStore.getAll().toMutableList()
+        if (pending.isEmpty()) {
+            dismiss()
+            return
+        }
+        val idx = targetIndex.coerceIn(0, pending.size - 1)
+        val entry = pending[idx]
+        val liveCount = ReplyStore.countForConversation(entry.conversationKey)
+        currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
+        currentEntry = entry
+        knownEntryIdsAtOpen.add(entry.entryId)
+        viewedKeys.add(entry.entryId)
+        if (liveCount >= 2) {
+            android.util.Log.d(
+                "ScrollCat",
+                "Message-nav regroup → showThread key=${entry.conversationKey} " +
+                    "liveCount=$liveCount direction=${direction.name}"
+            )
+            showThread(entry.conversationKey, slideDirection = direction)
+        } else {
+            showMessage(entry, slideDirection = direction, captureOpenSnapshot = true)
+        }
+    }
+
+    /** Conversation keys in Pending Replies order (first occurrence in [pending]). */
+    private fun pendingConversationKeysInOrder(): List<String> =
+        pending.map { it.conversationKey }.distinct()
+
+    /**
+     * From a thread: swipe to the next/previous conversation (not each queued message).
+     * Opens [showThread] when that conversation still has 2+ pending, else [showMessage].
+     */
+    private fun navigateThreadToAdjacentConversation(next: Boolean) {
+        if (!showingThread || messageSlideInProgress) return
+        pending = ReplyStore.getAll().toMutableList()
+        val keys = pendingConversationKeysInOrder()
+        if (keys.size <= 1) return
+        val currentKey = threadConversationKey ?: currentEntry?.conversationKey ?: return
+        val idx = keys.indexOf(currentKey).let { if (it < 0) 0 else it }
+        val targetIdx = if (next) {
+            (idx + 1) % keys.size
+        } else if (idx == 0) {
+            keys.size - 1
+        } else {
+            idx - 1
+        }
+        val direction =
+            if (next) MessageSlideDirection.NEXT else MessageSlideDirection.PREVIOUS
+        openConversationFromSwipe(keys[targetIdx], direction)
+    }
+
+    private fun openConversationFromSwipe(
+        conversationKey: String,
+        direction: MessageSlideDirection
+    ) {
+        val key = conversationKey.trim()
+        if (key.isEmpty() || messageSlideInProgress) return
+        // Live store — never decide on a possibly stale panel `pending` snapshot.
+        pending = ReplyStore.getAll().toMutableList()
+        val liveCount = ReplyStore.countForConversation(key)
+        val msgs = ReplyStore.messagesForConversation(key)
+            .ifEmpty { pending.filter { it.conversationKey == key } }
+        if (msgs.isEmpty() || liveCount <= 0) return
+        val entry = msgs.minByOrNull { it.timestamp } ?: msgs.first()
+        currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
+        currentEntry = entry
+        knownEntryIdsAtOpen.add(entry.entryId)
+        viewedKeys.add(entry.entryId)
+        android.util.Log.d(
+            "ScrollCat",
+            "openConversationFromSwipe key=$key liveCount=$liveCount " +
+                "msgs=${msgs.size} → ${if (liveCount >= 2) "showThread" else "showMessage"}"
+        )
+        if (liveCount >= 2) {
+            showThread(key, slideDirection = direction)
+        } else {
+            showMessage(entry, slideDirection = direction, captureOpenSnapshot = true)
+        }
     }
 
     /** Left-arrow: from edit → reply chips; otherwise → Pending Replies list. */
@@ -4275,9 +5742,177 @@ class ReplyPanel(
      * Arrow taps and other programmatic advances do not count.
      */
     private fun commitSwipeNavigation(navigate: () -> Unit) {
-        if (pending.size <= 1 || messageSlideInProgress) return
+        if (messageSlideInProgress) return
+        val canNavigate = if (showingThread) {
+            pendingConversationKeysInOrder().size > 1
+        } else {
+            pending.size > 1
+        }
+        if (!canNavigate) return
         SettingsManager.recordReplyPanelSuccessfulSwipe(context)
         navigate()
+    }
+
+    /**
+     * Shared horizontal swipe host for single-message and thread [messageSlideColumn].
+     * Finger-follows, snaps back if short, rubber-bands when [canNavigate] is false,
+     * and only intercepts after horizontal dominance so nested vertical ScrollViews work.
+     */
+    private fun buildMessageSlideSwipeClip(
+        slideColumn: View,
+        canNavigate: () -> Boolean,
+        onCommitNext: () -> Unit,
+        onCommitPrev: () -> Unit
+    ): FrameLayout {
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        return object : FrameLayout(context) {
+            private var downX = 0f
+            private var downY = 0f
+            private var downRawX = 0f
+            private var dragging = false
+            private var velocityTracker: VelocityTracker? = null
+
+            private fun recycleTracker() {
+                velocityTracker?.recycle()
+                velocityTracker = null
+            }
+
+            private fun track(ev: MotionEvent) {
+                if (velocityTracker == null) {
+                    velocityTracker = VelocityTracker.obtain()
+                }
+                velocityTracker?.addMovement(ev)
+            }
+
+            private fun applyFingerFollow(rawX: Float) {
+                val dx = rawX - downRawX
+                val width = slideColumn.width.takeIf { it > 0 }
+                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) -
+                        (panelView?.paddingRight ?: 0))
+                        .coerceAtLeast(1)
+                slideColumn.translationX = if (!canNavigate()) {
+                    // Rubber-band: limited give, no navigation possible.
+                    val capped = dx.coerceIn(-width.toFloat(), width.toFloat())
+                    SWIPE_RUBBER_BAND * capped
+                } else {
+                    dx
+                }
+            }
+
+            private fun endDrag(ev: MotionEvent) {
+                if (!dragging) {
+                    recycleTracker()
+                    return
+                }
+                dragging = false
+                track(ev)
+                velocityTracker?.computeCurrentVelocity(1000)
+                val vx = velocityTracker?.xVelocity ?: 0f
+                recycleTracker()
+
+                val tx = slideColumn.translationX
+                val width = slideColumn.width.takeIf { it > 0 }
+                    ?: (panelWidthPx() - (panelView?.paddingLeft ?: 0) -
+                        (panelView?.paddingRight ?: 0))
+                        .coerceAtLeast(1)
+                val commitDist = width * SWIPE_COMMIT_FRACTION
+
+                if (!canNavigate() || messageSlideInProgress) {
+                    snapSlideBackToCenter(slideColumn)
+                    return
+                }
+
+                val flickedNext = vx <= -SWIPE_MIN_VELOCITY_PX_S
+                val flickedPrev = vx >= SWIPE_MIN_VELOCITY_PX_S
+                val draggedNext = tx <= -commitDist
+                val draggedPrev = tx >= commitDist
+
+                when {
+                    flickedNext || draggedNext ->
+                        commitSwipeNavigation(onCommitNext)
+                    flickedPrev || draggedPrev ->
+                        commitSwipeNavigation(onCommitPrev)
+                    else -> snapSlideBackToCenter(slideColumn)
+                }
+            }
+
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                if (messageSlideInProgress) return false
+                track(ev)
+                when (ev.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = ev.x
+                        downY = ev.y
+                        downRawX = ev.rawX
+                        dragging = false
+                        return false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = abs(ev.x - downX)
+                        val dy = abs(ev.y - downY)
+                        if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                            dragging = true
+                            slideColumn.animate().cancel()
+                            // Capture current contact as drag origin so content doesn't jump.
+                            downRawX = ev.rawX - slideColumn.translationX
+                            applyFingerFollow(ev.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        recycleTracker()
+                    }
+                }
+                return false
+            }
+
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                if (messageSlideInProgress && !dragging) return false
+                track(event)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.x
+                        downY = event.y
+                        downRawX = event.rawX
+                        dragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!dragging) {
+                            val dx = abs(event.x - downX)
+                            val dy = abs(event.y - downY)
+                            if (dx > touchSlop && dx > dy * SWIPE_HORIZONTAL_DOMINANCE) {
+                                dragging = true
+                                slideColumn.animate().cancel()
+                                downRawX = event.rawX - slideColumn.translationX
+                                parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                        }
+                        if (dragging) {
+                            applyFingerFollow(event.rawX)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        endDrag(event)
+                        return true
+                    }
+                }
+                return dragging || super.onTouchEvent(event)
+            }
+        }.apply {
+            clipChildren = true
+            clipToPadding = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                // Thread: fill remaining body height like the old threadMessageArea weight.
+                if (showingThread) weight = 1f
+            }
+            addView(slideColumn)
+        }
     }
 
     /**
@@ -4360,8 +5995,29 @@ class ReplyPanel(
      * Jump to the next newly arrived queue entry (same or different sender).
      * Same-sender arrivals reuse [showQueuedEntry] — the same reveal path as
      * post-Send auto-advance.
+     * Thread view: skip same-conversation arrivals (those live-append); jump to
+     * a different conversation's new entry (thread or single-message as needed).
      */
     private fun jumpToNextUnviewedSender() {
+        if (showingThread) {
+            val threadKey = threadConversationKey
+            for (offset in 1..pending.size) {
+                val idx = (currentIndex + offset) % pending.size
+                val entry = pending[idx]
+                if (entry.entryId !in knownEntryIdsAtOpen &&
+                    (threadKey == null || entry.conversationKey != threadKey)
+                ) {
+                    knownEntryIdsAtOpen.add(entry.entryId)
+                    openConversationFromSwipe(
+                        entry.conversationKey,
+                        MessageSlideDirection.NEXT
+                    )
+                    return
+                }
+            }
+            updateNewSenderIndicator()
+            return
+        }
         val current = currentEntry
         // Prefer a new same-sender entry (not yet in the open-time snapshot)
         if (current != null) {
@@ -4395,19 +6051,38 @@ class ReplyPanel(
 
     /** Show a queued entry in-place (panel stays open). Shared by auto-advance and ↓ arrow. */
     private fun showQueuedEntry(entry: ReplyStore.ReplyableMessage) {
+        pending = ReplyStore.getAll().toMutableList()
         currentIndex = pending.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
-        showMessage(entry, slideDirection = MessageSlideDirection.NEXT)
+        val liveCount = ReplyStore.countForConversation(entry.conversationKey)
+        if (liveCount >= 2) {
+            showThread(entry.conversationKey, slideDirection = MessageSlideDirection.NEXT)
+        } else {
+            val resolved = pending.firstOrNull { it.entryId == entry.entryId } ?: entry
+            showMessage(resolved, slideDirection = MessageSlideDirection.NEXT)
+        }
     }
 
     fun refreshPendingFromStore() {
         android.util.Log.d(
             "ScrollCat",
             "refreshPendingFromStore called - pending senders: ${ReplyStore.count()} " +
-                "isShowing=$isShowing showingSenderList=$showingSenderList"
+                "isShowing=$isShowing showingSenderList=$showingSenderList " +
+                "showingThread=$showingThread"
         )
         if (!isShowing) return
 
         val currentKey = currentEntry?.entryId
+        val previousThreadSameIds =
+            if (showingThread) {
+                val k = threadConversationKey
+                if (k != null) {
+                    pending.filter { it.conversationKey == k }.map { it.entryId }.toSet()
+                } else {
+                    emptySet()
+                }
+            } else {
+                emptySet()
+            }
         val livePending = ReplyStore.getAll().toMutableList()
         if (livePending.isEmpty()) {
             dismiss()
@@ -4419,7 +6094,49 @@ class ReplyPanel(
         // Sender list already shows everyone — never show the ↓ arrow here.
         if (showingSenderList) {
             removeNewSenderArrow()
-            if (pending.size == 1) {
+            when {
+                pending.size == 1 ->
+                    showMessage(pending.first(), captureOpenSnapshot = true)
+                pending.map { it.conversationKey }.distinct().size == 1 ->
+                    showThread(pending.first().conversationKey)
+                else ->
+                    showSenderList()
+            }
+            return
+        }
+
+        if (showingThread) {
+            val key = threadConversationKey
+            if (key != null && pending.any { it.conversationKey == key }) {
+                val newSameIds =
+                    pending.filter { it.conversationKey == key }.map { it.entryId }.toSet()
+                // Same conversation gained/lost messages → live-append rebuild.
+                // Other-sender-only arrivals skip rebuild and only update the ↓ arrow.
+                if (newSameIds != previousThreadSameIds) {
+                    android.util.Log.d(
+                        "ScrollCat",
+                        "refreshPendingFromStore — live thread refresh key=$key " +
+                            "sameSender=${newSameIds.size} " +
+                            "(was ${previousThreadSameIds.size})"
+                    )
+                    showThread(key)
+                } else {
+                    android.util.Log.d(
+                        "ScrollCat",
+                        "refreshPendingFromStore — thread unchanged key=$key; " +
+                            "arrow-only check for other senders"
+                    )
+                    if (hasNewlyArrivedOtherConversationMessages()) {
+                        showNewSenderArrowLiveOnOpenPanel(currentKey)
+                    } else {
+                        removeNewSenderArrow()
+                        messagePanelApplyHeightSync?.invoke()
+                            ?: messagePanelRelayout?.invoke()
+                    }
+                }
+            } else if (pending.map { it.conversationKey }.distinct().size == 1) {
+                showThread(pending.first().conversationKey)
+            } else if (pending.size == 1) {
                 showMessage(pending.first(), captureOpenSnapshot = true)
             } else {
                 showSenderList()
@@ -4455,31 +6172,40 @@ class ReplyPanel(
             }
         } else {
             currentIndex = currentIndex.coerceIn(0, pending.size - 1)
-            showMessage(pending[currentIndex], slideDirection = MessageSlideDirection.NEXT)
+            val next = pending[currentIndex]
+            if (pending.count { it.conversationKey == next.conversationKey } >= 2) {
+                showThread(next.conversationKey)
+            } else {
+                showMessage(next, slideDirection = MessageSlideDirection.NEXT)
+            }
         }
     }
 
     /**
-     * Immediately attach/show the ↓ indicator on the already-visible single-sender panel
-     * (does not wait for the next showMessage). No-op for sender-list mode.
+     * Immediately attach/show the ↓ indicator on the already-visible message or
+     * thread panel (does not wait for the next showMessage/showThread). No-op for
+     * sender-list mode. Thread: only for other-conversation arrivals.
      */
     private fun showNewSenderArrowLiveOnOpenPanel(currentSenderKey: String?) {
         if (!isShowing || showingSenderList) return
-        if (!hasNewlyArrivedMessages()) {
+        val shouldShow = if (showingThread) {
+            hasNewlyArrivedOtherConversationMessages()
+        } else {
+            hasNewlyArrivedMessages()
+        }
+        if (!shouldShow) {
             removeNewSenderArrow()
             return
         }
 
         ensureNewMessageIndicatorAttached()
         val arrow = newSenderArrow ?: return
-        val unviewedCount = pending.count {
-            it.entryId !in knownEntryIdsAtOpen
-        }
-        arrow.text = if (unviewedCount > 1) "↓  $unviewedCount new" else "↓  New message"
+        arrow.text = newMessageArrowLabel()
         arrow.visibility = View.VISIBLE
         android.util.Log.d(
             "ScrollCat",
-            "Arrow shown live on open panel for current sender, while viewing: $currentSenderKey"
+            "Arrow shown live on open panel for current sender, while viewing: $currentSenderKey " +
+                "showingThread=$showingThread"
         )
 
         // Re-run auto height so the indicator stays in the budget after every resize/nav.
@@ -4493,7 +6219,13 @@ class ReplyPanel(
      * ← / waiting / → nav row). Does not affect message, chips, or Voice-to-text sizing.
      */
     private fun ensureNewMessageIndicatorAttached() {
-        if (!isShowing || showingSenderList || !hasNewlyArrivedMessages()) return
+        if (!isShowing || showingSenderList) return
+        val shouldShow = if (showingThread) {
+            hasNewlyArrivedOtherConversationMessages()
+        } else {
+            hasNewlyArrivedMessages()
+        }
+        if (!shouldShow) return
         val footer = messageFooterBlock ?: return
         var arrow = newSenderArrow
         if (arrow == null) {
@@ -4516,9 +6248,21 @@ class ReplyPanel(
             (arrow.parent as? ViewGroup)?.removeView(arrow)
         } catch (_: Exception) { }
         footer.addView(arrow)
-        val unviewedCount = pending.count { it.entryId !in knownEntryIdsAtOpen }
-        arrow.text = if (unviewedCount > 1) "↓  $unviewedCount new" else "↓  New message"
+        arrow.text = newMessageArrowLabel()
         arrow.visibility = View.VISIBLE
+    }
+
+    private fun newMessageArrowLabel(): String {
+        val unviewedCount = if (showingThread) {
+            val key = threadConversationKey
+            pending.count {
+                it.entryId !in knownEntryIdsAtOpen &&
+                    (key == null || it.conversationKey != key)
+            }
+        } else {
+            pending.count { it.entryId !in knownEntryIdsAtOpen }
+        }
+        return if (unviewedCount > 1) "↓  $unviewedCount new" else "↓  New message"
     }
 
     /**
@@ -4554,6 +6298,17 @@ class ReplyPanel(
         }
     }
 
+    /**
+     * Thread-only ↓ trigger: true when a pending entry arrived for a conversation
+     * other than the open thread (same-conversation arrivals live-append instead).
+     */
+    private fun hasNewlyArrivedOtherConversationMessages(): Boolean {
+        val key = threadConversationKey ?: return false
+        return pending.any {
+            it.entryId !in knownEntryIdsAtOpen && it.conversationKey != key
+        }
+    }
+
     private fun removeNewSenderArrow() {
         newSenderArrow?.let { arrow ->
             try { (arrow.parent as? ViewGroup)?.removeView(arrow) } catch (_: Exception) { }
@@ -4571,15 +6326,20 @@ class ReplyPanel(
     }
 
     /**
-     * Down-arrow for single-sender panel only. Prefer showNewSenderArrowLiveOnOpenPanel
-     * when refreshing an already-open panel.
+     * Down-arrow for single-message and thread panels. Prefer
+     * [showNewSenderArrowLiveOnOpenPanel] when refreshing an already-open panel.
      */
     private fun updateNewSenderIndicator() {
         if (!isShowing || showingSenderList) {
             removeNewSenderArrow()
             return
         }
-        if (!hasNewlyArrivedMessages()) {
+        val shouldShow = if (showingThread) {
+            hasNewlyArrivedOtherConversationMessages()
+        } else {
+            hasNewlyArrivedMessages()
+        }
+        if (!shouldShow) {
             removeNewSenderArrow()
             return
         }
@@ -4921,6 +6681,49 @@ class ReplyPanel(
         }
     }
 
+    /**
+     * Wipe persisted thread history and interactive merge / panel-seen state for one
+     * conversation. Shared by explicit thread ✕ and auto-close-when-empty.
+     */
+    private fun clearThreadSlateForConversation(
+        key: String,
+        entry: ReplyStore.ReplyableMessage?
+    ) {
+        val trimmed = key.trim()
+        if (trimmed.isNotEmpty()) {
+            SentReplyLog.clearConversation(context, trimmed)
+            ResolvedThreadMessages.clearConversation(context, trimmed)
+            android.util.Log.d(
+                "ScrollCat",
+                "clearThreadSlateForConversation — cleared Resolved/Sent for $trimmed"
+            )
+        }
+        if (entry != null) {
+            CatNotificationListener.instance?.resetInteractiveGroupingForSender(
+                packageName = entry.packageName,
+                notificationId = entry.notificationId,
+                senderName = entry.sender
+            )
+        }
+    }
+
+    /**
+     * User ✕ on an open thread: wipe that conversation's persisted thread history and
+     * reset interactive merge / panel-seen grouping so later arrivals start fresh
+     * (2+ → new thread, 1 → single-message), without affecting other senders or the
+     * Pending Replies list itself.
+     */
+    private fun dismissClosedThread() {
+        val key = threadConversationKey
+        val entry = currentEntry
+        if (key != null) {
+            clearThreadSlateForConversation(key, entry)
+        } else if (entry != null) {
+            clearThreadSlateForConversation(entry.conversationKey, entry)
+        }
+        dismiss()
+    }
+
     fun dismiss() {
         if (isShowing) notePanelCloseForDebug()
         cancelAccessibilityGrantPoll()
@@ -4953,6 +6756,9 @@ class ReplyPanel(
         viewedKeys.clear()
         knownEntryIdsAtOpen.clear()
         showingSenderList = false
+        showingThread = false
+        threadConversationKey = null
+        threadSelectedEntryId = null
         senderListBaseWindowX = null
         senderListBaseWindowY = null
         senderListBaseWindowWidth = null

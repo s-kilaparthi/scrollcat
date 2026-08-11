@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.app.RemoteInput
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -19,6 +20,7 @@ import java.util.UUID
  */
 object ReplyStore {
 
+    private const val TAG = "ScrollCat"
     private const val MAX_ENTRIES = 20
 
     /** Apps whose DMs/emails the cat offers smart replies for. */
@@ -35,8 +37,44 @@ object ReplyStore {
         "com.microsoft.office.outlook"       // Outlook
     )
 
-    private fun normalizeSenderName(rawName: String): String {
-        return rawName.replace(Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE), "").trim()
+    /**
+     * Strip notification-title decorations that churn between updates for the same
+     * chat (WhatsApp "(2 messages)", unread counts, etc.) so the same person maps
+     * to one stable conversation identity. Display still uses the cleaned string
+     * with original casing; [buildConversationKey] lowercases for matching.
+     */
+    fun normalizeSenderName(rawName: String): String {
+        var s = rawName.trim()
+        // WhatsApp / similar — ANYWHERE in the title (group chats put the count
+        // mid-string: "Links (2 messages): Karthik USA").
+        s = s.replace(
+            Regex("""\s*\(\d+\s*messages?\)""", RegexOption.IGNORE_CASE),
+            ""
+        )
+        // Bare counts anywhere: "Name (3)", "Name [2]", "Name (3): Alice"
+        s = s.replace(Regex("""\s*[\(\[]\d+[\)\]]"""), "")
+        // Trailing only: "Name · 2 new", "Name - 3 unread", "Name — 1 new message"
+        s = s.replace(
+            Regex(
+                """\s*[·•\-–—|:]\s*\d+\s*(new\s*)?(messages?|unread)?\s*$""",
+                RegexOption.IGNORE_CASE
+            ),
+            ""
+        )
+        // Trailing "new messages" / "unread" without numbers
+        s = s.replace(
+            Regex("""\s*[·•\-–—|:]\s*(new\s+messages?|unread)\s*$""", RegexOption.IGNORE_CASE),
+            ""
+        )
+        s = s.replace(Regex("""\s+"""), " ").trim()
+        return s
+    }
+
+    /** Stable conversation identity: lowercased package + normalized sender. */
+    fun buildConversationKey(packageName: String, sender: String): String {
+        val pkg = packageName.trim().lowercase(Locale.US)
+        val who = normalizeSenderName(sender).lowercase(Locale.US)
+        return "$pkg|$who"
     }
 
     data class ReplyableMessage(
@@ -53,7 +91,7 @@ object ReplyStore {
         val contentIntent: PendingIntent?,
         val priority: Boolean = false
     ) {
-        val conversationKey: String get() = "$packageName|$sender"
+        val conversationKey: String get() = buildConversationKey(packageName, sender)
     }
 
     data class BufferedMessage(val text: String, val timestamp: Long)
@@ -61,6 +99,13 @@ object ReplyStore {
     private val screenOffBuffer = mutableMapOf<String, MutableList<BufferedMessage>>()
     /** Generated chips keyed by [ReplyableMessage.entryId]. */
     private val storedReplies = mutableMapOf<String, List<String>>()
+    /**
+     * Shared interactive-merge generation batch keyed by [ReplyableMessage.entryId].
+     * Entries that received chips via [storeRepliesForConversation] (or WhereEmpty)
+     * share one batchId; per-entry [storeReplies] clears membership so live post-open
+     * generations resolve independently.
+     */
+    private val generationBatchId = mutableMapOf<String, String>()
 
     @Synchronized
     fun bufferMessage(senderKey: String, text: String) {
@@ -89,25 +134,70 @@ object ReplyStore {
             "Storing replies for $entryId: count=${repliesArray.size}"
         )
         storedReplies[entryId] = repliesArray
+        // Per-entry generation — leave any prior shared merge batch.
+        generationBatchId.remove(entryId)
     }
 
     /** Attach the same reply set to every queued entry in a conversation (pre-panel merge). */
     @Synchronized
     fun storeRepliesForConversation(conversationKey: String, replies: List<String>) {
-        val queue = messages[conversationKey] ?: return
+        val queue = messagesForConversation(conversationKey)
+        if (queue.isEmpty()) return
+        val batchId = UUID.randomUUID().toString()
         // Fresh copy per entryId so entries never share a mutable backing list
         for (entry in queue) {
             val repliesArray = replies.map { it }.toList()
             android.util.Log.d(
-                "ScrollCat",
-                "Storing replies for ${entry.entryId}: count=${repliesArray.size}"
+                TAG,
+                "Storing replies for ${entry.entryId}: count=${repliesArray.size} batch=$batchId"
             )
             storedReplies[entry.entryId] = repliesArray
+            generationBatchId[entry.entryId] = batchId
         }
         android.util.Log.d(
-            "ScrollCat",
-            "storeRepliesForConversation $conversationKey → ${queue.size} entr(y/ies)"
+            TAG,
+            "storeRepliesForConversation $conversationKey → ${queue.size} entr(y/ies) " +
+                "batch=$batchId"
         )
+    }
+
+    /**
+     * Pre-panel merge completed after the panel opened: fill only entries that still
+     * have no chips. Never overwrite entryIds that already got (or will keep) their
+     * own per-message generation results.
+     */
+    @Synchronized
+    fun storeRepliesForConversationWhereEmpty(conversationKey: String, replies: List<String>) {
+        val queue = messagesForConversation(conversationKey)
+        if (queue.isEmpty()) return
+        val batchId = UUID.randomUUID().toString()
+        var filled = 0
+        for (entry in queue) {
+            val existing = storedReplies[entry.entryId]
+            if (!existing.isNullOrEmpty()) continue
+            val repliesArray = replies.map { it }.toList()
+            storedReplies[entry.entryId] = repliesArray
+            generationBatchId[entry.entryId] = batchId
+            filled++
+            android.util.Log.d(
+                TAG,
+                "Storing replies (whereEmpty) for ${entry.entryId}: " +
+                    "count=${repliesArray.size} batch=$batchId"
+            )
+        }
+        android.util.Log.d(
+            TAG,
+            "storeRepliesForConversationWhereEmpty $conversationKey → " +
+                "filled=$filled / queue=${queue.size} batch=$batchId"
+        )
+    }
+
+    /** All pending entries whose [ReplyableMessage.conversationKey] matches [conversationKey]. */
+    @Synchronized
+    fun messagesForConversation(conversationKey: String): List<ReplyableMessage> {
+        val key = conversationKey.trim()
+        if (key.isEmpty()) return emptyList()
+        return messages.values.flatten().filter { it.conversationKey == key }
     }
 
     @Synchronized
@@ -124,6 +214,27 @@ object ReplyStore {
     @Synchronized
     fun clearStoredReplies(entryId: String) {
         storedReplies.remove(entryId)
+        generationBatchId.remove(entryId)
+    }
+
+    /**
+     * Pending entries that share [entryId]'s interactive-merge [generationBatchId].
+     * Returns only [entryId]'s message (or empty) when it has no shared batch, or when
+     * the batch has a single member — callers treat size &lt; 2 as individual resolve.
+     */
+    @Synchronized
+    fun getSharedGenerationBatch(entryId: String): List<ReplyableMessage> {
+        val self = getByEntryId(entryId) ?: return emptyList()
+        val batchId = generationBatchId[entryId] ?: return listOf(self)
+        val mates = mutableListOf<ReplyableMessage>()
+        for (queue in messages.values) {
+            for (msg in queue) {
+                if (generationBatchId[msg.entryId] == batchId) {
+                    mates.add(msg)
+                }
+            }
+        }
+        return if (mates.size >= 2) mates else listOf(self)
     }
 
     // conversationKey -> FIFO queue of messages (oldest first); LinkedHashMap order = recency
@@ -171,9 +282,9 @@ object ReplyStore {
 
         val remoteInputAction = findReplyAction(notification)
         val extras = notification.extras
-        val senderName = normalizeSenderName(
-            extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        )
+        val rawTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)
+            ?.toString()?.trim().orEmpty()
+        val senderName = normalizeSenderName(rawTitle)
         val messageText = extractMessageBody(extras)
 
         if (senderName.isBlank()) return null
@@ -210,7 +321,17 @@ object ReplyStore {
             contentIntent = contentIntent
         )
 
-        val queue = messages.remove(msg.conversationKey) ?: mutableListOf()
+        // TEMP DIAG: compare storage-time key vs raw title / normalized sender
+        android.util.Log.e(
+            TAG,
+            "###CONV_KEY_STORE_DEBUG### rawTitle='$rawTitle' " +
+                "normalizedSender='$senderName' " +
+                "conversationKey='${msg.conversationKey}' " +
+                "pkg='$packageName' notifKey='${sbn.key}' " +
+                "msgChars=${messageText.length}"
+        )
+
+        val queue = takeAndMergeQueueForConversation(msg.conversationKey)
         val previous = queue.lastOrNull()
         if (previous != null &&
             previous.message == msg.message &&
@@ -219,15 +340,23 @@ object ReplyStore {
             // Identical re-post of the same notification body — keep existing entry
             messages[msg.conversationKey] = queue
             android.util.Log.d(
-                "ScrollCat",
+                TAG,
                 "ReplyStore skip duplicate for ${msg.conversationKey}"
             )
             return null
         }
         queue.add(msg)
         messages[msg.conversationKey] = queue
+        val liveCount = countForConversation(msg.conversationKey)
+        val allKeys = getAll().map { it.conversationKey }
+        android.util.Log.e(
+            TAG,
+            "###CONV_KEY_STORE_DEBUG### APPEND key='${msg.conversationKey}' " +
+                "queueSize=${queue.size} liveCountForKey=$liveCount total=${count()} " +
+                "allPendingKeys=$allKeys distinctKeys=${allKeys.distinct()}"
+        )
         android.util.Log.d(
-            "ScrollCat",
+            TAG,
             "ReplyStore append for ${msg.conversationKey}: queue size=${queue.size}, total=${count()}"
         )
 
@@ -235,6 +364,34 @@ object ReplyStore {
             evictOldestEntry()
         }
         return msg
+    }
+
+    /**
+     * Pull every map bucket that belongs to [key] (including legacy map keys from before
+     * stronger normalization) into one FIFO list, removing those buckets from [messages].
+     */
+    private fun takeAndMergeQueueForConversation(key: String): MutableList<ReplyableMessage> {
+        val merged = mutableListOf<ReplyableMessage>()
+        val removedMapKeys = mutableListOf<String>()
+        val iterator = messages.entries.iterator()
+        while (iterator.hasNext()) {
+            val (mapKey, queue) = iterator.next()
+            if (mapKey == key || queue.any { it.conversationKey == key }) {
+                if (mapKey != key) removedMapKeys.add(mapKey)
+                merged.addAll(queue)
+                iterator.remove()
+            }
+        }
+        if (removedMapKeys.isNotEmpty()) {
+            android.util.Log.e(
+                TAG,
+                "###CONV_KEY_MERGE_DEBUG### merged alias mapKeys=$removedMapKeys into key=$key " +
+                    "combinedSize=${merged.size} — title/key fragmentation was splitting one chat"
+            )
+        }
+        // Preserve chronological order within the conversation.
+        merged.sortBy { it.timestamp }
+        return merged
     }
 
     private fun evictOldestEntry() {
@@ -292,8 +449,11 @@ object ReplyStore {
     fun count(): Int = messages.values.sumOf { it.size }
 
     @Synchronized
-    fun countForConversation(conversationKey: String): Int =
-        messages[conversationKey]?.size ?: 0
+    fun countForConversation(conversationKey: String): Int {
+        val key = conversationKey.trim()
+        if (key.isEmpty()) return 0
+        return messages.values.sumOf { queue -> queue.count { it.conversationKey == key } }
+    }
 
     @Synchronized
     fun countForNotificationKey(notificationKey: String): Int {
@@ -332,6 +492,7 @@ object ReplyStore {
             val removed = entry.value.removeAll { it.entryId == entryId }
             if (removed) {
                 storedReplies.remove(entryId)
+                generationBatchId.remove(entryId)
                 if (entry.value.isEmpty()) iterator.remove()
                 return
             }
@@ -349,7 +510,10 @@ object ReplyStore {
             val entry = iterator.next()
             val toClear = entry.value.filter { it.notificationKey == notificationKey }
             entry.value.removeAll { it.notificationKey == notificationKey }
-            toClear.forEach { storedReplies.remove(it.entryId) }
+            toClear.forEach {
+                storedReplies.remove(it.entryId)
+                generationBatchId.remove(it.entryId)
+            }
             if (entry.value.isEmpty()) iterator.remove()
         }
     }
@@ -358,6 +522,7 @@ object ReplyStore {
     fun clear() {
         messages.clear()
         storedReplies.clear()
+        generationBatchId.clear()
         recentlySentReplies.clear()
     }
 

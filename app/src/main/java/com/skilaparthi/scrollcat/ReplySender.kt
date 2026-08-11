@@ -50,6 +50,13 @@ object ReplySender {
             actionIntent.send(context, 0, intent)
             Log.i(TAG, "Reply sent to ${message.sender} via ${message.packageName}")
             ReplyStore.trackSentReply(replyText)
+            // Thread-view history — separate from pending queue / Auto Reply Tracker.
+            SentReplyLog.append(
+                context = context,
+                conversationKey = message.conversationKey,
+                text = replyText,
+                replyToEntryId = message.entryId
+            )
             RateUsManager.recordReplySent(context)
             if (recordAsAiReply) {
                 StatsTracker.recordReplySent(context)

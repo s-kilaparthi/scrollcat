@@ -91,13 +91,9 @@ class CatNotificationListener : NotificationListenerService() {
     private val cancelledInteractiveGenerationTokens = mutableSetOf<Long>()
     private var nextInteractiveGenerationToken = 0L
 
-    private fun normalizeSenderName(rawName: String): String {
-        return rawName.replace(Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE), "").trim()
-    }
-
     private fun buildSenderKey(packageName: String, notificationId: Int, senderName: String): String {
         return if (packageName == "com.whatsapp") {
-            "$packageName:${normalizeSenderName(senderName)}"
+            "$packageName:${ReplyStore.normalizeSenderName(senderName)}"
         } else {
             "$packageName:$notificationId"
         }
@@ -107,9 +103,9 @@ class CatNotificationListener : NotificationListenerService() {
         packageName.equals(GMAIL_PACKAGE, ignoreCase = true)
 
     private fun isIgnoredChat(senderName: String): Boolean {
-        val normalizedSender = normalizeSenderName(senderName).lowercase()
+        val normalizedSender = ReplyStore.normalizeSenderName(senderName).lowercase()
         return SettingsManager.getIgnoredChats(this).any { ignored ->
-            val normalizedIgnored = normalizeSenderName(ignored).lowercase()
+            val normalizedIgnored = ReplyStore.normalizeSenderName(ignored).lowercase()
             normalizedIgnored.isNotBlank() &&
                 (normalizedSender == normalizedIgnored ||
                     normalizedSender.contains(normalizedIgnored) ||
@@ -300,9 +296,28 @@ class CatNotificationListener : NotificationListenerService() {
         messageText: String,
         entryId: String
     ): List<String>? {
+        markReplyPanelOpened(packageName, notificationId, senderName)
+        return ReplyStore.getStoredReplies(entryId)
+    }
+
+    /**
+     * Marks this sender as "panel already seen" so further interactive generations
+     * store chips only on their own [entryId] (not the whole conversation queue).
+     * Must be called when opening a thread as well as a single-message panel —
+     * otherwise live arrivals while a thread is open keep using conversation-wide
+     * store and overwrite every bubble's chips with the latest merge.
+     */
+    fun markReplyPanelOpened(
+        packageName: String,
+        notificationId: Int,
+        senderName: String
+    ) {
         val senderKey = buildSenderKey(packageName, notificationId, senderName)
         replyPanelOpenedAt[senderKey] = System.currentTimeMillis()
-        return ReplyStore.getStoredReplies(entryId)
+        android.util.Log.d(
+            "ScrollCat",
+            "markReplyPanelOpened — panelSeen=true for $senderKey"
+        )
     }
 
     /**
@@ -434,12 +449,24 @@ class CatNotificationListener : NotificationListenerService() {
             }
             // Full replacement of chips for this entry / conversation — never merge
             val fullReplies = replies.toList()
+            val panelOpenedDuringGen = replyPanelOpenedAt.containsKey(senderKey)
             android.util.Log.d(
                 "ScrollCat",
-                "Interactive gen storing ${fullReplies.size} replies for entryId=$entryId"
+                "Interactive gen storing ${fullReplies.size} replies for entryId=$entryId " +
+                    "wholeConversation=$storeForWholeConversation " +
+                    "panelOpenedDuringGen=$panelOpenedDuringGen"
             )
             if (storeForWholeConversation) {
-                ReplyStore.storeRepliesForConversation(conversationKey, fullReplies)
+                // If the thread/message panel opened while this pre-panel merge was
+                // in flight, do not spray results onto every queue entry (that would
+                // overwrite live per-entry chips). Only fill entries still missing chips.
+                if (panelOpenedDuringGen) {
+                    ReplyStore.storeRepliesForConversationWhereEmpty(
+                        conversationKey, fullReplies
+                    )
+                } else {
+                    ReplyStore.storeRepliesForConversation(conversationKey, fullReplies)
+                }
             } else {
                 ReplyStore.storeReplies(entryId, fullReplies)
             }
@@ -463,6 +490,27 @@ class CatNotificationListener : NotificationListenerService() {
         android.util.Log.d(
             "ScrollCat",
             "Badge count after clearInteractiveState for $senderKey: $totalMessages pending message(s)"
+        )
+    }
+
+    /**
+     * After the user ✕-closes a thread for this sender: drop panel-seen + merge buffer
+     * so the next notifications start a fresh interactive-grouping window
+     * (accumulate until the panel is opened again).
+     */
+    fun resetInteractiveGroupingForSender(
+        packageName: String,
+        notificationId: Int,
+        senderName: String
+    ) {
+        val senderKey = buildSenderKey(packageName, notificationId, senderName)
+        cancelActiveInteractiveGenerations(senderKey)
+        interactiveMessageBuffers.remove(senderKey)
+        replyPanelOpenedAt.remove(senderKey)
+        activeInteractiveGenerationTokens.remove(senderKey)
+        android.util.Log.d(
+            "ScrollCat",
+            "resetInteractiveGroupingForSender — panelSeen/buffer cleared for $senderKey"
         )
     }
 
