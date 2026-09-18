@@ -1,13 +1,36 @@
 # ScrollCat 🐱
 
-A floating cat overlay for Android. Flick the cat, and it scrolls the app underneath (Reels, Shorts, anything) via an injected accessibility gesture. Drag it slowly to move it around the screen.
+Your AI cat companion that never lets a message go unanswered. ScrollCat is a floating cat overlay for Android that sits on top of every other app, delivering AI-powered smart replies for WhatsApp, Instagram, Telegram, and more — plus fun scroll gestures for Reels/Shorts.
+
+Built for nano/micro Instagram influencers and small business owners who can't keep up with DMs.
+
+## What it does
+
+- **AI Smart Replies** — get suggested replies to incoming messages across messaging apps, with keyword-based auto-replies for common questions
+- **On-device AI** — runs a local LLM (Gemma, via Google AI Edge LiteRT) on capable devices for privacy and zero-latency replies; falls back to Groq cloud inference on lower-RAM devices
+- **Voice-to-text & translation** — dictate replies in your language, auto-translate/romanize output, works in any app via Accessibility
+- **Smart Notifications** — filter and prioritize by app, sender, or keyword, with a permanent banking/finance exclusion for safety
+- **Auto-Reply Tracker** — full log of what was auto-sent and when, so nothing goes out unaccounted for
+- **Cat personality** — moods, sleep mode, reactions, and gesture-based scrolling (flick the cat to scroll Reels/Shorts underneath)
+
+## Status
+
+Live on Google Play Internal Testing. Package: `com.skilaparthi.scrollcat`.
+
+## Tech stack
+
+- Kotlin 2.2.0, min SDK 26, target SDK 35, Gradle 8.7
+- On-device inference: `com.google.ai.edge.litertlm` (LiteRT), GPU-backed
+- Cloud fallback: Groq API
+- Firebase Analytics + Crashlytics
+- Key components: `OverlayService`, `CatAccessibilityService`, `CatNotificationListener`, `ReplyStore`, `AiReplyGenerator`, `OnDeviceAiEngine`, `AutoReplyManager`
 
 ## Setup on Ubuntu
 
 1. Install Android Studio:
-   ```bash
+```bash
    sudo snap install android-studio --classic
-   ```
+```
 2. Open Android Studio → **Open** → select this `scrollcat` folder.
 3. Let Gradle sync (first sync downloads Gradle 8.7 + SDK 35 automatically — takes a few minutes).
 4. On your phone: Settings → About phone → tap **Build number** 7 times → enable **USB debugging** in Developer options.
@@ -17,36 +40,21 @@ You can also open the same folder in Cursor for editing — build/run from Andro
 
 ## Using the app
 
-1. Open ScrollCat → **Grant overlay permission** → toggle it on.
-2. **Enable accessibility service** → find "ScrollCat Gesture Helper" → toggle on.
-3. **Summon the cat** → a 🐱 appears floating on screen.
-4. Open Instagram/YouTube → **flick the cat up fast** → the reel scrolls. Slow drag just moves the cat.
-
-## Files that matter
-
-| File | What it does |
-|---|---|
-| `OverlayService.kt` | Floating cat window, drag vs fling detection |
-| `CatAccessibilityService.kt` | `dispatchGesture()` swipe injection |
-| `res/xml/accessibility_service_config.xml` | Must contain `canPerformGestures="true"` or injection silently fails |
-| `AndroidManifest.xml` | Both service declarations — the accessibility one needs the `BIND_ACCESSIBILITY_SERVICE` permission AND the meta-data tag |
-
-## Things to tune
-
-- `FLING_VELOCITY_THRESHOLD` in `OverlayService.kt` (2500 px/s) — how hard you must flick.
-- `SWIPE_DURATION_MS` in `CatAccessibilityService.kt` (180ms) — some apps want slower swipes to register as a fling.
-- Swipe path is center-screen 70% → 30%. If the cat sits mid-screen, move it to an edge or adjust the path.
+1. Open ScrollCat → grant overlay + notification access.
+2. Set up AI (on-device or Groq) from the dashboard's "Add your AI" banner.
+3. Enable Accessibility for voice dictation and gesture scrolling.
+4. Summon the cat — it floats over any app, badges show pending messages, tap to reply or use AI-suggested replies.
+5. Flick the cat fast to scroll Reels/Shorts; slow drag just moves it.
 
 ## Gotchas
 
-- After every fresh install, the accessibility toggle resets — re-enable it in Settings.
-- If `dispatchGesture` returns false, check logcat for the "ScrollCat" tag; it's almost always the config XML or the toggle being off.
-- Test on a real device; emulators are unreliable for overlay + accessibility.
-- Don't publish this to Google Play without framing it as an accessibility/ergonomics tool with the prominent-disclosure form — this API usage pattern gets apps rejected otherwise.
+- Test on a real device; emulators are unreliable for overlay + accessibility + GPU inference.
+- On-device AI requires ~7GB+ RAM devices; lower-RAM devices use Groq automatically.
+- Google Play requires the accessibility/ergonomics prominent-disclosure form for this permission pattern.
 
-## Next steps (after MVP works)
+## Roadmap
 
-1. Replace the emoji with a Lottie animation (add `com.airbnb.android:lottie:6.x`)
-2. Cat reactions on fling (squash/stretch, meow)
-3. Horizontal flicks → left/right swipes
-4. Settings screen: sensitivity, swipe length, cat size
+- Chrome extension (WhatsApp Web)
+- iOS keyboard extension
+- AI agent layer
+- Custom cat skins
